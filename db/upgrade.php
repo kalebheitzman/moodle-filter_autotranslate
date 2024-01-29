@@ -35,6 +35,7 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
     global $DB;
     $dbman = $DB->get_manager();
 
+    // create initial table
     if ($oldversion < 2024011900) {
 
         // Define table filter_autotranslate to be created.
@@ -64,6 +65,7 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2024011900, 'filter', 'autotranslate');
     }
 
+    // create jobs and context id tables
     if ($oldversion < 2024012900) {
         // Define table filter_autotranslate_jobs to be created.
         $filter_autotranslate_jobs_table = new xmldb_table('filter_autotranslate_jobs');
@@ -73,6 +75,7 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
         $filter_autotranslate_jobs_table->add_field('hash', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, null);
         $filter_autotranslate_jobs_table->add_field('lang', XMLDB_TYPE_CHAR, '2', null, XMLDB_NOTNULL, null, null);
         $filter_autotranslate_jobs_table->add_field('fetched', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, null);
+        $filter_autotranslate_jobs_table->add_field('source_missing', XMLDB_TYPE_INTEGER, '1', null, null, null, null);
 
         // Add keys to filter_autotranslate.
         $filter_autotranslate_jobs_table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
@@ -80,6 +83,7 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
         // Add indexes to filter_autotranslate.
         $filter_autotranslate_jobs_table->add_index('hash_index', XMLDB_INDEX_NOTUNIQUE, ['hash']);
         $filter_autotranslate_jobs_table->add_index('lang_index', XMLDB_INDEX_NOTUNIQUE, ['lang']);
+        $filter_autotranslate_jobs_table->add_index('source_missing_index', XMLDB_INDEX_NOTUNIQUE, ['source_missing']);
 
         // Conditionally launch create table for filter_autotranslate.
         if (!$dbman->table_exists($filter_autotranslate_jobs_table)) {

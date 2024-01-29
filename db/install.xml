@@ -23,10 +23,11 @@
     </TABLE>
     <TABLE NAME="filter_autotranslate_jobs" COMMENT="Autotranslate jobs">
       <FIELDS>
-        <FIELD NAME="id" SEQUENCE="true" TYPE="int" NOTNULL="true" />
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="hash" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="lang" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
         <FIELD NAME="fetched" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" />
+        <FIELD NAME="source_missing" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" />
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id" />
@@ -34,11 +35,12 @@
       <INDEXES>
         <INDEX NAME="lang_index" UNIQUE="false" FIELDS="lang" COMMENT="Translation language index"/>
         <INDEX NAME="hash_index" UNIQUE="false" FIELDS="hash" COMMENT="Translation hash index" />
+        <INDEX NAME="source_missing_index" UNIQUE="false" FIELDS="source_missing" COMMENT="Translation source_missing index" />
       </INDEXES>
     </TABLE>
     <TABLE NAME="filter_autotranslate_ids" COMMENT="Autotranslate index by content ids">
       <FIELDS>
-        <FIELD NAME="id" SEQUENCE="true" TYPE="int" NOTNULL="true" />
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="hash" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="lang" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
         <FIELD NAME="context_id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
