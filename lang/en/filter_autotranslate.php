@@ -39,3 +39,7 @@ $string['supported_languages'] = 'bg,cs,da,de,el,en,es,et,fi,fr,hu,it,ja,lt,lv,n
 $string['hash_text'] = "Hash Key";
 $string['source_text'] = "Source Text";
 $string['translation_text'] = "Translation Text";
+
+// Tasks
+$string['taskname'] = "Autotranslation Fetch";
+$string['missingapikey'] = "You have not entered a DeepL API key";

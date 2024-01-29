@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version details
+ * Task schedule configuration for filter_autotranslate.
  *
  * @package    filter_autotranslate
  * @copyright  2024 Kaleb Heitzman <kaleb@jamfire.io>
@@ -24,8 +24,14 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2024012903;                // The current plugin version (Date: YYYYMMDDXX).
-$plugin->requires  = 2021051700;                // Requires this Moodle version.
-$plugin->component = 'filter_autotranslate';    // Full name of the plugin (used for diagnostics).
-$plugin->release   = '1.0.0';
-$plugin->maturity  = MATURITY_STABLE;
+$tasks = array(
+    array(
+        'classname' => 'filter_autotranslate\task\autotranslate_task',
+        'blocking' => 0,
+        'minute' => '*',
+        'hour' => '*',
+        'day' => '*',
+        'month' => '*',
+        'dayofweek' => '*',
+    ),
+);
