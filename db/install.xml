@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<XMLDB PATH="filter/autotranslate/db" VERSION="20240127" COMMENT="XMLDB file for Moodle filter/autotranslate"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
+>
+  <TABLES>
+    <TABLE NAME="filter_autotranslate" COMMENT="Autotranslate cache.">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="hash" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="lang" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
+        <FIELD NAME="text" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="created_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Created time of translation"/>
+        <FIELD NAME="modified_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Last modified time of translation"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="lang_index" UNIQUE="false" FIELDS="lang" COMMENT="Translation language index"/>
+        <INDEX NAME="hash_index" UNIQUE="false" FIELDS="hash" COMMENT="Translation hash index" />
+      </INDEXES>
+    </TABLE>
+  </TABLES>
+</XMLDB>

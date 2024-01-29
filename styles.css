@@ -1,0 +1,12 @@
+.filter-autotranslate__container,
+.filter-autotranslate_form {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+.filter-autotranslate__target-text,
+.filter-autotranslate__target-text .row,
+.filter-autotranslate__target-text textarea {
+  height: 100%;
+  height: fit-content;
+}
