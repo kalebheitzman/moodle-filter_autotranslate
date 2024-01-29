@@ -28,7 +28,7 @@ require_once(dirname(__DIR__, 2) . '/config.php');
 require_login();
 
 // Set initial page layout.
-$title = get_string('pluginname', 'filter_autotranslate');
+$title = get_string('manage_title', 'filter_autotranslate');
 $PAGE->set_url('/filter/autotranslate/manage.php');
 $PAGE->set_title($title);
 $PAGE->set_heading($title);
@@ -44,7 +44,6 @@ echo $output->header();
 // Output translation grid.
 $renderable = new \filter_autotranslate\output\manage_page();
 echo $output->render($renderable);
-
 
 // Output footer.
 echo $output->footer();

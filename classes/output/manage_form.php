@@ -44,12 +44,15 @@ class manage_form extends moodleform {
         
         $source_records = $this->_customdata['source_records'];
         $target_records = $this->_customdata['target_records'];
+        $lang_dir = $this->_customdata['lang_dir'];
 
         $merged_records = [];
         foreach($source_records as $record) {
             $merged_record = $record;
             $target_record = $this->findObjectByKeyValue($target_records, "hash", $record->hash);
             $merged_record->target_text = $target_record->text;
+            $merged_record->target_lang = $target_record->lang;
+            $merged_record->target_lang_dir = $lang_dir;
             array_push($merged_records, $merged_record);
         }
 
@@ -114,22 +117,34 @@ class manage_form extends moodleform {
 
         // third column
         $mform->addElement('html', '<div
-            class="col-5 px-0 pr-5 filter-autotranslate__target-text"
+            class="col-5 px-0 pr-5 filter-autotranslate__target-text ' . $record->target_lang_dir . '"
         >');
-        if ($PAGE->user_is_editing()) {
-            // edit mode is on
-            $field_name = 'text[' . $record->hash . ']';
-            $is_html = $this->contains_html($record->text);
-            if ($is_html) {
-                $mform->addElement('editor', $field_name, null);
+        // if ($record->target_lang !== "en") {
+            if ($PAGE->user_is_editing() ) {
+                // edit mode is on
+                $field_name = 'text[' . $record->hash . ']';
+                $is_html = $this->contains_html($record->text);
+                if ($is_html) {
+                    $mform->addElement(
+                        'editor', 
+                        $field_name, 
+                        null, 
+                        array(
+                            'autosave' => false,
+                            'removeorphaneddrafts' => true
+                        )
+                    )->setValue(array('text' => $record->target_text));
+                    // $mform->setType($field_name, PARAM_RAW);
+                    // $mform->setDefault($field_name, $record->target_text);
+                } else {
+                    $mform->addElement('textarea', $field_name, null);
+                    $mform->setDefault($field_name, $record->target_text);
+                }
             } else {
-                $mform->addElement('textarea', $field_name, null);
+                // edit mode is off
+                $mform->addElement('html', $record->target_text);
             }
-            $mform->setDefault($field_name, $record->target_text);
-        } else {
-            // edit mode is off
-            $mform->addElement('html', $record->target_text);
-        }
+        // }
         $mform->addElement('html', '</div>');
 
         // // First column.

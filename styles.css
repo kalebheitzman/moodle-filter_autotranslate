@@ -10,3 +10,20 @@
   height: 100%;
   height: fit-content;
 }
+
+.filter-autotranslate__language-selector ul {
+  padding: 1rem 0;
+  margin: 0;
+  list-style: none;
+}
+.filter-autotranslate__language-selector ul li {
+  display: inline-block;
+}
+
+.right-to-left {
+  text-align: right;
+}
+
+.right-to-left * {
+  direction: rtl;
+}

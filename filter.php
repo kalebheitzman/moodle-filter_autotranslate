@@ -102,18 +102,9 @@ class filter_autotranslate extends moodle_text_filter {
         // to get context via $PAGE
         global $PAGE;
 
-        // // get the api key from settings
-        // $authKey = get_config('filter_autotranslate', 'deeplapikey');
-        // if (!$authKey) {
-        //     return $text;
-        // }
-
         // language settings
         $site_lang = get_config('core', 'lang');
         $current_lang = current_language();
-
-        // // load deepl translator
-        // $translator = new \DeepL\Translator($authKey);
 
         // generate the md5 hash of the current text
         $hash = md5($text);

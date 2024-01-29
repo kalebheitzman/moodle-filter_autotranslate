@@ -77,7 +77,7 @@ class autotranslate_task extends \core\task\scheduled_task {
             // only translate if text exists
             if ($source_record->text) {
                 // get the translation
-                $translation = $translator->translateText($source_record->text, $site_lang, $job->lang, ['formality' => 'prefer_more']);
+                $translation = $translator->translateText($source_record->text, null, $job->lang, ['formality' => 'prefer_more']);
 
                 // insert translation to the db
                 if (!$target_record) {

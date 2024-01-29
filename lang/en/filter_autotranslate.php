@@ -39,9 +39,11 @@ $string['supported_languages'] = 'bg,cs,da,de,el,en,es,et,fi,fr,hu,it,ja,lt,lv,n
 $string['autotranslate_settings'] = 'Autotranslate filter settings';
 
 // Manage page strings
+$string['manage_title'] = "Manage Autotranslations";
 $string['hash_text'] = "Hash Key";
 $string['source_text'] = "Source Text";
 $string['translation_text'] = "Translation Text";
+$string['select_target_language'] = "Select Target Language";
 
 // Tasks
 $string['taskname'] = "Autotranslation Fetch";

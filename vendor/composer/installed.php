@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => '__root__',
-        'pretty_version' => 'dev-master',
-        'version' => 'dev-master',
-        'reference' => '6080ef9fe7f09fe86fc4bd3440587a18b0b86784',
+        'pretty_version' => 'dev-develop',
+        'version' => 'dev-develop',
+        'reference' => 'b2d75c95d6f73d7181ffe2d332f932c8bc9a4d9c',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -11,13 +11,22 @@
     ),
     'versions' => array(
         '__root__' => array(
-            'pretty_version' => 'dev-master',
-            'version' => 'dev-master',
-            'reference' => '6080ef9fe7f09fe86fc4bd3440587a18b0b86784',
+            'pretty_version' => 'dev-develop',
+            'version' => 'dev-develop',
+            'reference' => 'b2d75c95d6f73d7181ffe2d332f932c8bc9a4d9c',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
             'dev_requirement' => false,
+        ),
+        'dealerdirect/phpcodesniffer-composer-installer' => array(
+            'pretty_version' => 'v0.7.2',
+            'version' => '0.7.2.0',
+            'reference' => '1c968e542d8843d7cd71de3c5c9c3ff3ad71a1db',
+            'type' => 'composer-plugin',
+            'install_path' => __DIR__ . '/../dealerdirect/phpcodesniffer-composer-installer',
+            'aliases' => array(),
+            'dev_requirement' => true,
         ),
         'deeplcom/deepl-php' => array(
             'pretty_version' => 'v1.6.0',
@@ -27,6 +36,21 @@
             'install_path' => __DIR__ . '/../deeplcom/deepl-php',
             'aliases' => array(),
             'dev_requirement' => false,
+        ),
+        'moodlehq/moodle-cs' => array(
+            'pretty_version' => 'v3.2.5',
+            'version' => '3.2.5.0',
+            'reference' => '805a077056117f3e5f26735d5951b7780550070d',
+            'type' => 'phpcodesniffer-standard',
+            'install_path' => __DIR__ . '/../moodlehq/moodle-cs',
+            'aliases' => array(),
+            'dev_requirement' => true,
+        ),
+        'moodlehq/moodle-local_codechecker' => array(
+            'dev_requirement' => true,
+            'replaced' => array(
+                0 => '3.1.0',
+            ),
         ),
         'nyholm/psr7' => array(
             'pretty_version' => '1.8.1',
@@ -73,6 +97,15 @@
             'aliases' => array(),
             'dev_requirement' => false,
         ),
+        'phpcompatibility/php-compatibility' => array(
+            'pretty_version' => '9.3.5',
+            'version' => '9.3.5.0',
+            'reference' => '9fb324479acf6f39452e0655d2429cc0d3914243',
+            'type' => 'phpcodesniffer-standard',
+            'install_path' => __DIR__ . '/../phpcompatibility/php-compatibility',
+            'aliases' => array(),
+            'dev_requirement' => true,
+        ),
         'psr/container' => array(
             'pretty_version' => '2.0.2',
             'version' => '2.0.2.0',
@@ -110,8 +143,8 @@
         'psr/http-factory-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '*',
-                1 => '1.0',
+                0 => '1.0',
+                1 => '*',
             ),
         ),
         'psr/http-message' => array(
@@ -126,8 +159,8 @@
         'psr/http-message-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '*',
-                1 => '1.0',
+                0 => '1.0',
+                1 => '*',
             ),
         ),
         'psr/log' => array(
@@ -138,6 +171,36 @@
             'install_path' => __DIR__ . '/../psr/log',
             'aliases' => array(),
             'dev_requirement' => false,
+        ),
+        'punic/calendar' => array(
+            'dev_requirement' => false,
+            'replaced' => array(
+                0 => '*',
+            ),
+        ),
+        'punic/common' => array(
+            'dev_requirement' => false,
+            'replaced' => array(
+                0 => '*',
+            ),
+        ),
+        'punic/punic' => array(
+            'pretty_version' => '3.8.1',
+            'version' => '3.8.1.0',
+            'reference' => '142707201a246a9c2ea909605cd56177af87f961',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../punic/punic',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'squizlabs/php_codesniffer' => array(
+            'pretty_version' => '3.8.1',
+            'version' => '3.8.1.0',
+            'reference' => '14f5fff1e64118595db5408e946f3a22c75807f7',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../squizlabs/php_codesniffer',
+            'aliases' => array(),
+            'dev_requirement' => true,
         ),
         'symfony/http-client' => array(
             'pretty_version' => 'v7.0.2',
