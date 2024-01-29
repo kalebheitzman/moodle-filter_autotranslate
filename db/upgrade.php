@@ -38,30 +38,78 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
     if ($oldversion < 2024011900) {
 
         // Define table filter_autotranslate to be created.
-        $table = new xmldb_table('filter_autotranslate');
+        $filter_autotranslate_table = new xmldb_table('filter_autotranslate');
 
         // Define fields to be added to filter_autotranslate.
-        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
-        $table->add_field('hash', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, null);
-        $table->add_field('lang', XMLDB_TYPE_CHAR, '2', null, XMLDB_NOTNULL, null, null);
-        $table->add_field('text', XMLDB_TYPE_TEXT, 'longtext', null, XMLDB_NOTNULL, null, null);
-        $table->add_field('created_at', XMLDB_TYPE_INTEGER, '11', null, XMLDB_NOTNULL, null, null);
-        $table->add_field('modified_at', XMLDB_TYPE_INTEGER, '11', null, XMLDB_NOTNULL, null, null);
+        $filter_autotranslate_table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $filter_autotranslate_table->add_field('hash', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, null);
+        $filter_autotranslate_table->add_field('lang', XMLDB_TYPE_CHAR, '2', null, XMLDB_NOTNULL, null, null);
+        $filter_autotranslate_table->add_field('text', XMLDB_TYPE_TEXT, 'longtext', null, XMLDB_NOTNULL, null, null);
+        $filter_autotranslate_table->add_field('created_at', XMLDB_TYPE_INTEGER, '11', null, XMLDB_NOTNULL, null, null);
+        $filter_autotranslate_table->add_field('modified_at', XMLDB_TYPE_INTEGER, '11', null, XMLDB_NOTNULL, null, null);
 
         // Add keys to filter_autotranslate.
-        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $filter_autotranslate_table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
 
         // Add indexes to filter_autotranslate.
-        $table->add_index('hash_index', XMLDB_INDEX_NOTUNIQUE, ['hash']);
-        $table->add_index('lang_index', XMLDB_INDEX_NOTUNIQUE, ['lang']);
+        $filter_autotranslate_table->add_index('hash_index', XMLDB_INDEX_NOTUNIQUE, ['hash']);
+        $filter_autotranslate_table->add_index('lang_index', XMLDB_INDEX_NOTUNIQUE, ['lang']);
 
         // Conditionally launch create table for filter_autotranslate.
-        if (!$dbman->table_exists($table)) {
-            $dbman->create_table($table);
+        if (!$dbman->table_exists($filter_autotranslate_table)) {
+            $dbman->create_table($filter_autotranslate_table);
         }
 
         // Coursetranslator savepoint reached.
         upgrade_plugin_savepoint(true, 2024011900, 'filter', 'autotranslate');
+    }
+
+    if ($oldversion < 2024012900) {
+        // Define table filter_autotranslate_jobs to be created.
+        $filter_autotranslate_jobs_table = new xmldb_table('filter_autotranslate_jobs');
+
+        // Define fields to be added to filter_autotranslate.
+        $filter_autotranslate_jobs_table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $filter_autotranslate_jobs_table->add_field('hash', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, null);
+        $filter_autotranslate_jobs_table->add_field('lang', XMLDB_TYPE_CHAR, '2', null, XMLDB_NOTNULL, null, null);
+        $filter_autotranslate_jobs_table->add_field('fetched', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, null);
+
+        // Add keys to filter_autotranslate.
+        $filter_autotranslate_jobs_table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+
+        // Add indexes to filter_autotranslate.
+        $filter_autotranslate_jobs_table->add_index('hash_index', XMLDB_INDEX_NOTUNIQUE, ['hash']);
+        $filter_autotranslate_jobs_table->add_index('lang_index', XMLDB_INDEX_NOTUNIQUE, ['lang']);
+
+        // Conditionally launch create table for filter_autotranslate.
+        if (!$dbman->table_exists($filter_autotranslate_jobs_table)) {
+            $dbman->create_table($filter_autotranslate_jobs_table);
+        }
+
+        // Define table filter_autotranslate_ids to be created.
+        $filter_autotranslate_ids_table = new xmldb_table('filter_autotranslate_ids');
+
+        // Define fields to be added to filter_autotranslate.
+        $filter_autotranslate_ids_table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $filter_autotranslate_ids_table->add_field('hash', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, null);
+        $filter_autotranslate_ids_table->add_field('lang', XMLDB_TYPE_CHAR, '2', null, XMLDB_NOTNULL, null, null);
+        $filter_autotranslate_ids_table->add_field('context_id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+
+        // Add keys to filter_autotranslate.
+        $filter_autotranslate_ids_table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+
+        // Add indexes to filter_autotranslate.
+        $filter_autotranslate_ids_table->add_index('hash_index', XMLDB_INDEX_NOTUNIQUE, ['hash']);
+        $filter_autotranslate_ids_table->add_index('lang_index', XMLDB_INDEX_NOTUNIQUE, ['lang']);
+        $filter_autotranslate_ids_table->add_index('context_id_index', XMLDB_INDEX_NOTUNIQUE, ['context_id']);
+
+        // Conditionally launch create table for filter_autotranslate.
+        if (!$dbman->table_exists($filter_autotranslate_ids_table)) {
+            $dbman->create_table($filter_autotranslate_ids_table);
+        }
+
+        // Coursetranslator savepoint reached.
+        upgrade_plugin_savepoint(true, 2024012900, 'filter', 'autotranslate');
     }
 
     return true;

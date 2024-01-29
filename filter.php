@@ -99,15 +99,17 @@ class filter_autotranslate extends moodle_text_filter {
     public function filter($text, array $options = array()): string {
         // access the db constant
         global $DB;
+        // to get context via $PAGE
+        global $PAGE;
 
         // get the api key from settings
         $authKey = get_config('filter_autotranslate', 'deeplapikey');
         if (!$authKey) {
             return $text;
         }
-        
+
         // language settings
-        $default_lang = "en";
+        $default_lang = get_config('core', 'lang');;
         $current_lang = current_language();
 
         // load deepl translator
@@ -116,13 +118,30 @@ class filter_autotranslate extends moodle_text_filter {
         // generate the md5 hash of the current text
         $hash = md5($text);
 
+        // get the contextid record
+        $context_record = $DB->get_record('filter_autotranslate_ids', array('hash' => $hash, 'lang' => $current_lang, 'context_id' => $PAGE->context->id));
+
+        // insert the context id record if it does not exist
+        if (!$context_record) {
+            $DB->insert_record(
+                'filter_autotranslate_ids', 
+                array(
+                    'hash' => $hash,
+                    'lang' => $current_lang,
+                    'context_id' => $PAGE->context->id
+                )
+            );
+        }
+
         // see if the record exists
         $record = $DB->get_record('filter_autotranslate', array('hash' => $hash, 'lang' => $current_lang), 'text');
 
         // create a record for the default text
         // @todo: this may not be needed and may just be causing extra database storage
+        // @note: this could also be used for replacing mlang text in the main entry
+        // and saving other detected translations into the right translation entries
         if (!$record && $default_lang === $current_lang) {
-            $id = $DB->insert_record(
+            $DB->insert_record(
                 'filter_autotranslate',
                 array(
                     'hash' => $hash,
@@ -132,23 +151,43 @@ class filter_autotranslate extends moodle_text_filter {
                     'modified_at' => time()
                 )
             );
+
         } 
         // translation needs to happen
         else if (!$record && $default_lang !== $current_lang) {
-            $translation = $translator->translateText($text, null, $current_lang);
 
-            $id = $DB->insert_record(
-                'filter_autotranslate',
-                array(
-                    'hash' => $hash,
-                    'lang' => $current_lang,
-                    'text' => $translation->text,
-                    'created_at' => time(),
-                    'modified_at' => time()
-                )
-            );
+            // check if job exists
+            $job = $DB->get_record('filter_autotranslate_jobs', array('hash' => $hash, 'lang' => $current_lang), 'fetched');
 
-            return $translation->text;
+            // insert job
+            if (!$job) {
+                $DB->insert_record(
+                    'filter_autotranslate_jobs',
+                    array(
+                        'hash' => $hash,
+                        'lang' => $current_lang,
+                        'fetched' => 0
+                    )
+                );
+            }
+
+            // $translation = $translator->translateText($text, null, $current_lang);
+
+            // $id = $DB->insert_record(
+            //     'filter_autotranslate',
+            //     array(
+            //         'hash' => $hash,
+            //         'lang' => $current_lang,
+            //         'text' => $translation->text,
+            //         'created_at' => time(),
+            //         'modified_at' => time()
+            //     )
+            // );
+
+
+
+            // return $translation->text;
+            return $text;
         } 
         // translation found, return the text
         else if ($record && $default_lang !== $current_lang) {
