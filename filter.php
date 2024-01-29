@@ -165,7 +165,8 @@ class filter_autotranslate extends moodle_text_filter {
                     array(
                         'hash' => $hash,
                         'lang' => $current_lang,
-                        'fetched' => 0
+                        'fetched' => 0,
+                        'source_missing' => 0
                     )
                 );
             }

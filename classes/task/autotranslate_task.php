@@ -39,10 +39,18 @@ class autotranslate_task extends \core\task\scheduled_task {
 
     public function execute() {
         global $DB;
+
+        // get the site language
         $site_lang = get_config('core', 'lang');
 
+        // get the fetch limit
+        $fetchLimit = get_config('filter_autotranslate', 'fetchlimit');
+        if (!$fetchLimit) {
+            $fetchLimit = 200;
+        }
+
         // Your task logic goes here
-        mtrace('Executing the autotranslation fetch...');
+        mtrace("Executing autotranslation fetch jobs...");
 
         // get the api key from settings
         $authKey = get_config('filter_autotranslate', 'deeplapikey');
@@ -54,7 +62,9 @@ class autotranslate_task extends \core\task\scheduled_task {
         $translator = new \DeepL\Translator($authKey);
 
         // get 100 existing jobs
-        $jobs = $DB->get_records('filter_autotranslate_jobs', array('fetched' => '0'), null, '*', 0, 100);
+        $jobs = $DB->get_records('filter_autotranslate_jobs', array('fetched' => '0', 'source_missing' => '0'), null, '*', 0, $fetchLimit);
+        $jobscount = count($jobs);
+        mtrace("$jobscount jobs found...");
 
         // iterate through the jos and add translations
         foreach($jobs as $job) {
@@ -98,7 +108,14 @@ class autotranslate_task extends \core\task\scheduled_task {
 
 
             } else if (!$source_record->text) {
-                mtrace('source text empty...');
+                // update the job to fetched
+                $jid = $DB->update_record(
+                    'filter_autotranslate_jobs',
+                    array(
+                        'id' => $job->id,
+                        'source_missing' => "1"
+                    )
+                );
             }
         }
 
