@@ -16,7 +16,8 @@
 
 namespace filter_autotranslate\output;
 
-use moodleform;
+global $CFG;
+require_once($CFG->libdir . '/formslib.php');
 
 // Load the files we're going to need.
 defined('MOODLE_INTERNAL') || die();
@@ -32,7 +33,7 @@ defined('MOODLE_INTERNAL') || die();
  * @copyright  2024 Kaleb Heitzman <kaleb@jamfire.io>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class manage_form extends moodleform {
+class manage_form extends \moodleform {
 
     /**
      * Define Moodle Form
@@ -41,10 +42,18 @@ class manage_form extends moodleform {
      */
     public function definition() {
         global $CFG;
-        
+
+        // Start moodle form.
+        $mform = $this->_form;
+        $this->_form->disable_form_change_checker();
+            
         $source_records = $this->_customdata['source_records'];
         $target_records = $this->_customdata['target_records'];
+        $source_lang = $this->_customdata['source_lang'];
+        $target_lang = $this->_customdata['target_lang'];
         $lang_dir = $this->_customdata['lang_dir'];
+
+        $this->_form->attributes['action'] = new \moodle_url('/filter/autotranslate/manage.php', array('source_lang' => $this->source_lang, 'target_lang' => $this->target_lang));
 
         $merged_records = [];
         foreach($source_records as $record) {
@@ -56,22 +65,38 @@ class manage_form extends moodleform {
             array_push($merged_records, $merged_record);
         }
 
-        // Start moodle form.
-        $mform = $this->_form;
-        $mform->disable_form_change_checker();
-        // \MoodleQuickForm::registerElementType(
-        //     'cteditor',
-        //     "$CFG->libdir/form/editor.php",
-        //     '\filter_autotranslate\editor\MoodleQuickForm_cteditor'
-        // );
-
         // Open Form.
         $mform->addElement('html', '<div class="container-fluid filter-autotranslate_form">');
 
         // Loop through merged records to build form.
+        $formData = [];
         foreach ($merged_records as $record) {
+            $is_html = $this->contains_html($record->text);
+            $hash = $record->hash;
+            if ($is_html) {
+                $formData[$hash] = array(
+                        "text" => $record->text,
+                        "format" => "1"
+                );
+            } else {
+                $formData[$hash] = $record->text;
+            }
             $this->get_formrow($mform, $record);
         }
+
+        $this->set_data($formData);
+
+        // action buttons
+        $mform->addElement('html', '<div class="float-right pt-5">');
+        $buttonarray=array();
+        $buttonarray[] = $mform->createElement('submit', 'submitbutton', get_string('savechanges'));
+        // $buttonarray[] = $mform->createElement('reset', 'resetbutton', get_string('revert'));
+        // $buttonarray[] = $mform->createElement('cancel');
+        $mform->addGroup($buttonarray, 'buttonar', '', ' ', false);
+        $mform->addElement('html', '</div>');
+
+        $mform->addElement('hidden', 'source_lang', $source_lang);
+        $mform->addElement('hidden', 'target_lang', $target_lang);
 
         // Close form.
         $mform->addElement('html', '</div>');
@@ -87,16 +112,6 @@ class manage_form extends moodleform {
     private function get_formrow(\MoodleQuickForm $mform, \stdClass $record) {
         global $PAGE;
 
-        // Get mlangfilter to filter text.
-        // $mlangfilter = $this->_customdata['mlangfilter'];
-
-        // // Build a key for js interaction.
-        // $key = "$item->table[$item->id][$item->field]";
-        // $keyid = "{$item->table}-{$item->id}-{$item->field}";
-
-        // // Data status.
-        // $status = $item->tneeded ? 'needsupdate' : 'updated';
-
         // Open translation item.
         $mform->addElement(
             'html',
@@ -110,19 +125,19 @@ class manage_form extends moodleform {
 
         // second column
         $mform->addElement('html', '<div
-            class="col-5 px-0 pr-5 filter-autotranslate__source-text"
+            class="col-5 filter-autotranslate__source-text"
         >');
         $mform->addElement('html', $record->text);
         $mform->addElement('html', '</div>');
 
         // third column
         $mform->addElement('html', '<div
-            class="col-5 px-0 pr-5 filter-autotranslate__target-text ' . $record->target_lang_dir . '"
+            class="col-5 filter-autotranslate__target-text ' . $record->target_lang_dir . '"
         >');
         // if ($record->target_lang !== "en") {
             if ($PAGE->user_is_editing() ) {
                 // edit mode is on
-                $field_name = 'text[' . $record->hash . ']';
+                $field_name = 'translation[' . $record->hash . ']';
                 $is_html = $this->contains_html($record->text);
                 if ($is_html) {
                     $mform->addElement(
@@ -134,10 +149,16 @@ class manage_form extends moodleform {
                             'removeorphaneddrafts' => true
                         )
                     )->setValue(array('text' => $record->target_text));
-                    // $mform->setType($field_name, PARAM_RAW);
+                    $mform->setType($field_name, PARAM_RAW);
                     // $mform->setDefault($field_name, $record->target_text);
                 } else {
-                    $mform->addElement('textarea', $field_name, null);
+                    // `oninput='this.style.height = "";this.style.height = this.scrollHeight + "px"'`
+                    $mform->addElement('textarea', $field_name, null, 
+                        array(
+                            'oninput' => 'this.style.height = "";this.style.height = this.scrollHeight + "px"',
+                            'onfocus' => 'this.style.height = "";this.style.height = this.scrollHeight + "px"'
+                        )
+                    );
                     $mform->setDefault($field_name, $record->target_text);
                 }
             } else {
@@ -147,93 +168,8 @@ class manage_form extends moodleform {
         // }
         $mform->addElement('html', '</div>');
 
-        // // First column.
-        // $mform->addElement('html', '<div class="col-2">');
-        // $mform->addElement('html', '<div class="form-check">');
-        // $mform->addElement('html', '<input
-        //     class="form-check-input local-coursetranslator__checkbox"
-        //     type="checkbox"
-        //     data-key="' . $key . '"
-        //     disabled
-        // />');
-        // $label = '<label class="form-check-label">';
-        // if ($item->tneeded) {
-        //     $label .= ' <span class="badge badge-pill badge-danger rounded py-1" data-status-key="' . $key . '">'
-        //             . get_string('t_needsupdate', 'filter_autotranslate')
-        //             . '</span>';
-        // } else {
-        //     $label .= ' <span class="badge badge-pill badge-success rounded py-1" data-status-key="' . $key . '">'
-        //             . get_string('t_uptodate', 'filter_autotranslate')
-        //             . '</span>';
-        // }
-        // $label .= '</label>';
-        // $label .= '<a href="' . $item->link . '" target="_blank" title="' . get_string('t_edit', 'filter_autotranslate') . '">';
-        // $label .= '<i class="fa fa-pencil-square-o mr-1" aria-hidden="true"></i>';
-        // $label .= '</a>';
-        // $label .= '<a data-toggle="collapse" title="' . get_string('t_viewsource', 'filter_autotranslate') . '" href="#'
-        //     . $keyid . '" role="button" aria-expanded="false" aria-controls="'
-        //     . $keyid . '"><i class="fa fa-code" aria-hidden="true"></i></a>';
-        // $mform->addElement('html', $label);
-        // $mform->addElement('html', '</div>');
-        // $mform->addElement('html', '</div>');
-
-        // // Source Text.
-        // $mform->addElement('html', '<div
-        //     class="col-5 px-0 pr-5 local-coursetranslator__source-text"
-        //     data-key="' . $key . '"
-        // >');
-        // $mform->addElement('html', '<div data-sourcetext-key="' . $key . '">' . $mlangfilter->filter($item->text) . '</div>');
-        // $mform->addElement('html', '<div>');
-
-        // $mform->addElement('html', '<div class="collapse" id="' . $keyid . '">');
-        // $mform->addElement(
-        //     'html',
-        //     '<div data-key="' . $key
-        //     . '" class="mt-3 card card-body local-coursetranslator__textarea">'
-        //     . trim($item->text) . '</div>'
-        // );
-        // $mform->addElement('html', '</div>');
-        // $mform->addElement('html', '</div>');
-        // $mform->addElement('html', '</div>');
-
-        // // Translation Input.
-        // $mform->addElement('html', '<div
-        //     class="col-5 px-0 local-coursetranslator__translation local-coursetranslator__editor"
-        //     data-key="' . $key . '"
-        //     data-table="' . $item->table . '"
-        //     data-id="' . $item->id . '"
-        //     data-field="' . $item->field . '"
-        //     data-tid="' . $item->tid . '"
-        // >');
-        // // Plain text input.
-        // if ($item->format === 0) {
-        //     $mform->addElement('html', '<div
-        //         class="format-' . $item->format . ' border py-2 px-3"
-        //         contenteditable="true"
-        //         data-format="' . $item->format . '"
-        //     ></div>');
-        // }
-        // // HTML input.
-        // if ($item->format === 1) {
-        //     $mform->addElement('cteditor', $key, $key);
-        //     $mform->setType($key, PARAM_RAW);
-        // }
-
-        // $mform->addElement('html', '</div>');
-
         // Close translation item.
         $mform->addElement('html', '</div>');
-
-    }
-
-    /**
-     * Process data
-     *
-     * @param \stdClass $data
-     * @return void
-     */
-    public function process(\stdClass $data) {
-
     }
 
     /**
@@ -244,6 +180,19 @@ class manage_form extends moodleform {
     // public function require_access() {
     //     require_capability('local/multilingual:edittranslations', \context_system::instance()->id);
     // }
+
+    public function validation($data, $files) {
+        // mtrace("Form data before validation: " . print_r($data, true));
+        $errors = parent::validation($data, $files);
+        // mtrace("Form data after validation: " . print_r($data, true));
+        return $errors;
+    }
+
+    public function get_data() {
+        $data = parent::get_data();
+        // mtrace("Form data after submission: " . print_r($data, true));
+        return $data;
+    }
 
 
     /**

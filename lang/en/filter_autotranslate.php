@@ -43,6 +43,7 @@ $string['manage_title'] = "Manage Autotranslations";
 $string['hash_text'] = "Hash Key";
 $string['source_text'] = "Source Text";
 $string['translation_text'] = "Translation Text";
+$string['select_source_language'] = "Select Source Language";
 $string['select_target_language'] = "Select Target Language";
 
 // Tasks

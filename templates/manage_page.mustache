@@ -59,27 +59,35 @@ along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 <div class="container-fluid filter-autotranslate__container">
 
   <div class="row">
-    <div class="col-6">
+    <div class="col-2">
 
     </div>
-    <div class="col-6 pr-0 filter-autotranslate__language-selector">
-      <ul class="float-right">
-        <li class="pr-2">{{#str}}select_target_language,filter_autotranslate{{/str}}<li>
+    <div class="col-5 filter-autotranslate__language-selector">
+      <p class="mb-0">{{#str}}select_source_language,filter_autotranslate{{/str}}</p>
+      <ul class="mb-1">
         {{#langs}}
-          <li class="text-uppercase"><a href="{{ url }}?target_lang={{code}}" class="text-decoration-none btn {{btn-class}}">{{ code }}</a></li>
+          <li class="text-uppercase"><a href="{{ url }}?source_lang={{code}}&target_lang={{target_lang_code}}" class="text-decoration-none btn {{source-btn-class}}">{{ code }}</a></li>
+        {{/langs}}
+      </ul>
+    </div>
+    <div class="col-5 filter-autotranslate__language-selector">
+      <p class="mb-0">{{#str}}select_target_language,filter_autotranslate{{/str}}</p>
+      <ul class="mb-1">
+        {{#langs}}
+          <li class="text-uppercase"><a href="{{ url }}?source_lang={{source_lang_code}}&target_lang={{code}}" class="text-decoration-none btn {{target-btn-class}}">{{ code }}</a></li>
         {{/langs}}
       </ul>
     </div>
   </div>
 
   <div class="row align-items-start border-bottom py-3 bg-secondary text-dark">
-    <div class="col-2 pl-3 pr-5">
+    <div class="col-2 pl-3">
       {{#str}}hash_text,filter_autotranslate{{/str}}    
     </div>
-    <div class="col-5 px-0 pr-5">
+    <div class="col-5">
       {{#str}}source_text,filter_autotranslate{{/str}}: {{{source_lang}}}
     </div>
-    <div class="col-5 px-0">
+    <div class="col-5">
       {{#str}}translation_text,filter_autotranslate{{/str}}: {{{target_lang}}}
     </div>
   </div>
