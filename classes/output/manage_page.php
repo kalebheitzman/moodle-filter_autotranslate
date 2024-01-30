@@ -47,39 +47,54 @@ class manage_page implements renderable, templatable {
         $this->langs = get_string_manager()->get_list_of_translations();
         $this->source_lang = optional_param('source_lang', $this->site_lang, PARAM_NOTAGS);
         $this->target_lang = optional_param('target_lang', $this->site_lang, PARAM_NOTAGS);
+        $this->page = optional_param('page', 1, PARAM_NOTAGS);
 
-        $offset = 0;
-        $rowcount = 10;
-        $target_records = $DB->get_records("filter_autotranslate", array("lang" => $this->target_lang), '', '*', $offset, $rowcount);
+        // Pagination params
+        $limit = 10;
+        $this->page = max(1, (int)$this->page); // Ensure a valid positive integer for page
+        $offset = ($this->page - 1) * $limit;
 
+        // Get the total number of target records
+        $target_records_count = $DB->count_records("filter_autotranslate", array("lang" => $this->target_lang));
+        $total_pages = ceil($target_records_count / $limit);
+        $this->pages = range(1, $total_pages);
+
+        // Get target records using pagination
+        $target_records = $DB->get_records("filter_autotranslate", array("lang" => $this->target_lang), '', '*', $offset, $limit);
+
+        // Check if there are no target records
         if (!$target_records) {
             $this->mform = null;
             return;
         }
 
-        $source_hashes = [];
-        foreach ($target_records as $target_record) {
-            array_push($source_hashes, $target_record->hash);
-        }
+        // Construct the array of target record hashes
+        $target_hashes = array_column($target_records, 'hash');
 
-        // Assuming your table is named 'filter_autotranslate'
-        $table = 'filter_autotranslate';
-        $column = 'hash';
+        // Construct the placeholders for the IN clause
+        $in_placeholders = implode(',', array_fill(0, count($target_hashes), '?'));
 
-        // Construct the conditions
-        $conditions = array(
-            $column . ' IN (' . join(',', array_fill(0, count($source_hashes), '?')) . ')',
-            'lang = ?', // Additional conditions can be added here
-        );
+        // Construct the conditions for the IN clause
+        $in_conditions = array('hash IN (' . $in_placeholders . ')', 'lang = ?');
 
-        // Add target_lang value to conditions
-        $values = array_merge($source_hashes, array($this->source_lang));
+        // Add values for the IN clause
+        $in_values = array_merge($target_hashes, array($this->source_lang));
 
-        // Construct the SQL query
-        $sql = "SELECT * FROM {" . $table . "} WHERE " . join(' AND ', $conditions);
+        // Construct the SQL query for the IN clause
+        $in_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $in_conditions);
 
-        // Get the target records
-        $source_records = $DB->get_records_sql($sql, $values, $offset, $rowcount);
+        // Add placeholders for the LIMIT clause
+        $limit_conditions = array('lang = ?');
+        $limit_values = array($this->source_lang);
+
+        // Construct the SQL query for the LIMIT clause
+        $limit_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $limit_conditions) . " LIMIT ?, ?";
+
+        // Combine the values for both queries
+        $values = array_merge($in_values, array($offset, $limit));
+
+        // Get source records using the IN clause
+        $source_records = $DB->get_records_sql($in_sql, $values);
 
         // target language direction
         $this->target_lang_dir = $this->getCharacterOrder($this->target_lang);
@@ -152,38 +167,39 @@ class manage_page implements renderable, templatable {
                     $record['hash'] = $hash;
                     $record['lang'] = $this->target_lang;
                     
-                    // try to find existing record to update
-                    $translation_record = $DB->get_record('filter_autotranslate', $record, 'id,created_at');
+                    // try to find existing target record to update
+                    $target_record = $DB->get_record('filter_autotranslate', $record, 'id,created_at');
 
                     // set the rest of record
                     $record['text'] = $text;
                     $record['created_at'] = time();
                     $record['modified_at'] = time();
 
-                    if ($translation_record) {
-                        $record['created_at'] = $translation_record->created_at;
-                        $record['id'] = $translation_record->id;
+                    if ($target_record) {
+                        $record['created_at'] = $target_record->created_at;
+                        $record['id'] = $target_record->id;
 
                         $DB->update_record('filter_autotranslate', $record);
-                    } else if (!$translation_record and !empty($text)) {
-                        $source_record = $DB->get_record('filter_autotranslate_ids', array('hash' => $hash, 'lang' => $source_lang));
-                        $target_record = $DB->get_record('filter_autotranslate_ids', array('hash' => $hash, 'lang' => $target_lang));
-                        $context_record = $DB->get_record('filter_autotranslate_ids', array('hash' => $hash, 'lang' => $target_lang));
-                        if ($source_record && !$target_record && !$context_record) {
-                            $DB->insert_record(
-                                'filter_autotranslate',
-                                $record
-                            );
-                            $DB->insert_record(
-                                'filter_autotranslate_ids',
-                                array(
-                                    'hash' => $hash,
-                                    'lang' => $target_lang,
-                                    'context_id' => $source_record->context_id
-                                )
-                            );
-                        }
-                    }
+                    } 
+                    // else if (!$target_record and !empty($text)) {
+                    //     $source_record = $DB->get_record('filter_autotranslate_ids', array('hash' => $hash, 'lang' => $source_lang));
+                    //     $target_record = $DB->get_record('filter_autotranslate_ids', array('hash' => $hash, 'lang' => $target_lang));
+                    //     $context_record = $DB->get_record('filter_autotranslate_ids', array('hash' => $hash, 'lang' => $target_lang));
+                    //     if ($source_record && !$target_record && !$context_record) {
+                    //         $DB->insert_record(
+                    //             'filter_autotranslate',
+                    //             $record
+                    //         );
+                    //         $DB->insert_record(
+                    //             'filter_autotranslate_ids',
+                    //             array(
+                    //                 'hash' => $hash,
+                    //                 'lang' => $target_lang,
+                    //                 'context_id' => $source_record->context_id
+                    //             )
+                    //         );
+                    //     }
+                    // }
                 }
 
                 // redirect($url);            
