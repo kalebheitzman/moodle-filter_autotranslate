@@ -50,16 +50,16 @@ class manage_page implements renderable, templatable {
 
         $offset = 0;
         $rowcount = 10;
-        $source_records = $DB->get_records("filter_autotranslate", array("lang" => $this->source_lang), '', '*', $offset, $rowcount);
+        $target_records = $DB->get_records("filter_autotranslate", array("lang" => $this->target_lang), '', '*', $offset, $rowcount);
 
-        if (!$source_records) {
+        if (!$target_records) {
             $this->mform = null;
             return;
         }
 
-        $target_hashes = [];
-        foreach ($source_records as $source_record) {
-            array_push($target_hashes, $source_record->hash);
+        $source_hashes = [];
+        foreach ($target_records as $target_record) {
+            array_push($source_hashes, $target_record->hash);
         }
 
         // Assuming your table is named 'filter_autotranslate'
@@ -68,18 +68,18 @@ class manage_page implements renderable, templatable {
 
         // Construct the conditions
         $conditions = array(
-            $column . ' IN (' . join(',', array_fill(0, count($target_hashes), '?')) . ')',
+            $column . ' IN (' . join(',', array_fill(0, count($source_hashes), '?')) . ')',
             'lang = ?', // Additional conditions can be added here
         );
 
         // Add target_lang value to conditions
-        $values = array_merge($target_hashes, array($this->target_lang));
+        $values = array_merge($source_hashes, array($this->source_lang));
 
         // Construct the SQL query
         $sql = "SELECT * FROM {" . $table . "} WHERE " . join(' AND ', $conditions);
 
         // Get the target records
-        $target_records = $DB->get_records_sql($sql, $values, $offset, $rowcount);
+        $source_records = $DB->get_records_sql($sql, $values, $offset, $rowcount);
 
         // target language direction
         $this->target_lang_dir = $this->getCharacterOrder($this->target_lang);
