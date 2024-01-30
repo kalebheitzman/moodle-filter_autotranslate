@@ -152,7 +152,6 @@ class manage_form extends \moodleform {
                     $mform->setType($field_name, PARAM_RAW);
                     // $mform->setDefault($field_name, $record->target_text);
                 } else {
-                    // `oninput='this.style.height = "";this.style.height = this.scrollHeight + "px"'`
                     $mform->addElement('textarea', $field_name, null, 
                         array(
                             'oninput' => 'this.style.height = "";this.style.height = this.scrollHeight + "px"',
