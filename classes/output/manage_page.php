@@ -105,7 +105,9 @@ class manage_page implements renderable, templatable {
             'target_records' => $target_records,
             'source_lang' => $this->source_lang,
             'target_lang' => $this->target_lang,
-            'lang_dir' => $this->target_lang_dir
+            'lang_dir' => $this->target_lang_dir,
+            'pages' => $this->pages,
+            'page' => $this->page
         ]);
         $this->mform = $mform;
     }
@@ -153,7 +155,7 @@ class manage_page implements renderable, templatable {
                 $target_lang = $fromform->target_lang;
                 $url = new \moodle_url('/filter/autotranslate/manage.php', array(
                     'source_lang' => $fromform->source_lang,
-                    'target_lang' => $fromform->target_lang
+                    'target_lang' => $fromform->target_lang,
                 ));
 
                 foreach ($fromform->translation as $hash => $item) {

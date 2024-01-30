@@ -13,6 +13,15 @@
   display: inline-block;
 }
 
+.filter-autotranslate__pagination ul {
+  padding: 1rem 0;
+  margin: 0;
+  list-style: none;
+}
+.filter-autotranslate__pagination ul li {
+  display: inline-block;
+}
+
 .right-to-left {
   text-align: right;
 }

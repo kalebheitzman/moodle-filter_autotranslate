@@ -52,6 +52,8 @@ class manage_form extends \moodleform {
         $source_lang = $this->_customdata['source_lang'];
         $target_lang = $this->_customdata['target_lang'];
         $lang_dir = $this->_customdata['lang_dir'];
+        $pages = $this->_customdata['pages'];
+        $page = $this->customdata['page'];
 
         $this->_form->attributes['action'] = new \moodle_url('/filter/autotranslate/manage.php', array('source_lang' => $this->source_lang, 'target_lang' => $this->target_lang));
 
@@ -86,14 +88,35 @@ class manage_form extends \moodleform {
 
         $this->set_data($formData);
 
+        $mform->addElement('html', '<div class="row pt-5">');
+
+        // pagination
+        $mform->addElement('html', '<div class="col-7 filter-autotranslate__pagination">');
+        $mform->addElement('html', '<ul>');
+        forEach($pages as $page) {
+            $url = new \moodle_url('/filter/autotranslate/manage.php', array(
+                'source_lang' => $source_lang,
+                'target_lang' => $target_lang,
+                'page' => $page
+            ));
+            $mform->addElement('html', '<li>');
+            $mform->addElement('html', '<a href="' . $url->out() . '" class="btn btn-light">' . $page . '</a>');
+            $mform->addElement('html', '</li>');
+        }
+        $mform->addElement('html', '</ul>');
+        $mform->addElement('html', '</div>');
+
         // action buttons
-        $mform->addElement('html', '<div class="float-right pt-5">');
+        $mform->addElement('html', '<div class="col-5">');
         $buttonarray=array();
         $buttonarray[] = $mform->createElement('submit', 'submitbutton', get_string('savechanges'));
         // $buttonarray[] = $mform->createElement('reset', 'resetbutton', get_string('revert'));
         // $buttonarray[] = $mform->createElement('cancel');
         $mform->addGroup($buttonarray, 'buttonar', '', ' ', false);
         $mform->addElement('html', '</div>');
+
+        $mform->addElement('html', '</div>');
+
 
         $mform->addElement('hidden', 'source_lang', $source_lang);
         $mform->addElement('hidden', 'target_lang', $target_lang);
