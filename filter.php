@@ -97,10 +97,23 @@ class filter_autotranslate extends moodle_text_filter {
      * @return string The filtered text for this multilang block.
      */
     public function filter($text, array $options = array()): string {
-        // access the db constant
+        // access constants
         global $DB;
-        // to get context via $PAGE
         global $PAGE;
+        global $CFG;
+
+        // Define URLs of pages to exempt
+        $exempted_pages = array(
+            $CFG->wwwroot . '/filter/autotranslate/manage.php',
+            $CFG->wwwroot . '/filter/autotranslate/glossary.php',
+            // Add more exempted page URLs as needed
+        );
+
+        // Check if the current page URL is in the exempted list
+        if (in_array($PAGE->url, $exempted_pages)) {
+            // Apply your filter logic here for non-exempted pages
+            return $text;
+        }
 
         // language settings
         $site_lang = get_config('core', 'lang');
