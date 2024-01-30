@@ -97,7 +97,7 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
         $filter_autotranslate_ids_table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
         $filter_autotranslate_ids_table->add_field('hash', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, null);
         $filter_autotranslate_ids_table->add_field('lang', XMLDB_TYPE_CHAR, '2', null, XMLDB_NOTNULL, null, null);
-        $filter_autotranslate_ids_table->add_field('context_id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $filter_autotranslate_ids_table->add_field('contextid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
 
         // Add keys to filter_autotranslate.
         $filter_autotranslate_ids_table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
@@ -105,7 +105,7 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
         // Add indexes to filter_autotranslate.
         $filter_autotranslate_ids_table->add_index('hash_index', XMLDB_INDEX_NOTUNIQUE, ['hash']);
         $filter_autotranslate_ids_table->add_index('lang_index', XMLDB_INDEX_NOTUNIQUE, ['lang']);
-        $filter_autotranslate_ids_table->add_index('context_id_index', XMLDB_INDEX_NOTUNIQUE, ['context_id']);
+        $filter_autotranslate_ids_table->add_index('contextid_index', XMLDB_INDEX_NOTUNIQUE, ['contextid']);
 
         // Conditionally launch create table for filter_autotranslate.
         if (!$dbman->table_exists($filter_autotranslate_ids_table)) {
@@ -114,6 +114,34 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
 
         // Coursetranslator savepoint reached.
         upgrade_plugin_savepoint(true, 2024012900, 'filter', 'autotranslate');
+    }
+
+    // add contextlevel and instanceid to the filter_autotranslate__ids table
+    if ($oldversion < 2024013000) {
+        // Define the table to be modified.
+        $table = new xmldb_table('filter_autotranslate_ids');
+
+        // Add new fields to the table.
+        $field1 = new xmldb_field('contextlevel', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'hash');
+        $field2 = new xmldb_field('instanceid', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, '', 'contextlevel');
+
+        // Add the fields.
+        $dbman->add_field($table, $field1);
+        $dbman->add_field($table, $field2);
+
+        // Add index on contextlevel and instanceid.
+        $index1 = new xmldb_index('contextlevel_index', XMLDB_INDEX_NOTUNIQUE, ['contextlevel']);
+        $index2 = new xmldb_index('instanceid_index', XMLDB_INDEX_NOTUNIQUE, ['instanceid']);
+
+        // Add the indexes.
+        $dbman->add_index($table, $index1);
+        $dbman->add_index($table, $index2);
+        
+        // Set the default values for existing records if needed.
+        // ...
+
+        // Update the version number to the latest.
+        upgrade_plugin_savepoint(true, 2024013000, 'filter', 'autotranslate');
     }
 
     return true;

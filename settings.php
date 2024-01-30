@@ -46,6 +46,17 @@ if ($hassiteconfig) {
     // Schedule jobs limit
     $settings->add(
         new admin_setting_configtext(
+            'filter_autotranslate/managelimit',
+            get_string('managelimit', 'filter_autotranslate'),
+            get_string('managelimit_desc', 'filter_autotranslate'),
+            20,
+            PARAM_INT
+        )
+    );
+
+    // Schedule jobs limit
+    $settings->add(
+        new admin_setting_configtext(
             'filter_autotranslate/fetchlimit',
             get_string('fetchlimit', 'filter_autotranslate'),
             get_string('fetchlimit_desc', 'filter_autotranslate'),

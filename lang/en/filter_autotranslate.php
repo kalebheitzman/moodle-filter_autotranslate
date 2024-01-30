@@ -31,6 +31,8 @@ $string['privacy:metadata'] = 'The Autotranslate Filter plugin does not store an
 // DeepL strings.
 $string['apikey'] = 'API Key for DeepL Translations';
 $string['apikey_desc'] = 'Your API key from DeepL.';
+$string['managelimit'] = 'Manage Page Record Limit';
+$string['managelimit_desc'] = 'Max number of records visible on the Manage page.';
 $string['fetchlimit'] = 'Scheduled Task Fetch Limit';
 $string['fetchlimit_desc'] = 'Max number of fetches to the DeepL API per autotranslate scheduled task run (task runs every 60 seconds).';
 $string['supported_languages'] = 'bg,cs,da,de,el,en,es,et,fi,fr,hu,it,ja,lt,lv,nl,pl,pt,ro,ru,sk,sl,sv,zh'; // Do not change between translations.

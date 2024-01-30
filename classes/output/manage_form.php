@@ -57,8 +57,6 @@ class manage_form extends \moodleform {
         $page = $this->_customdata['page'];
         $limit = $this->_customdata['limit'];
 
-        var_dump($this->_customdata['limit']);
-
         // $this->_form->_attributes['action'] = new \moodle_url('/filter/autotranslate/manage.php', array(
         //     'source_lang' => $this->source_lang, 
         //     'target_lang' => $this->target_lang,

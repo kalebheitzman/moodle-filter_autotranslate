@@ -115,6 +115,9 @@ class filter_autotranslate extends moodle_text_filter {
             return $text;
         }
 
+        // check editing mode
+        $editing = $PAGE->user_is_editing();
+
         // language settings
         $site_lang = get_config('core', 'lang');
         $current_lang = current_language();
@@ -123,7 +126,7 @@ class filter_autotranslate extends moodle_text_filter {
         $hash = md5($text);
 
         // get the contextid record
-        $context_record = $DB->get_record('filter_autotranslate_ids', array('hash' => $hash, 'lang' => $current_lang, 'context_id' => $PAGE->context->id));
+        $context_record = $DB->get_record('filter_autotranslate_ids', array('hash' => $hash, 'lang' => $current_lang, 'contextid' => $PAGE->context->id));
 
         // insert the context id record if it does not exist
         if (!$context_record) {
@@ -132,7 +135,9 @@ class filter_autotranslate extends moodle_text_filter {
                 array(
                     'hash' => $hash,
                     'lang' => $current_lang,
-                    'context_id' => $PAGE->context->id
+                    'contextid' => $this->context->id,
+                    'contextlevel' => $this->context->contextlevel,
+                    'instanceid' => $this->context->instanceid
                 )
             );
         }
@@ -174,14 +179,33 @@ class filter_autotranslate extends moodle_text_filter {
                     )
                 );
             }
-
-            // return $translation->text;
-            return $text;
         } 
         // translation found, return the text
         else if ($record && $site_lang !== $current_lang) {
-            return $record->text;
+            $text = $record->text;
         }
+
+        // if ($editing) {
+
+        //      $url = new \moodle_url('/filter/autotranslate/manage.php', array(
+        //         'source_lang' => $site_lang,
+        //         'target_lang' => $current_lang,
+        //         'hash' => $hash,
+        //     ));
+
+        //     $output = "<div>";
+        //     $output .= $text;
+        //     $output .= '<a href="' . $url->out() . '"><i class="fas fa-language"></i> Translate</a>';
+        //     $output .= "</div>";
+
+        //     $text = $output;
+        // }
+
+        // echo "<pre>";
+        // var_dump($this->context->id);
+        // var_dump($this->context->contextlevel);
+        // var_dump($this->context->instanceid);
+        // echo "</pre>";
         
         return $text;
     }

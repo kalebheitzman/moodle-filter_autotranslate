@@ -50,7 +50,11 @@ class manage_page implements renderable, templatable {
         $this->page = optional_param('page', 1, PARAM_NOTAGS);
 
         // Pagination params
-        $this->limit = optional_param('limit', 10, PARAM_INT);
+        $managelimit = get_config('filter_autotranslate', 'managelimit');
+        if (!$managelimit) {
+            $managelimit = 20;
+        }
+        $this->limit = optional_param('limit', $managelimit, PARAM_INT);
         $this->page = max(1, (int)$this->page); // Ensure a valid positive integer for page
         $offset = ($this->page - 1) * $this->limit;
 
@@ -293,7 +297,6 @@ class manage_page implements renderable, templatable {
      * Retrieve the character order (right-to-left or left-to-right).
      *
      * @param string $locale The locale to use. If empty we'll use the default locale set in \Punic\Data
-     *
      * @return string Return 'left-to-right' or 'right-to-left'
      */
     private static function getCharacterOrder($locale = '')

@@ -43,7 +43,10 @@
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="hash" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="lang" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
-        <FIELD NAME="context_id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="contextid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <!-- New fields 2024013000 -->
+        <FIELD NAME="contextlevel" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Context level"/>
+        <FIELD NAME="instanceid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Instance ID"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id" />
@@ -51,7 +54,10 @@
       <INDEXES>
         <INDEX NAME="lang_index" UNIQUE="false" FIELDS="lang" COMMENT="Translation language index"/>
         <INDEX NAME="hash_index" UNIQUE="false" FIELDS="hash" COMMENT="Translation hash index" />
-        <INDEX NAME="context_id_index" UNIQUE="false" FIELDS="context_id" COMMENT="Translation hash index" />
+        <INDEX NAME="contextid_index" UNIQUE="false" FIELDS="contextid" COMMENT="Translation hash index" />
+        <!-- New indexes 2024013000 -->
+        <INDEX NAME="contextlevel_index" UNIQUE="false" FIELDS="contextlevel" COMMENT="Context level index"/>
+        <INDEX NAME="instanceid_index" UNIQUE="false" FIELDS="instanceid" COMMENT="Instance ID index"/>
       </INDEXES>
     </TABLE>
   </TABLES>
