@@ -40,11 +40,15 @@ $string['autotranslate_settings'] = 'Autotranslate filter settings';
 
 // Manage page strings
 $string['manage_title'] = "Manage Autotranslations";
-$string['hash_text'] = "Hash Key";
+$string['hash_text'] = "ID: Hash Key";
 $string['source_text'] = "Source Text";
 $string['translation_text'] = "Translation Text";
 $string['select_source_language'] = "Select Source Language";
 $string['select_target_language'] = "Select Target Language";
+$string['pag_first'] = "&laquo; First";
+$string['pag_previous'] = "&lsaquo; Previous";
+$string['pag_next'] = "Next &rsaquo;";
+$string['pag_last'] = "Last &raquo;";
 
 // Tasks
 $string['taskname'] = "Autotranslation Fetch";

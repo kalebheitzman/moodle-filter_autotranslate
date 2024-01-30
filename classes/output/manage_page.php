@@ -50,17 +50,17 @@ class manage_page implements renderable, templatable {
         $this->page = optional_param('page', 1, PARAM_NOTAGS);
 
         // Pagination params
-        $limit = 10;
+        $this->limit = optional_param('limit', 10, PARAM_INT);
         $this->page = max(1, (int)$this->page); // Ensure a valid positive integer for page
-        $offset = ($this->page - 1) * $limit;
+        $offset = ($this->page - 1) * $this->limit;
 
         // Get the total number of target records
         $target_records_count = $DB->count_records("filter_autotranslate", array("lang" => $this->target_lang));
-        $total_pages = ceil($target_records_count / $limit);
+        $total_pages = ceil($target_records_count / $this->limit);
         $this->pages = range(1, $total_pages);
 
         // Get target records using pagination
-        $target_records = $DB->get_records("filter_autotranslate", array("lang" => $this->target_lang), '', '*', $offset, $limit);
+        $target_records = $DB->get_records("filter_autotranslate", array("lang" => $this->target_lang), '', '*', $offset, $this->limit);
 
         // Check if there are no target records
         if (!$target_records) {
@@ -91,7 +91,7 @@ class manage_page implements renderable, templatable {
         $limit_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $limit_conditions) . " LIMIT ?, ?";
 
         // Combine the values for both queries
-        $values = array_merge($in_values, array($offset, $limit));
+        $values = array_merge($in_values, array($offset, $this->limit));
 
         // Get source records using the IN clause
         $source_records = $DB->get_records_sql($in_sql . ' ORDER BY id ASC', $values);
@@ -107,7 +107,8 @@ class manage_page implements renderable, templatable {
             'target_lang' => $this->target_lang,
             'lang_dir' => $this->target_lang_dir,
             'pages' => $this->pages,
-            'page' => $this->page
+            'page' => $this->page,
+            'limit' => $this->limit
         ]);
         $this->mform = $mform;
     }
@@ -153,7 +154,8 @@ class manage_page implements renderable, templatable {
                 $url = new \moodle_url('/filter/autotranslate/manage.php', array(
                     'source_lang' => $fromform->source_lang,
                     'target_lang' => $fromform->target_lang,
-                    'page' => $this->page
+                    'page' => $this->page,
+                    'limit' => $this->limit
                 ));
 
                 // iterate through each translation

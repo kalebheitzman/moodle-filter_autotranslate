@@ -47,15 +47,24 @@ class manage_form extends \moodleform {
         $mform = $this->_form;
         $this->_form->disable_form_change_checker();
             
+        // get customdata
         $source_records = $this->_customdata['source_records'];
         $target_records = $this->_customdata['target_records'];
         $source_lang = $this->_customdata['source_lang'];
         $target_lang = $this->_customdata['target_lang'];
         $lang_dir = $this->_customdata['lang_dir'];
         $pages = $this->_customdata['pages'];
-        $page = $this->customdata['page'];
+        $page = $this->_customdata['page'];
+        $limit = $this->_customdata['limit'];
 
-        $this->_form->attributes['action'] = new \moodle_url('/filter/autotranslate/manage.php', array('source_lang' => $this->source_lang, 'target_lang' => $this->target_lang));
+        var_dump($this->_customdata['limit']);
+
+        // $this->_form->_attributes['action'] = new \moodle_url('/filter/autotranslate/manage.php', array(
+        //     'source_lang' => $this->source_lang, 
+        //     'target_lang' => $this->target_lang,
+        //     'page' => $page,
+        //     'limit' => $limit,
+        // ));
 
         $merged_records = [];
         foreach($source_records as $record) {
@@ -93,16 +102,76 @@ class manage_form extends \moodleform {
         // pagination
         $mform->addElement('html', '<div class="col-7 filter-autotranslate__pagination">');
         $mform->addElement('html', '<ul>');
-        forEach($pages as $page) {
+        
+        
+        // Number of pages to display around the current page
+        $pagesToShow = 5;
+
+        // Calculate the range of pages to display
+        $startPage = max(1, $page - floor($pagesToShow / 2));
+        $endPage = min($startPage + $pagesToShow - 1, end($pages));
+
+        // Display "First" link
+        if ($startPage > 1) {
+            $firstUrl = new \moodle_url('/filter/autotranslate/manage.php', array(
+                'source_lang' => $source_lang,
+                'target_lang' => $target_lang,
+                'page' => 1,
+                'limit' => $limit
+            ));
+            $mform->addElement('html', '<li class="mr-1 mb-1"><a href="' . $firstUrl->out() . '" class="btn btn-light">' . get_string('pag_first', 'filter_autotranslate') . '</a></li>');
+        }
+
+        // Display "Previous" link if applicable
+        if ($startPage > 1) {
+            $prevPage = max(1, $page - 1);
+            $prevUrl = new \moodle_url('/filter/autotranslate/manage.php', array(
+                'source_lang' => $source_lang,
+                'target_lang' => $target_lang,
+                'page' => $prevPage,
+                'limit' => $limit
+            ));
+            $mform->addElement('html', '<li class="mr-1 mb-1"><a href="' . $prevUrl->out() . '" class="btn btn-light">' . get_string('pag_previous', 'filter_autotranslate') . '</a></li>');
+        }
+
+        // Display the range of pages
+        for ($pagenum = $startPage; $pagenum <= $endPage; $pagenum++) {
             $url = new \moodle_url('/filter/autotranslate/manage.php', array(
                 'source_lang' => $source_lang,
                 'target_lang' => $target_lang,
-                'page' => $page
+                'page' => $pagenum,
+                'limit' => $limit
             ));
-            $mform->addElement('html', '<li>');
-            $mform->addElement('html', '<a href="' . $url->out() . '" class="btn btn-light">' . $page . '</a>');
+            $mform->addElement('html', '<li class="mr-1 mb-1">');
+            $btn_class = intval($page) === intval($pagenum) ? 'btn-primary' : 'btn-light';
+            $mform->addElement('html', '<a href="' . $url->out() . '" class="btn ' . $btn_class . '">' . $pagenum . '</a>');
             $mform->addElement('html', '</li>');
         }
+
+        // Display "Next" link if applicable
+        if ($endPage < end($pages)) {
+            $nextPage = min(end($pages), $page + 1);
+            $nextUrl = new \moodle_url('/filter/autotranslate/manage.php', array(
+                'source_lang' => $source_lang,
+                'target_lang' => $target_lang,
+                'page' => $nextPage,
+                'limit' => $limit
+            ));
+            $mform->addElement('html', '<li class="mr-1 mb-1"><a href="' . $nextUrl->out() . '" class="btn btn-light">' . get_string('pag_next', 'filter_autotranslate') . '</a></li>');
+        }
+
+        // Display "Last" link
+        if ($endPage < end($pages)) {
+            $lastUrl = new \moodle_url('/filter/autotranslate/manage.php', array(
+                'source_lang' => $source_lang,
+                'target_lang' => $target_lang,
+                'page' => end($pages),
+                'limit' => $limit
+            ));
+            $mform->addElement('html', '<li class="mr-1 mb-1"><a href="' . $lastUrl->out() . '" class="btn btn-light">' . get_string('pag_last', 'filter_autotranslate') . '</a></li>');
+        }
+
+        
         $mform->addElement('html', '</ul>');
         $mform->addElement('html', '</div>');
 
@@ -120,6 +189,8 @@ class manage_form extends \moodleform {
 
         $mform->addElement('hidden', 'source_lang', $source_lang);
         $mform->addElement('hidden', 'target_lang', $target_lang);
+        $mform->addElement('hidden', 'page', $page);
+        $mform->addElement('hidden', 'limit', $limit);
 
         // Close form.
         $mform->addElement('html', '</div>');
