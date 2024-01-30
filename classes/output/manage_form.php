@@ -143,7 +143,7 @@ class manage_form extends \moodleform {
 
         // first column
         $mform->addElement('html', '<div class="col-2">');
-        $mform->addElement('html', substr($record->hash, 0, 11));
+        $mform->addElement('html', $record->id . ": " . substr($record->hash, 0, 11));
         $mform->addElement('html', '</div>');
 
         // second column

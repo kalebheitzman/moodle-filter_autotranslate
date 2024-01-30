@@ -16,14 +16,14 @@
 
 namespace filter_autotranslate\output;
 
+require_once(dirname(__DIR__, 2) . "/vendor/autoload.php");
+
 use renderable;
 use renderer_base;
 use templatable;
 use stdClass;
 use Punic\Data;
 use filter_autotranslate\output\manage_form;
-
-require_once(dirname(__DIR__, 2) . "/vendor/autoload.php");
 
 /**
  * Autotranslate Manage Page Output
@@ -94,7 +94,7 @@ class manage_page implements renderable, templatable {
         $values = array_merge($in_values, array($offset, $limit));
 
         // Get source records using the IN clause
-        $source_records = $DB->get_records_sql($in_sql, $values);
+        $source_records = $DB->get_records_sql($in_sql . ' ORDER BY id ASC', $values);
 
         // target language direction
         $this->target_lang_dir = $this->getCharacterOrder($this->target_lang);
@@ -153,6 +153,7 @@ class manage_page implements renderable, templatable {
                 $url = new \moodle_url('/filter/autotranslate/manage.php', array(
                     'source_lang' => $fromform->source_lang,
                     'target_lang' => $fromform->target_lang,
+                    'page' => $this->page
                 ));
 
                 // iterate through each translation
@@ -261,41 +262,19 @@ class manage_page implements renderable, templatable {
                             $params = array_merge([$md5hash], $autotranslate_records_jobs_ids);
                             
                             $DB->execute($sql, $params);
-                        }
-                        
-
-                        // var_dump($autotranslate_records);
-                        // var_dump($autotranslate_records_ids);
-                        // var_dump($autotranslate_records_jobs);
+                        }                        
                     }
-
-                    // else if (!$target_record and !empty($text)) {
-                    //     $source_record = $DB->get_record('filter_autotranslate_ids', array('hash' => $hash, 'lang' => $source_lang));
-                    //     $target_record = $DB->get_record('filter_autotranslate_ids', array('hash' => $hash, 'lang' => $target_lang));
-                    //     $context_record = $DB->get_record('filter_autotranslate_ids', array('hash' => $hash, 'lang' => $target_lang));
-                    //     if ($source_record && !$target_record && !$context_record) {
-                    //         $DB->insert_record(
-                    //             'filter_autotranslate',
-                    //             $record
-                    //         );
-                    //         $DB->insert_record(
-                    //             'filter_autotranslate_ids',
-                    //             array(
-                    //                 'hash' => $hash,
-                    //                 'lang' => $target_lang,
-                    //                 'context_id' => $source_record->context_id
-                    //             )
-                    //         );
-                    //     }
-                    // }
                 }
 
-                // redirect($url);            
+                // @todo: I don't like the way this works
+                // I need to figure out how to update records before the point for 
+                // the source column
+                redirect($url);            
             } else {   
             
             }
 
-            // Hacky fix but the only way to adjust html...
+            // @todo: Hacky fix but the only way to adjust html...
             // This could be overridden in css and I might look at that fix for the future.
             $renderedform = $this->mform->render();
             $renderedform = str_replace('col-md-3 col-form-label d-flex pb-0 pr-md-0', 'd-none', $renderedform);
