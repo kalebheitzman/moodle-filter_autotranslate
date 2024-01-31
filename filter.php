@@ -117,7 +117,8 @@ class filter_autotranslate extends moodle_text_filter {
 
         // only translate context that are equal or greater than 40
         // @see https://docs.moodle.org/403/en/Context
-        if ($this->context->contextlevel <= 40) {
+        $selectctx = explode(",", get_config('filter_autotranslate', 'selectctx'));
+        if (!in_array(strval($this->context->contextlevel), $selectctx)) {
             return $text;
         }
 

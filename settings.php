@@ -26,42 +26,64 @@ defined('MOODLE_INTERNAL') || die();
 if ($hassiteconfig) {
 
     // Create new settings page.
-    $settings = new admin_settingpage('filter_autotranslate', get_string('autotranslate_settings', 'filter_autotranslate'));
+    // $settings = new admin_settingpage('filter_autotranslate', get_string('autotranslate_settings', 'filter_autotranslate'));
 
-    // Add to admin menu.
-    $ADMIN->add('filterplugins', $settings);
+    // // Add to admin menu.
+    // $ADMIN->add('filterplugins', $settings);
 
-    // DeepL apikey.
-    $settings->add(
-        new admin_setting_configtext(
-            'filter_autotranslate/deeplapikey',
-            get_string('apikey', 'filter_autotranslate'),
-            get_string('apikey_desc', 'filter_autotranslate'),
-            null,
-            PARAM_RAW_TRIMMED,
-            40
-        )
-    );
+    if ($ADMIN->fulltree) {
 
-    // Schedule jobs limit
-    $settings->add(
-        new admin_setting_configtext(
-            'filter_autotranslate/managelimit',
-            get_string('managelimit', 'filter_autotranslate'),
-            get_string('managelimit_desc', 'filter_autotranslate'),
-            20,
-            PARAM_INT
-        )
-    );
+        // DeepL apikey.
+        $settings->add(
+            new admin_setting_configtext(
+                'filter_autotranslate/deeplapikey',
+                get_string('apikey', 'filter_autotranslate'),
+                get_string('apikey_desc', 'filter_autotranslate'),
+                null,
+                PARAM_RAW_TRIMMED,
+                40
+            )
+        );
 
-    // Schedule jobs limit
-    $settings->add(
-        new admin_setting_configtext(
-            'filter_autotranslate/fetchlimit',
-            get_string('fetchlimit', 'filter_autotranslate'),
-            get_string('fetchlimit_desc', 'filter_autotranslate'),
-            200,
-            PARAM_INT
-        )
-    );
+        // Schedule jobs limit
+        $settings->add(
+            new admin_setting_configtext(
+                'filter_autotranslate/managelimit',
+                get_string('managelimit', 'filter_autotranslate'),
+                get_string('managelimit_desc', 'filter_autotranslate'),
+                20,
+                PARAM_INT
+            )
+        );
+
+        // Schedule jobs limit
+        $settings->add(
+            new admin_setting_configtext(
+                'filter_autotranslate/fetchlimit',
+                get_string('fetchlimit', 'filter_autotranslate'),
+                get_string('fetchlimit_desc', 'filter_autotranslate'),
+                200,
+                PARAM_INT
+            )
+        );
+
+        // Context level
+        $settings->add(
+            new admin_setting_configmulticheckbox(
+                'filter_autotranslate/selectctx',
+                get_string('selectctx', 'filter_autotranslate'),
+                get_string('selectctx_desc', 'filter_autotranslate'),
+                array('40', '50', '70', '80'), // Corrected to use string values
+                array(
+                    '10' => get_string('ctx_system', 'filter_autotranslate'),
+                    '30' => get_string('ctx_user', 'filter_autotranslate'),
+                    '40' => get_string('ctx_coursecat', 'filter_autotranslate'),
+                    '50' => get_string('ctx_course', 'filter_autotranslate'),
+                    '70' => get_string('ctx_module', 'filter_autotranslate'),
+                    '80' => get_string('ctx_block', 'filter_autotranslate')
+                )
+            )
+        );
+        
+    }
 }

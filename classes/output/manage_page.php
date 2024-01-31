@@ -160,12 +160,12 @@ class manage_page implements renderable, templatable {
             $conditions = array();
             $values = array();
 
-            if ($this->contextlevel !== null) {
+            if ($this->contextlevel !== null && $this->contextlevel >= 10) {
                 $conditions[] = 'contextlevel = ?';
                 $values[] = $this->contextlevel;
             }
 
-            if ($this->instanceid !== null) {
+            if ($this->instanceid !== null && $this->instanceid > 0) {
                 $conditions[] = 'instanceid = ?';
                 $values[] = $this->instanceid;
             }
@@ -176,33 +176,40 @@ class manage_page implements renderable, templatable {
             $in_sql_ids .= " " . implode(' AND ', $conditions);
             $hashes = $DB->get_fieldset_sql($in_sql_ids, $values);
 
-            // Construct the placeholders for the IN clause
-            $in_placeholders = implode(',', array_fill(0, count($hashes), '?'));
+            // no hashes found
+            if (!$hashes) {
+                $target_records = [];
+                $this->pages = [];
+            } else {
 
-            // Construct the conditions for the IN clause
-            $in_conditions = array('hash IN (' . $in_placeholders . ')', 'lang = ?');
+                // Construct the placeholders for the IN clause
+                $in_placeholders = implode(',', array_fill(0, count($hashes), '?'));
 
-            // Add values for the IN clause
-            $in_values = array_merge($hashes, array($this->target_lang));
+                // Construct the conditions for the IN clause
+                $in_conditions = array('hash IN (' . $in_placeholders . ')', 'lang = ?');
 
-            // Construct the SQL query for filter_autotranslate table
-            $in_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $in_conditions);
+                // Add values for the IN clause
+                $in_values = array_merge($hashes, array($this->target_lang));
 
-            // Add placeholders for the LIMIT clause
-            $limit_conditions = array('lang = ?');
-            $limit_values = array($this->target_lang);
+                // Construct the SQL query for filter_autotranslate table
+                $in_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $in_conditions);
 
-            // Construct the SQL query for the LIMIT clause
-            $limit_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $limit_conditions) . " LIMIT ?, ?";
+                // Add placeholders for the LIMIT clause
+                $limit_conditions = array('lang = ?');
+                $limit_values = array($this->target_lang);
 
-            // Combine the values for both queries
-            $values = array_merge($in_values, $in_values);
+                // Construct the SQL query for the LIMIT clause
+                $limit_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $limit_conditions) . " LIMIT ?, ?";
 
-            // Get target records using pagination
-            $total_pages = ceil(count($hashes) / $this->limit);
-            $this->pages = range(1, $total_pages);
+                // Combine the values for both queries
+                $values = array_merge($in_values, $in_values);
 
-            $target_records = $DB->get_records_sql($in_sql . ' ORDER BY id ASC', $values, $this->offset, $this->limit);
+                // Get target records using pagination
+                $total_pages = ceil(count($hashes) / $this->limit);
+                $this->pages = range(1, $total_pages);
+
+                $target_records = $DB->get_records_sql($in_sql . ' ORDER BY id ASC', $values, $this->offset, $this->limit);
+            }
         } else {
             // Get the total number of target records
             $target_records_count = $DB->count_records("filter_autotranslate", array("lang" => $this->target_lang));

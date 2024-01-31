@@ -51,6 +51,14 @@ $string['pag_first'] = "&laquo; First";
 $string['pag_previous'] = "&lsaquo; Previous";
 $string['pag_next'] = "Next &rsaquo;";
 $string['pag_last'] = "Last &raquo;";
+$string['selectctx'] = "Context Levels";
+$string['selectctx_desc'] = "Context levels in Moodle that should be autotranslated";
+$string['ctx_system'] = "System";
+$string['ctx_user'] = "User";
+$string['ctx_coursecat'] = "Course Category";
+$string['ctx_course'] = "Course";
+$string['ctx_module'] = "Module";
+$string['ctx_block'] = "Block";
 
 // Tasks
 $string['taskname'] = "Autotranslation Fetch";

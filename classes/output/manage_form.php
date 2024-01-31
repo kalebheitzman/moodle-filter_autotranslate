@@ -60,7 +60,6 @@ class manage_form extends \moodleform {
         $contextlevel = $this->_customdata['contextlevel'];
         $urlquery = $this->_customdata['urlquery'];
 
-
         // $this->_form->_attributes['action'] = new \moodle_url('/filter/autotranslate/manage.php', array(
         //     'source_lang' => $this->source_lang, 
         //     'target_lang' => $this->target_lang,
