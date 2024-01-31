@@ -56,6 +56,10 @@ class manage_form extends \moodleform {
         $pages = $this->_customdata['pages'];
         $page = $this->_customdata['page'];
         $limit = $this->_customdata['limit'];
+        $instanceid = $this->_customdata['instanceid'];
+        $contextlevel = $this->_customdata['contextlevel'];
+        $urlquery = $this->_customdata['urlquery'];
+
 
         // $this->_form->_attributes['action'] = new \moodle_url('/filter/autotranslate/manage.php', array(
         //     'source_lang' => $this->source_lang, 
@@ -109,13 +113,22 @@ class manage_form extends \moodleform {
         $startPage = max(1, $page - floor($pagesToShow / 2));
         $endPage = min($startPage + $pagesToShow - 1, end($pages));
 
+        $urlparams = [];
+        $urlparams['source_lang'] = $source_lang;
+        $urlparams['target_lang'] = $target_lang;
+        $urlparams['limit'] = $limit;
+        if ($instanceid) {
+            $urlparams['instanceid'] = $instanceid;
+        }
+        if ($contextlevel) {
+            $urlparams['contextlevel'] = $contextlevel;
+        }
+
         // Display "First" link
         if ($startPage > 1) {
             $firstUrl = new \moodle_url('/filter/autotranslate/manage.php', array(
-                'source_lang' => $source_lang,
-                'target_lang' => $target_lang,
+                ...$urlparams,
                 'page' => 1,
-                'limit' => $limit
             ));
             $mform->addElement('html', '<li class="mr-1 mb-1"><a href="' . $firstUrl->out() . '" class="btn btn-light">' . get_string('pag_first', 'filter_autotranslate') . '</a></li>');
         }
@@ -124,10 +137,8 @@ class manage_form extends \moodleform {
         if ($startPage > 1) {
             $prevPage = max(1, $page - 1);
             $prevUrl = new \moodle_url('/filter/autotranslate/manage.php', array(
-                'source_lang' => $source_lang,
-                'target_lang' => $target_lang,
+                ...$urlparams,
                 'page' => $prevPage,
-                'limit' => $limit
             ));
             $mform->addElement('html', '<li class="mr-1 mb-1"><a href="' . $prevUrl->out() . '" class="btn btn-light">' . get_string('pag_previous', 'filter_autotranslate') . '</a></li>');
         }
@@ -135,10 +146,8 @@ class manage_form extends \moodleform {
         // Display the range of pages
         for ($pagenum = $startPage; $pagenum <= $endPage; $pagenum++) {
             $url = new \moodle_url('/filter/autotranslate/manage.php', array(
-                'source_lang' => $source_lang,
-                'target_lang' => $target_lang,
+                ...$urlparams,
                 'page' => $pagenum,
-                'limit' => $limit
             ));
             $mform->addElement('html', '<li class="mr-1 mb-1">');
             $btn_class = intval($page) === intval($pagenum) ? 'btn-primary' : 'btn-light';
@@ -150,10 +159,8 @@ class manage_form extends \moodleform {
         if ($endPage < end($pages)) {
             $nextPage = min(end($pages), $page + 1);
             $nextUrl = new \moodle_url('/filter/autotranslate/manage.php', array(
-                'source_lang' => $source_lang,
-                'target_lang' => $target_lang,
+                ...$urlparams,
                 'page' => $nextPage,
-                'limit' => $limit
             ));
             $mform->addElement('html', '<li class="mr-1 mb-1"><a href="' . $nextUrl->out() . '" class="btn btn-light">' . get_string('pag_next', 'filter_autotranslate') . '</a></li>');
         }
@@ -161,10 +168,8 @@ class manage_form extends \moodleform {
         // Display "Last" link
         if ($endPage < end($pages)) {
             $lastUrl = new \moodle_url('/filter/autotranslate/manage.php', array(
-                'source_lang' => $source_lang,
-                'target_lang' => $target_lang,
+                ...$urlparams,
                 'page' => end($pages),
-                'limit' => $limit
             ));
             $mform->addElement('html', '<li class="mr-1 mb-1"><a href="' . $lastUrl->out() . '" class="btn btn-light">' . get_string('pag_last', 'filter_autotranslate') . '</a></li>');
         }

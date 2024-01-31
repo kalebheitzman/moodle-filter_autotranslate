@@ -88,9 +88,15 @@ class manage_page implements renderable, templatable {
     private array $pages;
 
     /**
-     * @param string Target text rtl or ltr
+     * @param string $target_lang_dir Target text rtl or ltr
      */
     private string $target_lang_dir;
+
+    /**
+     * @param string $urlquery Url query
+     */
+    private string $urlquery;
+
 
     /**
      * @param manage_form $mform Autotranslation management form
@@ -131,6 +137,20 @@ class manage_page implements renderable, templatable {
         $this->limit = clean_param($this->limit, PARAM_INT);
         $this->page = max(1, (int)$this->page); // Ensure a valid positive integer for page
         $this->offset = ($this->page - 1) * $this->limit;
+
+        // url params
+        $urlparams = [];
+        $urlparams['source_lang'] = $this->source_lang;
+        $urlparams['target_lang'] = $this->target_lang;
+        $urlparams['limit'] = $this->limit;
+        // $urlparams['page'] = $this->page;
+        if ($this->instanceid) {
+            $urlparams['instanceid'] = $this->instanceid;
+        }
+        if ($this->contextlevel) {
+            $urlparams['contextlevel'] = $this->contextlevel;
+        }
+        $this->urlquery = http_build_query($urlparams);
 
         // build the target params
         $target_records = [];
@@ -173,7 +193,6 @@ class manage_page implements renderable, templatable {
             $limit_values = array($this->target_lang);
 
             // Construct the SQL query for the LIMIT clause
-            $limit_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $limit_conditions);
             $limit_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $limit_conditions) . " LIMIT ?, ?";
 
             // Combine the values for both queries
@@ -183,7 +202,7 @@ class manage_page implements renderable, templatable {
             $total_pages = ceil(count($hashes) / $this->limit);
             $this->pages = range(1, $total_pages);
 
-            $target_records = $DB->get_records_sql($in_sql . ' ORDER BY id ASC', $values);
+            $target_records = $DB->get_records_sql($in_sql . ' ORDER BY id ASC', $values, $this->offset, $this->limit);
         } else {
             // Get the total number of target records
             $target_records_count = $DB->count_records("filter_autotranslate", array("lang" => $this->target_lang));
@@ -239,7 +258,10 @@ class manage_page implements renderable, templatable {
             'lang_dir' => $this->target_lang_dir,
             'pages' => $this->pages,
             'page' => $this->page,
-            'limit' => $this->limit
+            'limit' => $this->limit,
+            'instanceid' => $this->instanceid,
+            'contextlevel' => $this->contextlevel,
+            'urlquery' => $this->urlquery
         ]);
         $this->mform = $mform;
     }
@@ -270,6 +292,9 @@ class manage_page implements renderable, templatable {
         $data->source_lang_code = $this->source_lang;
         $data->target_lang_code = $this->target_lang;
         $data->target_lang_dir = $this->target_lang_dir;
+        $data->instanceid = $this->instanceid;
+        $data->contextlevel = $this->contextlevel;
+        $data->limit = $this->limit;
 
         if ($this->mform) {
             if ($this->mform->is_cancelled()) {
@@ -282,12 +307,7 @@ class manage_page implements renderable, templatable {
                 // the `get_data()` function will return the data posted in the form.
                 $source_lang = $fromform->source_lang;
                 $target_lang = $fromform->target_lang;
-                $url = new \moodle_url('/filter/autotranslate/manage.php', array(
-                    'source_lang' => $fromform->source_lang,
-                    'target_lang' => $fromform->target_lang,
-                    'page' => $this->page,
-                    'limit' => $this->limit
-                ));
+                $url = new \moodle_url('/filter/autotranslate/manage.php?' . $this->urlquery);
 
                 // iterate through each translation
                 foreach ($fromform->translation as $hash => $item) {

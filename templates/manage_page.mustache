@@ -66,7 +66,7 @@ along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
       <p class="mb-0">{{#str}}select_source_language,filter_autotranslate{{/str}}</p>
       <ul class="mb-1">
         {{#langs}}
-          <li class="text-uppercase"><a href="{{ url }}?source_lang={{code}}&target_lang={{target_lang_code}}" class="text-decoration-none btn {{source-btn-class}}">{{ code }}</a></li>
+          <li class="text-uppercase"><a href="{{ url }}?source_lang={{code}}&target_lang={{target_lang_code}}&limit={{limit}}&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="text-decoration-none btn {{source-btn-class}}">{{ code }}</a></li>
         {{/langs}}
       </ul>
     </div>
@@ -74,7 +74,7 @@ along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
       <p class="mb-0">{{#str}}select_target_language,filter_autotranslate{{/str}}</p>
       <ul class="mb-1">
         {{#langs}}
-          <li class="text-uppercase"><a href="{{ url }}?source_lang={{source_lang_code}}&target_lang={{code}}" class="text-decoration-none btn {{target-btn-class}}">{{ code }}</a></li>
+          <li class="text-uppercase"><a href="{{ url }}?source_lang={{source_lang_code}}&target_lang={{code}}&limit={{limit}}&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="text-decoration-none btn {{target-btn-class}}">{{ code }}</a></li>
         {{/langs}}
       </ul>
     </div>

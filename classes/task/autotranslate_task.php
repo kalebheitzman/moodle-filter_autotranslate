@@ -72,10 +72,10 @@ class autotranslate_task extends \core\task\scheduled_task {
 
             // get the source text
             $source_record = $DB->get_record('filter_autotranslate', array('hash' => $job->hash, 'lang' => $site_lang));
-            $target_record = $DB->get_record('filter_autotranslate', array('hash' => $job->hash, 'lang' => $job_lang));
+            $target_record = $DB->get_record('filter_autotranslate', array('hash' => $job->hash, 'lang' => $job->lang));
 
             // only translate if text exists
-            if ($source_record->text) {
+            if ($source_record) {
                 // get the translation
                 $translation = $translator->translateText($source_record->text, null, $job->lang, ['formality' => 'prefer_more']);
 
@@ -107,7 +107,7 @@ class autotranslate_task extends \core\task\scheduled_task {
                 mtrace("completed job $job->id...");
 
 
-            } else if (!$source_record->text) {
+            } else if (!$source_record) {
                 // update the job to fetched
                 $jid = $DB->update_record(
                     'filter_autotranslate_jobs',
