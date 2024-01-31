@@ -45,7 +45,7 @@ class manage_form extends \moodleform {
 
         // Start moodle form.
         $mform = $this->_form;
-        $this->_form->disable_form_change_checker();
+        // $this->_form->disable_form_change_checker();
             
         // get customdata
         $source_records = $this->_customdata['source_records'];
@@ -186,9 +186,16 @@ class manage_form extends \moodleform {
 
 
         $mform->addElement('hidden', 'source_lang', $source_lang);
+        $mform->setType('source_lang', PARAM_NOTAGS);
+
         $mform->addElement('hidden', 'target_lang', $target_lang);
+        $mform->setType('target_lang', PARAM_NOTAGS);
+
         $mform->addElement('hidden', 'page', $page);
+        $mform->setType('page', PARAM_INT);
+
         $mform->addElement('hidden', 'limit', $limit);
+        $mform->setType('limit', PARAM_INT);
 
         // Close form.
         $mform->addElement('html', '</div>');

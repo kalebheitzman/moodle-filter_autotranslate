@@ -37,68 +37,195 @@ use filter_autotranslate\output\manage_form;
 class manage_page implements renderable, templatable {
 
     /**
+     * @param string $site_lang Default Moodle Language
+     */
+    private string $site_lang;
+
+    /**
+     * @param array $langs Languages supported on the site
+     */
+    private array $langs;
+
+
+    /**
+     * @param string $source_lange Source language of the text
+     */
+    private string $source_lang;
+
+    /**
+     * @param string $target_lang Target language of the text
+     */
+    private string $target_lang;
+
+    /**
+     * @param int $instanceid Context instanceid associated with the text
+     */
+    private null | int $instanceid;
+
+    /**
+     * @param int $contextlevel Context  associated with the text
+     */
+    private null | int $contextlevel;
+
+    /**
+     * @param int Current page number
+     */
+    private int $page;
+
+    /**
+     * @param int Limit for query
+     */
+    private int $limit;
+
+    /**
+     * @param int Offset for query
+     */
+    private int $offset;
+
+    /**
+     * @param array $pages Array map of pages for pagination
+     */
+    private array $pages;
+
+    /**
+     * @param string Target text rtl or ltr
+     */
+    private string $target_lang_dir;
+
+    /**
+     * @param manage_form $mform Autotranslation management form
+     */
+    private manage_form $mform;
+
+    /**
      * Constructor
      *
      */
     public function __construct() {
         global $DB;
 
-        $this->site_lang = get_config('core', 'lang');
-        $this->langs = get_string_manager()->get_list_of_translations();
-        $this->source_lang = optional_param('source_lang', $this->site_lang, PARAM_NOTAGS);
-        $this->target_lang = optional_param('target_lang', $this->site_lang, PARAM_NOTAGS);
-        $this->page = optional_param('page', 1, PARAM_NOTAGS);
-
         // Pagination params
         $managelimit = get_config('filter_autotranslate', 'managelimit');
         if (!$managelimit) {
             $managelimit = 20;
         }
+
+        // get params
+        $this->site_lang = get_config('core', 'lang', PARAM_NOTAGS);
+        $this->langs = get_string_manager()->get_list_of_translations();
+        $this->source_lang = optional_param('source_lang', $this->site_lang, PARAM_NOTAGS);
+        $this->source_lang = clean_param($this->source_lang, PARAM_NOTAGS);
+        $this->target_lang = optional_param('target_lang', $this->site_lang, PARAM_NOTAGS);
+        $this->target_lang = clean_param($this->target_lang, PARAM_NOTAGS);
+        $this->instanceid = optional_param('instanceid', null, PARAM_INT);
+        if ($this->instanceid !== null) {
+            $this->instanceid = clean_param($this->instanceid, PARAM_INT);
+        }
+        $this->contextlevel = optional_param('contextlevel', null, PARAM_INT);
+        if ($this->contextlevel !== null) {
+            $this->contextlevel = clean_param($this->contextlevel, PARAM_INT);
+        }
+        $this->page = optional_param('page', 1, PARAM_INT);
+        $this->page = clean_param($this->page, PARAM_INT);
         $this->limit = optional_param('limit', $managelimit, PARAM_INT);
+        $this->limit = clean_param($this->limit, PARAM_INT);
         $this->page = max(1, (int)$this->page); // Ensure a valid positive integer for page
-        $offset = ($this->page - 1) * $this->limit;
+        $this->offset = ($this->page - 1) * $this->limit;
 
-        // Get the total number of target records
-        $target_records_count = $DB->count_records("filter_autotranslate", array("lang" => $this->target_lang));
-        $total_pages = ceil($target_records_count / $this->limit);
-        $this->pages = range(1, $total_pages);
+        // build the target params
+        $target_records = [];
+        if ($this->instanceid || $this->contextlevel) {
+            // Construct the SQL query for filter_autotranslate_ids table
+            $in_sql_ids = "SELECT hash FROM {filter_autotranslate_ids} WHERE";
+            $conditions = array();
+            $values = array();
 
-        // Get target records using pagination
-        $target_records = $DB->get_records("filter_autotranslate", array("lang" => $this->target_lang), '', '*', $offset, $this->limit);
+            if ($this->contextlevel !== null) {
+                $conditions[] = 'contextlevel = ?';
+                $values[] = $this->contextlevel;
+            }
 
-        // Check if there are no target records
-        if (!$target_records) {
-            $this->mform = null;
-            return;
+            if ($this->instanceid !== null) {
+                $conditions[] = 'instanceid = ?';
+                $values[] = $this->instanceid;
+            }
+
+            $conditions[] = 'lang = ?';
+            $values[] = $this->target_lang;
+
+            $in_sql_ids .= " " . implode(' AND ', $conditions);
+            $hashes = $DB->get_fieldset_sql($in_sql_ids, $values);
+
+            // Construct the placeholders for the IN clause
+            $in_placeholders = implode(',', array_fill(0, count($hashes), '?'));
+
+            // Construct the conditions for the IN clause
+            $in_conditions = array('hash IN (' . $in_placeholders . ')', 'lang = ?');
+
+            // Add values for the IN clause
+            $in_values = array_merge($hashes, array($this->target_lang));
+
+            // Construct the SQL query for filter_autotranslate table
+            $in_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $in_conditions);
+
+            // Add placeholders for the LIMIT clause
+            $limit_conditions = array('lang = ?');
+            $limit_values = array($this->target_lang);
+
+            // Construct the SQL query for the LIMIT clause
+            $limit_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $limit_conditions);
+            $limit_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $limit_conditions) . " LIMIT ?, ?";
+
+            // Combine the values for both queries
+            $values = array_merge($in_values, $in_values);
+
+            // Get target records using pagination
+            $total_pages = ceil(count($hashes) / $this->limit);
+            $this->pages = range(1, $total_pages);
+
+            $target_records = $DB->get_records_sql($in_sql . ' ORDER BY id ASC', $values);
+        } else {
+            // Get the total number of target records
+            $target_records_count = $DB->count_records("filter_autotranslate", array("lang" => $this->target_lang));
+            $total_pages = ceil($target_records_count / $this->limit);
+            $this->pages = range(1, $total_pages);
+
+            $target_parms = [];
+            $target_params['lang'] = $this->target_lang;
+            $target_records = $DB->get_records("filter_autotranslate", $target_params, '', '*', $this->offset, $this->limit);
         }
 
         // Construct the array of target record hashes
         $target_hashes = array_column($target_records, 'hash');
+        if (!$target_hashes) {
+            $source_records = [];
+        } else {
 
-        // Construct the placeholders for the IN clause
-        $in_placeholders = implode(',', array_fill(0, count($target_hashes), '?'));
+            // Construct the placeholders for the IN clause
+            $in_placeholders = implode(',', array_fill(0, count($target_hashes), '?'));
 
-        // Construct the conditions for the IN clause
-        $in_conditions = array('hash IN (' . $in_placeholders . ')', 'lang = ?');
+            // Construct the conditions for the IN clause
+            $in_conditions = array('hash IN (' . $in_placeholders . ')', 'lang = ?');
 
-        // Add values for the IN clause
-        $in_values = array_merge($target_hashes, array($this->source_lang));
+            // Add values for the IN clause
+            $in_values = array_merge($target_hashes, array($this->source_lang));
 
-        // Construct the SQL query for the IN clause
-        $in_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $in_conditions);
+            // Construct the SQL query for the IN clause
+            $in_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $in_conditions);
 
-        // Add placeholders for the LIMIT clause
-        $limit_conditions = array('lang = ?');
-        $limit_values = array($this->source_lang);
+            // Add placeholders for the LIMIT clause
+            $limit_conditions = array('lang = ?');
+            $limit_values = array($this->source_lang);
 
-        // Construct the SQL query for the LIMIT clause
-        $limit_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $limit_conditions) . " LIMIT ?, ?";
+            // Construct the SQL query for the LIMIT clause
+            $limit_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $limit_conditions) . " LIMIT ?, ?";
 
-        // Combine the values for both queries
-        $values = array_merge($in_values, array($offset, $this->limit));
+            // Combine the values for both queries
+            $values = array_merge($in_values, array($this->offset, $this->limit));
 
-        // Get source records using the IN clause
-        $source_records = $DB->get_records_sql($in_sql . ' ORDER BY id ASC', $values);
+            // Get source records using the IN clause
+            $source_records = $DB->get_records_sql($in_sql . ' ORDER BY id ASC', $values);
+        }
 
         // target language direction
         $this->target_lang_dir = $this->getCharacterOrder($this->target_lang);

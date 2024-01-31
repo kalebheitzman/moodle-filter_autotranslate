@@ -25,6 +25,8 @@
 
 require_once(dirname(__DIR__, 2) . '/config.php');
 
+$context = context_system::instance();
+$PAGE->set_context($context);
 require_login();
 
 // Set initial page layout.

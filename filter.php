@@ -125,6 +125,10 @@ class filter_autotranslate extends moodle_text_filter {
         // generate the md5 hash of the current text
         $hash = md5($text);
 
+        if (!$text || empty($text)) {
+            var_dump($hash);
+        }
+
         // get the contextid record
         $context_record = $DB->get_record('filter_autotranslate_ids', array('hash' => $hash, 'lang' => $current_lang, 'contextid' => $PAGE->context->id));
 
