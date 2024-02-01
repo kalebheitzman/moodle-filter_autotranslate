@@ -38,6 +38,24 @@ require_once(__DIR__ . "/vendor/autoload.php");
 class filter_autotranslate extends moodle_text_filter {
 
     /**
+     * Setup page with filter requirements and other prepare stuff.
+     *
+     * Override this method if the filter needs to setup page
+     * requirements or needs other stuff to be executed.
+     *
+     * Note this method is invoked from {@see setup_page_for_filters()}
+     * for each piece of text being filtered, so it is responsible
+     * for controlling its own execution cardinality.
+     *
+     * @param moodle_page $page the page we are going to add requirements to.
+     * @param context $context the context which contents are going to be filtered.
+     * @since Moodle 2.3
+     */
+    public function setup($page, $context) {
+        // Override me, if needed.
+    }
+
+    /**
      * Filter text before changing format to HTML.
      *
      * @param string $text
@@ -45,32 +63,37 @@ class filter_autotranslate extends moodle_text_filter {
      * @return string
      */
     public function filter_stage_pre_format(string $text, array $options): string {
-        // Ideally we want to get rid of all other languages before any text formatting.
-        return $this->filter($text, $options);
+        var_dump($text);
+        // NOTE: override if necessary.
+        return $text;
     }
 
     /**
      * Filter HTML text before sanitising text.
      *
-     * Text sanitisation might not be performed if $options['noclean'] true.
+     * NOTE: this is called even if $options['noclean'] is true and text is not cleaned.
      *
      * @param string $text
      * @param array $options
      * @return string
      */
     public function filter_stage_pre_clean(string $text, array $options): string {
+        // NOTE: override if necessary.
         return $text;
     }
 
     /**
-     * Filter HTML text after sanitisation.
+     * Filter HTML text at the very end after text is sanitised.
+     *
+     * NOTE: this is called even if $options['noclean'] is true and text is not cleaned.
      *
      * @param string $text
      * @param array $options
      * @return string
      */
     public function filter_stage_post_clean(string $text, array $options): string {
-        return $text;
+        // NOTE: override if necessary.
+        return $this->filter($text, $options);
     }
 
     /**
@@ -84,6 +107,7 @@ class filter_autotranslate extends moodle_text_filter {
      * @return string
      */
     public function filter_stage_string(string $text, array $options): string {
+        // NOTE: override if necessary.
         return $this->filter($text, $options);
     }
 
@@ -133,7 +157,16 @@ class filter_autotranslate extends moodle_text_filter {
         $hash = md5($text);
 
         // get the contextid record
-        $context_record = $DB->get_record('filter_autotranslate_ids', array('hash' => $hash, 'lang' => $current_lang, 'contextid' => $PAGE->context->id));
+        $context_record = $DB->get_record(
+            'filter_autotranslate_ids', 
+            array(
+                'hash' => $hash, 
+                'lang' => $current_lang, 
+                'contextid' => $this->context->id,
+                'contextlevel' => $this->context->contextlevel,
+                'instanceid' => $this->context->instanceid
+            )
+        );
 
         // insert the context id record if it does not exist
         if (!$context_record) {
@@ -162,6 +195,7 @@ class filter_autotranslate extends moodle_text_filter {
                 array(
                     'hash' => $hash,
                     'lang' => $current_lang,
+                    'status' => $current_lang === $site_lang ? 2 : 0,
                     'text' => $text,
                     'created_at' => time(),
                     'modified_at' => time()

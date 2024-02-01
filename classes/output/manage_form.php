@@ -36,6 +36,11 @@ defined('MOODLE_INTERNAL') || die();
 class manage_form extends \moodleform {
 
     /**
+     * @param string $urlparms URL Params from Manage Page
+     */
+    private array $urlparams;
+
+    /**
      * Define Moodle Form
      *
      * @return void
@@ -58,7 +63,18 @@ class manage_form extends \moodleform {
         $limit = $this->_customdata['limit'];
         $instanceid = $this->_customdata['instanceid'];
         $contextlevel = $this->_customdata['contextlevel'];
-        $urlquery = $this->_customdata['urlquery'];
+
+        // url params for pagination
+        $this->urlparams = [];
+        $this->urlparams['source_lang'] = $source_lang;
+        $this->urlparams['target_lang'] = $target_lang;
+        $this->urlparams['limit'] = $limit;
+        if ($instanceid) {
+            $this->urlparams['instanceid'] = $instanceid;
+        }
+        if ($contextlevel) {
+            $this->urlparams['contextlevel'] = $contextlevel;
+        }
 
         // $this->_form->_attributes['action'] = new \moodle_url('/filter/autotranslate/manage.php', array(
         //     'source_lang' => $this->source_lang, 
@@ -78,7 +94,7 @@ class manage_form extends \moodleform {
         }
 
         // Open Form.
-        $mform->addElement('html', '<div class="container-fluid filter-autotranslate_form">');
+        $mform->addElement('html', '<div class="container-fluid filter-autotranslate__form">');
 
         // Loop through merged records to build form.
         $formData = [];
@@ -104,7 +120,6 @@ class manage_form extends \moodleform {
         $mform->addElement('html', '<div class="col-7 filter-autotranslate__pagination">');
         $mform->addElement('html', '<ul>');
         
-        
         // Number of pages to display around the current page
         $pagesToShow = 5;
 
@@ -112,21 +127,10 @@ class manage_form extends \moodleform {
         $startPage = max(1, $page - floor($pagesToShow / 2));
         $endPage = min($startPage + $pagesToShow - 1, end($pages));
 
-        $urlparams = [];
-        $urlparams['source_lang'] = $source_lang;
-        $urlparams['target_lang'] = $target_lang;
-        $urlparams['limit'] = $limit;
-        if ($instanceid) {
-            $urlparams['instanceid'] = $instanceid;
-        }
-        if ($contextlevel) {
-            $urlparams['contextlevel'] = $contextlevel;
-        }
-
         // Display "First" link
         if ($startPage > 1) {
             $firstUrl = new \moodle_url('/filter/autotranslate/manage.php', array(
-                ...$urlparams,
+                ...$this->urlparams,
                 'page' => 1,
             ));
             $mform->addElement('html', '<li class="mr-1 mb-1"><a href="' . $firstUrl->out() . '" class="btn btn-light">' . get_string('pag_first', 'filter_autotranslate') . '</a></li>');
@@ -136,16 +140,16 @@ class manage_form extends \moodleform {
         if ($startPage > 1) {
             $prevPage = max(1, $page - 1);
             $prevUrl = new \moodle_url('/filter/autotranslate/manage.php', array(
-                ...$urlparams,
+                ...$this->urlparams,
                 'page' => $prevPage,
             ));
             $mform->addElement('html', '<li class="mr-1 mb-1"><a href="' . $prevUrl->out() . '" class="btn btn-light">' . get_string('pag_previous', 'filter_autotranslate') . '</a></li>');
         }
 
         // Display the range of pages
-        for ($pagenum = $startPage; $pagenum <= $endPage; $pagenum++) {
+        for ($pagenum = $startPage; $pagenum <= $endPage && $endPage > 1; $pagenum++) {
             $url = new \moodle_url('/filter/autotranslate/manage.php', array(
-                ...$urlparams,
+                ...$this->urlparams,
                 'page' => $pagenum,
             ));
             $mform->addElement('html', '<li class="mr-1 mb-1">');
@@ -158,7 +162,7 @@ class manage_form extends \moodleform {
         if ($endPage < end($pages)) {
             $nextPage = min(end($pages), $page + 1);
             $nextUrl = new \moodle_url('/filter/autotranslate/manage.php', array(
-                ...$urlparams,
+                ...$this->urlparams,
                 'page' => $nextPage,
             ));
             $mform->addElement('html', '<li class="mr-1 mb-1"><a href="' . $nextUrl->out() . '" class="btn btn-light">' . get_string('pag_next', 'filter_autotranslate') . '</a></li>');
@@ -167,7 +171,7 @@ class manage_form extends \moodleform {
         // Display "Last" link
         if ($endPage < end($pages)) {
             $lastUrl = new \moodle_url('/filter/autotranslate/manage.php', array(
-                ...$urlparams,
+                ...$this->urlparams,
                 'page' => end($pages),
             ));
             $mform->addElement('html', '<li class="mr-1 mb-1"><a href="' . $lastUrl->out() . '" class="btn btn-light">' . get_string('pag_last', 'filter_autotranslate') . '</a></li>');
@@ -214,6 +218,7 @@ class manage_form extends \moodleform {
      */
     private function get_formrow(\MoodleQuickForm $mform, \stdClass $record) {
         global $PAGE;
+        global $DB;
 
         // Open translation item.
         $mform->addElement(
@@ -222,8 +227,35 @@ class manage_form extends \moodleform {
         );
 
         // first column
+        $translations = $DB->get_records(
+            'filter_autotranslate', 
+            array(
+                'hash' => $record->hash
+            ), 
+            'lang ASC', 
+            'lang,status'
+        );
         $mform->addElement('html', '<div class="col-2">');
+        $mform->addElement('html', '<div>');
         $mform->addElement('html', $record->id . ": " . substr($record->hash, 0, 11));
+        $mform->addElement('html', '</div>');
+        $mform->addElement('html', '<ul class="filter-autotranslate__lang-list mt-2">');
+        foreach($translations as $translation) {
+            $btn_status_class = "btn-light";
+            if ($translation->status === "1") {
+                $btn_status_class = "btn-success";
+            }
+            if ($translation->status === "2") {
+                $btn_status_class = "btn-info";
+            }
+            $local_urlparams = $this->urlparams;
+            $local_urlparams['target_lang'] = $translation->lang;
+            $local_url = new \moodle_url('/filter/autotranslate/manage.php', $local_urlparams);
+            $mform->addElement('html', '<li class="mr-1">');
+            $mform->addElement('html', '<a href="' . $local_url->out() . '" class="btn btn-sm ' . $btn_status_class . '">' . strtoupper($translation->lang) . '</a>');
+            $mform->addElement('html', '</li>');
+        }
+        $mform->addElement('html', '</ul>');
         $mform->addElement('html', '</div>');
 
         // second column
@@ -246,7 +278,7 @@ class manage_form extends \moodleform {
                     $mform->addElement(
                         'editor', 
                         $field_name, 
-                        null, 
+                        null,
                         array(
                             'autosave' => false,
                             'removeorphaneddrafts' => true
@@ -283,6 +315,9 @@ class manage_form extends \moodleform {
     //     require_capability('local/multilingual:edittranslations', \context_system::instance()->id);
     // }
 
+    /**
+     * Validation
+     */
     public function validation($data, $files) {
         // mtrace("Form data before validation: " . print_r($data, true));
         $errors = parent::validation($data, $files);
@@ -290,12 +325,14 @@ class manage_form extends \moodleform {
         return $errors;
     }
 
+    /**
+     * Get Data
+     */
     public function get_data() {
         $data = parent::get_data();
         // mtrace("Form data after submission: " . print_r($data, true));
         return $data;
     }
-
 
     /**
      * Find Object by Key Value

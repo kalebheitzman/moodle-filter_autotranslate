@@ -43,6 +43,7 @@ $string['autotranslate_settings'] = 'Autotranslate filter settings';
 // Manage page strings
 $string['manage_title'] = "Manage Autotranslations";
 $string['hash_text'] = "ID: Hash Key";
+$string['available_translations'] = "Languages Translated";
 $string['source_text'] = "Source Text";
 $string['translation_text'] = "Translation Text";
 $string['select_source_language'] = "Select Source Language";
@@ -59,6 +60,9 @@ $string['ctx_coursecat'] = "Course Category";
 $string['ctx_course'] = "Course";
 $string['ctx_module'] = "Module";
 $string['ctx_block'] = "Block";
+$string['autotranslated'] = "Auto";
+$string['verified'] = "Verified";
+$string['source'] = "Source";
 
 // Tasks
 $string['taskname'] = "Autotranslation Fetch";

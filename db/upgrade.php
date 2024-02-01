@@ -138,10 +138,42 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
         $dbman->add_index($table, $index2);
         
         // Set the default values for existing records if needed.
-        // ...
+        // There is no way to know this but it won't be an issue because
+        // the plugin is not in the wild yet....
 
         // Update the version number to the latest.
         upgrade_plugin_savepoint(true, 2024013000, 'filter', 'autotranslate');
+    }
+
+    // add status field for tracking translations
+    if ($oldversion < 2024013101) {
+        $site_lang = get_config('core', 'lang');
+
+        // Define the table to be modified.
+        $table = new xmldb_table('filter_autotranslate');
+
+        // Add new fields to the table.
+        $field1 = new xmldb_field('status', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'lang');
+
+        // Add the fields.
+        if (!$dbman->field_exists($table, $field1)) {
+            $dbman->add_field($table, $field1);
+        }
+
+        // Add index on status and instanceid.
+        $index1 = new xmldb_index('status_index', XMLDB_INDEX_NOTUNIQUE, ['status']);
+
+        // Add the indexes.
+        if (!$dbman->index_exists($table, $index1)) {
+            $dbman->add_index($table, $index1);
+        }
+        
+        // Set the default values for existing records if needed.
+        $DB->execute("UPDATE {filter_autotranslate} SET status = ?", array(0));
+        $DB->set_field("filter_autotranslate", 'status', 2, array("lang" => $site_lang));
+
+        // Update the version number to the latest.
+        upgrade_plugin_savepoint(true, 2024013101, 'filter', 'autotranslate');
     }
 
     return true;

@@ -53,14 +53,20 @@ along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
     "charcountspaces": 25
   }
 }}
-
-
-
 <div class="container-fluid filter-autotranslate__container">
-
   <div class="row">
-    <div class="col-2">
-
+    <div class="col-2 d-flex flex-column justify-content-end align-items-start">
+      <ul class="filter-autotranslate__lang-list mb-3">
+        <li class="btn btn-sm btn-info">
+          {{#str}}source,filter_autotranslate{{/str}}
+        </li>
+        <li class="btn btn-sm btn-success">
+          {{#str}}verified,filter_autotranslate{{/str}}
+        </li>
+        <li class="btn btn-sm btn-light">
+          {{#str}}autotranslated,filter_autotranslate{{/str}}
+        </li>
+      </ul>
     </div>
     <div class="col-5 filter-autotranslate__language-selector">
       <p class="mb-0">{{#str}}select_source_language,filter_autotranslate{{/str}}</p>
@@ -82,7 +88,7 @@ along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
   <div class="row align-items-start border-bottom py-3 bg-secondary text-dark">
     <div class="col-2 pl-3">
-      {{#str}}hash_text,filter_autotranslate{{/str}}    
+      {{#str}}available_translations,filter_autotranslate{{/str}}    
     </div>
     <div class="col-5">
       {{#str}}source_text,filter_autotranslate{{/str}}: {{{source_lang}}}

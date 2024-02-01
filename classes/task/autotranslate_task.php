@@ -86,6 +86,7 @@ class autotranslate_task extends \core\task\scheduled_task {
                         array(
                             'hash' => $job->hash,
                             'lang' => $job->lang,
+                            'status' => 0,
                             'text' => $translation->text,
                             'created_at' => time(),
                             'modified_at' => time()
@@ -105,7 +106,6 @@ class autotranslate_task extends \core\task\scheduled_task {
                 );
 
                 mtrace("completed job $job->id...");
-
 
             } else if (!$source_record) {
                 // update the job to fetched

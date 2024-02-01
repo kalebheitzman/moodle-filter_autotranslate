@@ -37,7 +37,7 @@ use filter_autotranslate\output\manage_form;
 class manage_page implements renderable, templatable {
 
     /**
-     * @param string $site_lang Default Moodle Language
+     * @param string $this->site_lang Default Moodle Language
      */
     private string $site_lang;
 
@@ -116,7 +116,7 @@ class manage_page implements renderable, templatable {
             $managelimit = 20;
         }
 
-        // get params
+        // Qury params
         $this->site_lang = get_config('core', 'lang', PARAM_NOTAGS);
         $this->langs = get_string_manager()->get_list_of_translations();
         $this->source_lang = optional_param('source_lang', $this->site_lang, PARAM_NOTAGS);
@@ -268,7 +268,6 @@ class manage_page implements renderable, templatable {
             'limit' => $this->limit,
             'instanceid' => $this->instanceid,
             'contextlevel' => $this->contextlevel,
-            'urlquery' => $this->urlquery
         ]);
         $this->mform = $mform;
     }
@@ -334,8 +333,8 @@ class manage_page implements renderable, templatable {
                     $target_record = $DB->get_record('filter_autotranslate', $record, '*');
 
                     // set the rest of record
+                    $record['status'] = $this->site_lang === $this->target_lang ? 2 : 1;
                     $record['text'] = $text;
-                    $record['created_at'] = time();
                     $record['modified_at'] = time();
 
                     // calculate the new hash
@@ -402,15 +401,8 @@ class manage_page implements renderable, templatable {
                         // update the hashes after the source text has been updated
                         else {
 
-                            $updated_record = $target_record;
-                            $updated_record->hash = $md5hash;
-                            $updated_record->text = $text;
-                            $updated_record->modified_at = time();
-
-                            // update the target record if it exists
-                            if ($target_record) {
-                                $DB->update_record('filter_autotranslate', $updated_record);
-                            } 
+                            $record['id'] = $target_record->id;
+                            $DB->update_record('filter_autotranslate', $record);
 
                             // get the filter_autotranslate records
                             $autotranslate_records = $DB->get_records(
@@ -481,15 +473,18 @@ class manage_page implements renderable, templatable {
                                 $DB->execute($sql, $params);
                             } 
                         }                 
-                    }                    
+                    } else {
+                        $record['id'] = $target_record->id;
+                        $record['created_at'] = $target_record->created_at;
+                        
+                        $DB->update_record('filter_autotranslate', $record);
+                    }                  
                 }
 
                 // @todo: I don't like the way this works
                 // I need to figure out how to update records before the point for 
                 // the source column
                 redirect($url);            
-            } else {   
-            
             }
 
             // @todo: Hacky fix but the only way to adjust html...

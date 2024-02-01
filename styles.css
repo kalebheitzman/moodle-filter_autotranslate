@@ -1,5 +1,5 @@
 .filter-autotranslate__container,
-.filter-autotranslate_form {
+.filter-autotranslate__form {
   max-width: 100% !important;
   width: 100% !important;
 }
@@ -19,6 +19,15 @@
   list-style: none;
 }
 .filter-autotranslate__pagination ul li {
+  display: inline-block;
+}
+
+.filter-autotranslate__lang-list {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.filter-autotranslate__lang-list li {
   display: inline-block;
 }
 
