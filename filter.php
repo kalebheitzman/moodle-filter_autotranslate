@@ -22,8 +22,11 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+global $CFG;
+
 // get libs
 require_once(dirname(__DIR__, 2) . '/config.php');
+require_once($CFG->libdir . '/filterlib.php');
 require_once(__DIR__ . "/vendor/autoload.php");
 
 /**
@@ -63,7 +66,6 @@ class filter_autotranslate extends moodle_text_filter {
      * @return string
      */
     public function filter_stage_pre_format(string $text, array $options): string {
-        var_dump($text);
         // NOTE: override if necessary.
         return $text;
     }
@@ -125,6 +127,14 @@ class filter_autotranslate extends moodle_text_filter {
         global $DB;
         global $PAGE;
         global $CFG;
+
+        echo "<pre>";
+        var_dump($this->mlangparser($text));
+        echo "</pre>";
+
+        // var_dump($manager);
+        // $enabled_filters = \filter_manager::get_text_filters();
+        // var_dump($enabled_filters);
 
         // Define URLs of pages to exempt
         $exempted_pages = array(
@@ -250,5 +260,107 @@ class filter_autotranslate extends moodle_text_filter {
         
         return $text;
     }
+
+    /**
+     * Parse multilang text and create an array based on the filter criteria
+     *
+     * @param string $text Text to be filtered
+     * @return array Associative array with language codes as keys and corresponding texts as values
+     */
+    private function mlangparser($text) {
+        $result = [];
+
+        if (empty($text) or is_numeric($text)) {
+            return $result;
+        }
+
+        // Pattern for the {mlang} tags
+        $mlangPattern = '/{\s*mlang\s+([a-z0-9_-]+)\s*}(.*?){\s*mlang\s*}/is';
+
+        // Pattern for <lang> or <span> tags
+        $langPattern = '/<(?:lang|span)[^>]+lang="([a-zA-Z0-9_-]+)"[^>]*>(.*?)<\/(?:lang|span)>/is';
+
+        // Search for {mlang} tags
+        if (preg_match_all($mlangPattern, $text, $mlangMatches, PREG_SET_ORDER)) {
+            foreach ($mlangMatches as $mlangMatch) {
+                $lang = $mlangMatch[1];
+                $content = $mlangMatch[2];
+
+                // Organize content into the result array with language codes as keys
+                $result[$lang] = $content;
+            }
+        }
+
+        // Search for <lang> or <span> tags
+        preg_replace_callback($langPattern, function ($langblock) use (&$result) {
+            $langlist = [];
+            if (preg_match_all('/[a-zA-Z0-9_-]+/', $langblock[1], $langs)) {
+                foreach ($langs[0] as $lang) {
+                    $lang = str_replace('-', '_', strtolower($lang)); // Normalize languages.
+                    $langlist[$lang] = $langblock[2];
+                }
+            }
+            $result += $langlist;
+        }, $text);
+
+        return $result;
+    }
+
+    // /**
+    //  * Search for mlang tags
+    //  *
+    //  * The code for this PHP parser is adapted from filter/multilang2
+    //  *
+    //  * @param string $text Text with {mlang}
+    //  * @return string
+    //  */
+    // private function mlangparser2($text) {
+    //     // Search for {mlang} not found.
+    //     if (!preg_match_all('/{\s*mlang\s+([a-z0-9_-]+)\s*}(.*?){\s*mlang\s*}/is', $text, $matches, PREG_SET_ORDER)) {
+    //         return [];
+    //     }
+
+    //     // Iterate through matches and build the result array
+    //     $result = [];
+    //     foreach ($matches as $match) {
+    //         $lang = $match[1];
+    //         $content = $match[2];
+
+    //         // Organize content into the result array with language codes as keys
+    //         $result[$lang] = $content;
+    //     }
+
+    //     return $result;
+    // }
+
+    // /**
+    //  * Parse text and create an array based on the filter criteria
+    //  *
+    //  * @param string $text Text to be filtered
+    //  * @return array Associative array with language codes as keys and corresponding texts as values
+    //  */
+    // private function mlangparser($text) {
+    //     $result = [];
+
+    //     if (empty($text) or is_numeric($text)) {
+    //         return $result;
+    //     }
+
+    //     // Adjust the regular expression pattern accordingly
+    //     $search = '/<(?:lang|span)[^>]+lang="([a-zA-Z0-9_-]+)"[^>]*>(.*?)<\/(?:lang|span)>/is';
+
+    //     preg_replace_callback($search, function ($langblock) use (&$result) {
+    //         $langlist = [];
+    //         if (preg_match_all('/[a-zA-Z0-9_-]+/', $langblock[1], $langs)) {
+    //             foreach ($langs[0] as $lang) {
+    //                 $lang = str_replace('-', '_', strtolower($lang)); // Normalize languages.
+    //                 $langlist[$lang] = $langblock[2];
+    //             }
+    //         }
+    //         $result += $langlist;
+    //     }, $text);
+
+    //     return $result;
+    // }
 
 }
