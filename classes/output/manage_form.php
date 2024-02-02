@@ -251,7 +251,7 @@ class manage_form extends \moodleform {
             $local_urlparams = $this->urlparams;
             $local_urlparams['target_lang'] = $translation->lang;
             $local_url = new \moodle_url('/filter/autotranslate/manage.php', $local_urlparams);
-            $mform->addElement('html', '<li class="mr-1">');
+            $mform->addElement('html', '<li class="mr-1 mb-1">');
             $mform->addElement('html', '<a href="' . $local_url->out() . '" class="btn btn-sm ' . $btn_status_class . '">' . strtoupper($translation->lang) . '</a>');
             $mform->addElement('html', '</li>');
         }
