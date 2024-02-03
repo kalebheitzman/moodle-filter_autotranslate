@@ -23,7 +23,12 @@
  * @see        https://docs.moodle.org/dev/Output_API
  */
 
+global $CFG;
+
 require_once(dirname(__DIR__, 2) . '/config.php');
+require_once($CFG->libdir . '/pagelib.php');
+
+$PAGE = new moodle_page();
 
 $context = context_system::instance();
 $PAGE->set_context($context);
