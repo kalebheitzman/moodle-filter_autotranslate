@@ -140,6 +140,9 @@ class manage_page implements renderable, templatable {
         $this->page = clean_param($this->page, PARAM_INT);
         $this->limit = optional_param('limit', $managelimit, PARAM_INT);
         $this->limit = clean_param($this->limit, PARAM_INT);
+        if ($this->limit === 0) {
+            $this->limit = $managelimit;
+        }
         $this->page = max(1, (int)$this->page); // Ensure a valid positive integer for page
         $this->offset = ($this->page - 1) * $this->limit;
         $this->status = optional_param('status', -1, PARAM_INT);
@@ -309,6 +312,7 @@ class manage_page implements renderable, templatable {
         $data->source_lang_code = $this->source_lang;
         $data->target_lang_code = $this->target_lang;
         $data->target_lang_dir = $this->target_lang_dir;
+        $data->status = $this->status;
         $data->instanceid = $this->instanceid;
         $data->contextlevel = $this->contextlevel;
         $data->limit = $this->limit;

@@ -56,15 +56,15 @@ along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 <div class="container-fluid filter-autotranslate__container">
   <div class="row">
     <div class="col-2 d-flex flex-column justify-content-end align-items-start">
-      <ul class="filter-autotranslate__lang-list mb-3">
-        <li class="btn btn-sm btn-info">
-          {{#str}}source,filter_autotranslate{{/str}}
+      <ul class="filter-autotranslate__status-selector">
+        <li>
+          <a href="{{ url }}?source_lang={{source_lang_code}}&target_lang={{target_lang_code}}&limit={{limit}}&status=2&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="btn btn-sm btn-info">{{#str}}source,filter_autotranslate{{/str}}</a>
         </li>
-        <li class="btn btn-sm btn-success">
-          {{#str}}verified,filter_autotranslate{{/str}}
+        <li>
+          <a href="{{ url }}?source_lang={{source_lang_code}}&target_lang={{target_lang_code}}&limit={{limit}}&status=1&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="btn btn-sm btn-success">{{#str}}verified,filter_autotranslate{{/str}}</a>
         </li>
-        <li class="btn btn-sm btn-light">
-          {{#str}}autotranslated,filter_autotranslate{{/str}}
+        <li>
+          <a href="{{ url }}?source_lang={{source_lang_code}}&target_lang={{target_lang_code}}&limit={{limit}}&status=0&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="btn btn-sm btn-light">{{#str}}autotranslated,filter_autotranslate{{/str}}</a>
         </li>
       </ul>
     </div>
@@ -72,7 +72,7 @@ along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
       <p class="mb-0">{{#str}}select_source_language,filter_autotranslate{{/str}}</p>
       <ul class="mb-1">
         {{#langs}}
-          <li class="text-uppercase"><a href="{{ url }}?source_lang={{code}}&target_lang={{target_lang_code}}&limit={{limit}}&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="text-decoration-none btn {{source-btn-class}}">{{ code }}</a></li>
+          <li class="text-uppercase"><a href="{{ url }}?source_lang={{code}}&target_lang={{target_lang_code}}&limit={{limit}}&status={{status}}&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="text-decoration-none btn {{source-btn-class}}">{{ code }}</a></li>
         {{/langs}}
       </ul>
     </div>
@@ -80,7 +80,7 @@ along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
       <p class="mb-0">{{#str}}select_target_language,filter_autotranslate{{/str}}</p>
       <ul class="mb-1">
         {{#langs}}
-          <li class="text-uppercase"><a href="{{ url }}?source_lang={{source_lang_code}}&target_lang={{code}}&limit={{limit}}&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="text-decoration-none btn {{target-btn-class}}">{{ code }}</a></li>
+          <li class="text-uppercase"><a href="{{ url }}?source_lang={{source_lang_code}}&target_lang={{code}}&limit={{limit}}&status={{status}}&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="text-decoration-none btn {{target-btn-class}}">{{ code }}</a></li>
         {{/langs}}
       </ul>
     </div>
