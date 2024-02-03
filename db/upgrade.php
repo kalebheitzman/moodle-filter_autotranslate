@@ -90,26 +90,26 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
             $dbman->create_table($filter_autotranslate_jobs_table);
         }
 
-        // Define table filter_autotranslate_ids to be created.
-        $filter_autotranslate_ids_table = new xmldb_table('filter_autotranslate_ids');
+        // Define table filter_autotranslate_ctx to be created.
+        $filter_autotranslate_ctx_table = new xmldb_table('filter_autotranslate_ctx');
 
         // Define fields to be added to filter_autotranslate.
-        $filter_autotranslate_ids_table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
-        $filter_autotranslate_ids_table->add_field('hash', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, null);
-        $filter_autotranslate_ids_table->add_field('lang', XMLDB_TYPE_CHAR, '2', null, XMLDB_NOTNULL, null, null);
-        $filter_autotranslate_ids_table->add_field('contextid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $filter_autotranslate_ctx_table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $filter_autotranslate_ctx_table->add_field('hash', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, null);
+        $filter_autotranslate_ctx_table->add_field('lang', XMLDB_TYPE_CHAR, '2', null, XMLDB_NOTNULL, null, null);
+        $filter_autotranslate_ctx_table->add_field('contextid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
 
         // Add keys to filter_autotranslate.
-        $filter_autotranslate_ids_table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $filter_autotranslate_ctx_table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
 
         // Add indexes to filter_autotranslate.
-        $filter_autotranslate_ids_table->add_index('hash_index', XMLDB_INDEX_NOTUNIQUE, ['hash']);
-        $filter_autotranslate_ids_table->add_index('lang_index', XMLDB_INDEX_NOTUNIQUE, ['lang']);
-        $filter_autotranslate_ids_table->add_index('contextid_index', XMLDB_INDEX_NOTUNIQUE, ['contextid']);
+        $filter_autotranslate_ctx_table->add_index('hash_index', XMLDB_INDEX_NOTUNIQUE, ['hash']);
+        $filter_autotranslate_ctx_table->add_index('lang_index', XMLDB_INDEX_NOTUNIQUE, ['lang']);
+        $filter_autotranslate_ctx_table->add_index('contextid_index', XMLDB_INDEX_NOTUNIQUE, ['contextid']);
 
         // Conditionally launch create table for filter_autotranslate.
-        if (!$dbman->table_exists($filter_autotranslate_ids_table)) {
-            $dbman->create_table($filter_autotranslate_ids_table);
+        if (!$dbman->table_exists($filter_autotranslate_ctx_table)) {
+            $dbman->create_table($filter_autotranslate_ctx_table);
         }
 
         // Coursetranslator savepoint reached.
@@ -119,7 +119,7 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
     // add contextlevel and instanceid to the filter_autotranslate__ids table
     if ($oldversion < 2024013000) {
         // Define the table to be modified.
-        $table = new xmldb_table('filter_autotranslate_ids');
+        $table = new xmldb_table('filter_autotranslate_ctx');
 
         // Add new fields to the table.
         $field1 = new xmldb_field('contextlevel', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'hash');

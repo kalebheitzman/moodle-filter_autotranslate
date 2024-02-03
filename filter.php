@@ -222,7 +222,7 @@ class filter_autotranslate extends moodle_text_filter {
 
             // get the contextid record
             $ctx_record = $DB->get_record(
-                'filter_autotranslate_ids', 
+                'filter_autotranslate_ctx', 
                 array(
                     'hash' => $hash, 
                     'lang' => $lang, 
@@ -237,7 +237,7 @@ class filter_autotranslate extends moodle_text_filter {
             // an autotranslation job has been added for the content
             if (!$ctx_record) {
                 $DB->insert_record(
-                    'filter_autotranslate_ids', 
+                    'filter_autotranslate_ctx', 
                     array(
                         'hash' => $hash,
                         'lang' => $lang,

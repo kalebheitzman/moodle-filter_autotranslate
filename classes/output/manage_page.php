@@ -88,6 +88,11 @@ class manage_page implements renderable, templatable {
     private array $pages;
 
     /**
+     * @param ing $status Status of translations to query
+     */
+    private int $status;
+
+    /**
      * @param string $target_lang_dir Target text rtl or ltr
      */
     private string $target_lang_dir;
@@ -137,6 +142,8 @@ class manage_page implements renderable, templatable {
         $this->limit = clean_param($this->limit, PARAM_INT);
         $this->page = max(1, (int)$this->page); // Ensure a valid positive integer for page
         $this->offset = ($this->page - 1) * $this->limit;
+        $this->status = optional_param('status', -1, PARAM_INT);
+        $this->status = clean_param($this->status, PARAM_INT);
 
         // url params
         $urlparams = [];
@@ -150,13 +157,16 @@ class manage_page implements renderable, templatable {
         if ($this->contextlevel) {
             $urlparams['contextlevel'] = $this->contextlevel;
         }
+        if ($this->status && $this->status !== -1) {
+            $urlparams['status'] = $this->status;
+        }
         $this->urlquery = http_build_query($urlparams);
 
         // build the target params
         $target_records = [];
         if ($this->instanceid || $this->contextlevel) {
-            // Construct the SQL query for filter_autotranslate_ids table
-            $in_sql_ids = "SELECT hash FROM {filter_autotranslate_ids} WHERE";
+            // Construct the SQL query for filter_autotranslate_ctx table
+            $in_sql_ids = "SELECT hash FROM {filter_autotranslate_ctx} WHERE";
             $conditions = array();
             $values = array();
 
@@ -187,19 +197,21 @@ class manage_page implements renderable, templatable {
 
                 // Construct the conditions for the IN clause
                 $in_conditions = array('hash IN (' . $in_placeholders . ')', 'lang = ?');
-
+                
                 // Add values for the IN clause
                 $in_values = array_merge($hashes, array($this->target_lang));
 
+                // Add additional conditions
+                $additional_conditions = array();
+                if ($this->status > -1) {
+                    $additional_conditions[] = 'status = ?';
+                    $in_values[] = $this->status;
+                }
+
+                $in_conditions = array_merge($in_conditions, $additional_conditions);
+
                 // Construct the SQL query for filter_autotranslate table
                 $in_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $in_conditions);
-
-                // Add placeholders for the LIMIT clause
-                $limit_conditions = array('lang = ?');
-                $limit_values = array($this->target_lang);
-
-                // Construct the SQL query for the LIMIT clause
-                $limit_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $limit_conditions) . " LIMIT ?, ?";
 
                 // Combine the values for both queries
                 $values = array_merge($in_values, $in_values);
@@ -211,13 +223,18 @@ class manage_page implements renderable, templatable {
                 $target_records = $DB->get_records_sql($in_sql . ' ORDER BY id ASC', $values, $this->offset, $this->limit);
             }
         } else {
+            // specify the target params
+            $target_params = [];
+            $target_params['lang'] = $this->target_lang;
+            if ($this->status > -1) {
+                $target_params['status'] = $this->status;
+            }
+
             // Get the total number of target records
-            $target_records_count = $DB->count_records("filter_autotranslate", array("lang" => $this->target_lang));
+            $target_records_count = $DB->count_records("filter_autotranslate", $target_params);
             $total_pages = ceil($target_records_count / $this->limit);
             $this->pages = range(1, $total_pages);
 
-            $target_parms = [];
-            $target_params['lang'] = $this->target_lang;
             $target_records = $DB->get_records("filter_autotranslate", $target_params, '', '*', $this->offset, $this->limit);
         }
 
@@ -239,13 +256,6 @@ class manage_page implements renderable, templatable {
             // Construct the SQL query for the IN clause
             $in_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $in_conditions);
 
-            // Add placeholders for the LIMIT clause
-            $limit_conditions = array('lang = ?');
-            $limit_values = array($this->source_lang);
-
-            // Construct the SQL query for the LIMIT clause
-            $limit_sql = "SELECT * FROM {filter_autotranslate} WHERE " . implode(' AND ', $limit_conditions) . " LIMIT ?, ?";
-
             // Combine the values for both queries
             $values = array_merge($in_values, array($this->offset, $this->limit));
 
@@ -262,6 +272,7 @@ class manage_page implements renderable, templatable {
             'target_records' => $target_records,
             'source_lang' => $this->source_lang,
             'target_lang' => $this->target_lang,
+            'status' => $this->status,
             'lang_dir' => $this->target_lang_dir,
             'pages' => $this->pages,
             'page' => $this->page,
@@ -324,163 +335,167 @@ class manage_page implements renderable, templatable {
                         $text = $item;
                     }
 
-                    // build the initial record and use it to query the db
-                    $record = [];
-                    $record['hash'] = $hash;
-                    $record['lang'] = $this->target_lang;
-                    
-                    // try to find existing target record to update
-                    $target_record = $DB->get_record('filter_autotranslate', $record, '*');
-
-                    // set the rest of record
-                    $record['status'] = $this->site_lang === $this->target_lang ? 2 : 1;
-                    $record['text'] = $text;
-                    $record['modified_at'] = time();
-
-                    // calculate the new hash
-                    $md5hash = md5($text);
-
-                    // if the target record uses the same lang as the site_lang
-                    // then hashes need updated in filter_autotranslate, filter_autotranslate_ids
-                    // and filter_autotranslate_jobs
-                    if ($record['lang'] === $this->site_lang && $md5hash !== $hash) {
+                    // translation is same as original, skip to next item
+                    if ($fromform->translation[$hash] !== $fromform->original[$hash]) {
                         
-                        // check to see if an existing hash exists and if so
-                        // delete the old hash records
-                        $existingrecord = $DB->get_record(
-                            'filter_autotranslate', 
-                            array('hash' => $md5hash),
-                            '*',
-                        );
 
-                        // there is an existing record with the same hash already
-                        // this will cause duplicates if we don't catch it here
-                        if ($existingrecord) {
-                            // get the filter_autotranslate records
-                            $autotranslate_records = $DB->get_records(
+                        // build the initial record and use it to query the db
+                        $record = [];
+                        $record['hash'] = $hash;
+                        $record['lang'] = $this->target_lang;
+                        
+                        // try to find existing target record to update
+                        $target_record = $DB->get_record('filter_autotranslate', $record, '*');
+
+                        // set the rest of record
+                        $record['status'] = $this->site_lang === $this->target_lang ? 2 : 1;
+                        $record['text'] = $text;
+                        $record['modified_at'] = time();
+
+                        // calculate the new hash
+                        $md5hash = md5($text);
+
+                        // if the target record uses the same lang as the site_lang
+                        // then hashes need updated in filter_autotranslate, filter_autotranslate_ctx
+                        // and filter_autotranslate_jobs
+                        if ($record['lang'] === $this->site_lang && $md5hash !== $hash) {
+                            
+                            // check to see if an existing hash exists and if so
+                            // delete the old hash records
+                            $existingrecord = $DB->get_record(
                                 'filter_autotranslate', 
-                                array('hash' => $record['hash']),
-                                '',
-                                'id'
+                                array('hash' => $md5hash),
+                                '*',
                             );
-                            $autotranslate_records_ids = array_column($autotranslate_records, 'id');
 
-                            // delete the hash in filter_autotranslate records
-                            if (!empty($autotranslate_records_ids)) {
-                                $DB->delete_records('filter_autotranslate', array('hash' => $record['hash']));
-                            }
+                            // there is an existing record with the same hash already
+                            // this will cause duplicates if we don't catch it here
+                            if ($existingrecord) {
+                                // get the filter_autotranslate records
+                                $autotranslate_records = $DB->get_records(
+                                    'filter_autotranslate', 
+                                    array('hash' => $record['hash']),
+                                    '',
+                                    'id'
+                                );
+                                $autotranslate_records_ids = array_column($autotranslate_records, 'id');
 
-                            // get the filter_autotranslate_ids records
-                            $autotranslate_records_context = $DB->get_records(
-                                'filter_autotranslate_ids', 
-                                array('hash' => $record['hash']),
-                                '',
-                                'id'
-                            );
-                            $autotranslate_records_context_ids = array_column($autotranslate_records_context, 'id');
+                                // delete the hash in filter_autotranslate records
+                                if (!empty($autotranslate_records_ids)) {
+                                    $DB->delete_records('filter_autotranslate', array('hash' => $record['hash']));
+                                }
 
-                            // delete the hash in filter_autotranslate_ids
-                            if (!empty($autotranslate_records_context_ids)) {
-                                $DB->delete_records('filter_autotranslate_ids', array('hash' => $record['hash']));
-                            }
+                                // get the filter_autotranslate_ctx records
+                                $autotranslate_records_context = $DB->get_records(
+                                    'filter_autotranslate_ctx', 
+                                    array('hash' => $record['hash']),
+                                    '',
+                                    'id'
+                                );
+                                $autotranslate_records_context_ids = array_column($autotranslate_records_context, 'id');
 
-                            // get the filter_autotranslate_jobs records
-                            $autotranslate_records_jobs = $DB->get_records(
-                                'filter_autotranslate_jobs', 
-                                array('hash' => $record['hash']),
-                                '',
-                                'id'
-                            );
-                            $autotranslate_records_jobs_ids = array_column($autotranslate_records_jobs, 'id');
+                                // delete the hash in filter_autotranslate_ctx
+                                if (!empty($autotranslate_records_context_ids)) {
+                                    $DB->delete_records('filter_autotranslate_ctx', array('hash' => $record['hash']));
+                                }
 
-                            // delete the hash in filter_autotranslate_jobs
-                            if (!empty($autotranslate_records_jobs_ids)) {
-                                $DB->delete_records('filter_autotranslate_jobs', array('hash' => $record['hash']));
-                            }
-                        } 
-                        // update the hashes after the source text has been updated
-                        else {
+                                // get the filter_autotranslate_jobs records
+                                $autotranslate_records_jobs = $DB->get_records(
+                                    'filter_autotranslate_jobs', 
+                                    array('hash' => $record['hash']),
+                                    '',
+                                    'id'
+                                );
+                                $autotranslate_records_jobs_ids = array_column($autotranslate_records_jobs, 'id');
 
-                            $record['id'] = $target_record->id;
-                            $DB->update_record('filter_autotranslate', $record);
-
-                            // get the filter_autotranslate records
-                            $autotranslate_records = $DB->get_records(
-                                'filter_autotranslate', 
-                                array('hash' => $record['hash']),
-                                '',
-                                'id'
-                            );
-                            $autotranslate_records_ids = array_column($autotranslate_records, 'id');
-
-                            // update the hash in filter_autotranslate records
-                            if (!empty($autotranslate_records_ids)) {
-                                $ids_placeholder = implode(',', array_fill(0, count($autotranslate_records_ids), '?'));
-
-                                // Update the hash field with the new hash value
-                                $sql = "UPDATE {filter_autotranslate}
-                                        SET hash = ?
-                                        WHERE id IN ($ids_placeholder)";
-                                
-                                $params = array_merge([$md5hash], $autotranslate_records_ids);
-                                
-                                $DB->execute($sql, $params);
-                            }
-
-                            // get the filter_autotranslate_ids records
-                            $autotranslate_records_context = $DB->get_records(
-                                'filter_autotranslate_ids', 
-                                array('hash' => $record['hash']),
-                                '',
-                                'id'
-                            );
-                            $autotranslate_records_context_ids = array_column($autotranslate_records_context, 'id');
-
-                            // update the hash in filter_autotranslate_ids
-                            if (!empty($autotranslate_records_context_ids)) {
-                                $ids_placeholder = implode(',', array_fill(0, count($autotranslate_records_context_ids), '?'));
-
-                                // Update the hash field with the new hash value
-                                $sql = "UPDATE {filter_autotranslate_ids}
-                                        SET hash = ?
-                                        WHERE id IN ($ids_placeholder)";
-                                
-                                $params = array_merge([$md5hash], $autotranslate_records_context_ids);
-                                
-                                $DB->execute($sql, $params);
-                            }
-
-                            // get the filter_autotranslate_jobs records
-                            $autotranslate_records_jobs = $DB->get_records(
-                                'filter_autotranslate_jobs', 
-                                array('hash' => $record['hash']),
-                                '',
-                                'id'
-                            );
-                            $autotranslate_records_jobs_ids = array_column($autotranslate_records_jobs, 'id');
-
-                            // update the hash in filter_autotranslate_jobs
-                            if (!empty($autotranslate_records_jobs_ids)) {
-                                $ids_placeholder = implode(',', array_fill(0, count($autotranslate_records_jobs_ids), '?'));
-
-                                // Update the hash field with the new hash value
-                                $sql = "UPDATE {filter_autotranslate_jobs}
-                                        SET hash = ?
-                                        WHERE id IN ($ids_placeholder)";
-                                
-                                $params = array_merge([$md5hash], $autotranslate_records_jobs_ids);
-                                
-                                $DB->execute($sql, $params);
+                                // delete the hash in filter_autotranslate_jobs
+                                if (!empty($autotranslate_records_jobs_ids)) {
+                                    $DB->delete_records('filter_autotranslate_jobs', array('hash' => $record['hash']));
+                                }
                             } 
-                        }                 
-                    } else {
-                        $record['id'] = $target_record->id;
-                        $record['created_at'] = $target_record->created_at;
-                        
-                        $DB->update_record('filter_autotranslate', $record);
-                    }                  
-                }
+                            // update the hashes after the source text has been updated
+                            else {
 
+                                $record['id'] = $target_record->id;
+                                $DB->update_record('filter_autotranslate', $record);
+
+                                // get the filter_autotranslate records
+                                $autotranslate_records = $DB->get_records(
+                                    'filter_autotranslate', 
+                                    array('hash' => $record['hash']),
+                                    '',
+                                    'id'
+                                );
+                                $autotranslate_records_ids = array_column($autotranslate_records, 'id');
+
+                                // update the hash in filter_autotranslate records
+                                if (!empty($autotranslate_records_ids)) {
+                                    $ids_placeholder = implode(',', array_fill(0, count($autotranslate_records_ids), '?'));
+
+                                    // Update the hash field with the new hash value
+                                    $sql = "UPDATE {filter_autotranslate}
+                                            SET hash = ?
+                                            WHERE id IN ($ids_placeholder)";
+                                    
+                                    $params = array_merge([$md5hash], $autotranslate_records_ids);
+                                    
+                                    $DB->execute($sql, $params);
+                                }
+
+                                // get the filter_autotranslate_ctx records
+                                $autotranslate_records_context = $DB->get_records(
+                                    'filter_autotranslate_ctx', 
+                                    array('hash' => $record['hash']),
+                                    '',
+                                    'id'
+                                );
+                                $autotranslate_records_context_ids = array_column($autotranslate_records_context, 'id');
+
+                                // update the hash in filter_autotranslate_ctx
+                                if (!empty($autotranslate_records_context_ids)) {
+                                    $ids_placeholder = implode(',', array_fill(0, count($autotranslate_records_context_ids), '?'));
+
+                                    // Update the hash field with the new hash value
+                                    $sql = "UPDATE {filter_autotranslate_ctx}
+                                            SET hash = ?
+                                            WHERE id IN ($ids_placeholder)";
+                                    
+                                    $params = array_merge([$md5hash], $autotranslate_records_context_ids);
+                                    
+                                    $DB->execute($sql, $params);
+                                }
+
+                                // get the filter_autotranslate_jobs records
+                                $autotranslate_records_jobs = $DB->get_records(
+                                    'filter_autotranslate_jobs', 
+                                    array('hash' => $record['hash']),
+                                    '',
+                                    'id'
+                                );
+                                $autotranslate_records_jobs_ids = array_column($autotranslate_records_jobs, 'id');
+
+                                // update the hash in filter_autotranslate_jobs
+                                if (!empty($autotranslate_records_jobs_ids)) {
+                                    $ids_placeholder = implode(',', array_fill(0, count($autotranslate_records_jobs_ids), '?'));
+
+                                    // Update the hash field with the new hash value
+                                    $sql = "UPDATE {filter_autotranslate_jobs}
+                                            SET hash = ?
+                                            WHERE id IN ($ids_placeholder)";
+                                    
+                                    $params = array_merge([$md5hash], $autotranslate_records_jobs_ids);
+                                    
+                                    $DB->execute($sql, $params);
+                                } 
+                            }                 
+                        } else {
+                            $record['id'] = $target_record->id;
+                            $record['created_at'] = $target_record->created_at;
+                            
+                            $DB->update_record('filter_autotranslate', $record);
+                        } 
+                    } // end translation found                 
+                }
                 // @todo: I don't like the way this works
                 // I need to figure out how to update records before the point for 
                 // the source column

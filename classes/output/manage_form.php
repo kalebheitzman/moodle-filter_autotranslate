@@ -57,6 +57,7 @@ class manage_form extends \moodleform {
         $target_records = $this->_customdata['target_records'];
         $source_lang = $this->_customdata['source_lang'];
         $target_lang = $this->_customdata['target_lang'];
+        $status = $this->_customdata['status'];
         $lang_dir = $this->_customdata['lang_dir'];
         $pages = $this->_customdata['pages'];
         $page = $this->_customdata['page'];
@@ -74,6 +75,9 @@ class manage_form extends \moodleform {
         }
         if ($contextlevel) {
             $this->urlparams['contextlevel'] = $contextlevel;
+        }
+        if ($status > -1) {
+            $this->urlparams['status'] = $status;
         }
 
         // $this->_form->_attributes['action'] = new \moodle_url('/filter/autotranslate/manage.php', array(
@@ -273,6 +277,7 @@ class manage_form extends \moodleform {
             if ($PAGE->user_is_editing() ) {
                 // edit mode is on
                 $field_name = 'translation[' . $record->hash . ']';
+                $field_name2 = 'original[' . $record->hash . ']';
                 $is_html = $this->contains_html($record->text);
                 if ($is_html) {
                     $mform->addElement(
@@ -295,6 +300,8 @@ class manage_form extends \moodleform {
                     );
                     $mform->setDefault($field_name, $record->target_text);
                 }
+                $mform->addElement('textarea', $field_name2, null, array("class" => "d-none"));
+                $mform->setDefault($field_name2, $record->target_text);
             } else {
                 // edit mode is off
                 $mform->addElement('html', $record->target_text);

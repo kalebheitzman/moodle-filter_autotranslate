@@ -41,7 +41,7 @@
         <INDEX NAME="source_missing_index" UNIQUE="false" FIELDS="source_missing" COMMENT="Translation source_missing index" />
       </INDEXES>
     </TABLE>
-    <TABLE NAME="filter_autotranslate_ids" COMMENT="Autotranslate index by content ids">
+    <TABLE NAME="filter_autotranslate_ctx" COMMENT="Autotranslate index by content ids">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="hash" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
