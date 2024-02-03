@@ -15,9 +15,7 @@ return array(
     'Psr\\Http\\Client\\' => array($vendorDir . '/psr/http-client/src'),
     'Psr\\Container\\' => array($vendorDir . '/psr/container/src'),
     'Nyholm\\Psr7\\' => array($vendorDir . '/nyholm/psr7/src'),
-    'MoodleHQ\\MoodleCS\\moodle\\' => array($vendorDir . '/moodlehq/moodle-cs/moodle'),
     'Http\\Message\\MultipartStream\\' => array($vendorDir . '/php-http/multipart-stream-builder/src'),
     'Http\\Discovery\\' => array($vendorDir . '/php-http/discovery/src'),
     'DeepL\\' => array($vendorDir . '/deeplcom/deepl-php/src'),
-    'Dealerdirect\\Composer\\Plugin\\Installers\\PHPCodeSniffer\\' => array($vendorDir . '/dealerdirect/phpcodesniffer-composer-installer/src'),
 );
