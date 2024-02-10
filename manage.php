@@ -23,10 +23,6 @@
  * @see        https://docs.moodle.org/dev/Output_API
  */
 
-defined('MOODLE_INTERNAL') || die();
-
-global $CFG;
-
 require_once(dirname(__DIR__, 2) . '/config.php');
 require_once($CFG->libdir . '/pagelib.php');
 

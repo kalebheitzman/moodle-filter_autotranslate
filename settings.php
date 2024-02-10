@@ -22,7 +22,6 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-
 if ($hassiteconfig) {
     if ($ADMIN->fulltree) {
         // DeepL apikey.
