@@ -155,7 +155,7 @@ class manage_page implements renderable, templatable {
         $urlparams['source_lang'] = $this->sourcelang;
         $urlparams['target_lang'] = $this->targetlang;
         $urlparams['limit'] = $this->limit;
-        // $urlparams['page'] = $this->page;
+        $urlparams['page'] = $this->page;
         if ($this->instanceid) {
             $urlparams['instanceid'] = $this->instanceid;
         }
@@ -267,7 +267,7 @@ class manage_page implements renderable, templatable {
         }
 
         // Target language direction.
-        $this->targetlang_dir = $this->getCharacterOrder($this->targetlang);
+        $this->targetlangdir = $this->getCharacterOrder($this->targetlang);
 
         // Moodle Form.
         $mform = new manage_form(null, [
@@ -276,7 +276,7 @@ class manage_page implements renderable, templatable {
             'source_lang' => $this->sourcelang,
             'target_lang' => $this->targetlang,
             'status' => $this->status,
-            'lang_dir' => $this->targetlang_dir,
+            'lang_dir' => $this->targetlangdir,
             'pages' => $this->pages,
             'page' => $this->page,
             'limit' => $this->limit,
@@ -311,7 +311,7 @@ class manage_page implements renderable, templatable {
         $data->target_lang = $this->langs[$this->targetlang];
         $data->source_lang_code = $this->sourcelang;
         $data->target_lang_code = $this->targetlang;
-        $data->target_lang_dir = $this->targetlang_dir;
+        $data->target_lang_dir = $this->targetlangdir;
         $data->status = $this->status;
         $data->instanceid = $this->instanceid;
         $data->contextlevel = $this->contextlevel;
