@@ -33,11 +33,13 @@
 function filter_autotranslate_extend_navigation_course($navigation, $course) {
 
     // Get langs.
-    $site_lang = get_config('core', 'lang');
-    $current_lang = current_language();
+    $sitelang = get_config('core', 'lang');
+    $currentlang = current_language();
 
     // Build a moodle url.
-    $url = new moodle_url("/filter/autotranslate/manage.php?source_lang=$site_lang&target_lang=$current_lang&limit=500&instanceid=$course->id");
+    $url = new moodle_url(
+        "/filter/autotranslate/manage.php?sourcelang=$sitelang&targetlang=$currentlang&limit=500&instanceid=$course->id"
+    );
 
     // Get title of translate page for navigation menu.
     $title = get_string('manage_title', 'filter_autotranslate');
@@ -52,4 +54,3 @@ function filter_autotranslate_extend_navigation_course($navigation, $course) {
     );
     $navigation->add_node($translatecontent);
 }
-

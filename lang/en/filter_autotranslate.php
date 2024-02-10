@@ -37,10 +37,10 @@ $string['fetchlimit'] = 'Scheduled Task Fetch Limit';
 $string['fetchlimit_desc'] = 'Max number of fetches to the DeepL API per autotranslate scheduled task run (task runs every 60 seconds).';
 $string['supported_languages'] = 'bg,cs,da,de,el,en,es,et,fi,fr,hu,it,ja,lt,lv,nl,pl,pt,ro,ru,sk,sl,sv,zh'; // Do not change between translations.
 
-// Settings page
+// Settings page.
 $string['autotranslate_settings'] = 'Autotranslate filter settings';
 
-// Manage page strings
+// Manage page strings.
 $string['manage_title'] = "Manage Autotranslations";
 $string['hash_text'] = "ID: Hash Key";
 $string['available_translations'] = "Languages Translated";
@@ -66,6 +66,6 @@ $string['autotranslated'] = "Auto";
 $string['verified'] = "Verified";
 $string['source'] = "Source";
 
-// Tasks
+// Tasks.
 $string['taskname'] = "Autotranslation Fetch";
 $string['missingapikey'] = "You have not entered a DeepL API key";

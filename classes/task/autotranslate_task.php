@@ -16,11 +16,12 @@
 
 namespace filter_autotranslate\task;
 
-require_once(dirname(__DIR__, 4) . '/config.php');
-require_once(dirname(__DIR__, 2) . "/vendor/autoload.php");
-
-// Load the files we're going to need.
 defined('MOODLE_INTERNAL') || die();
+
+require_once(dirname(__DIR__, 4) . '/config.php');
+require_login();
+
+require_once(dirname(__DIR__, 2) . "/vendor/autoload.php");
 
 /**
  * Autotranslate Jobs
@@ -32,7 +33,6 @@ defined('MOODLE_INTERNAL') || die();
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class autotranslate_task extends \core\task\scheduled_task {
-
     public function get_name() {
         return get_string('taskname', 'filter_autotranslate');
     }
@@ -40,84 +40,85 @@ class autotranslate_task extends \core\task\scheduled_task {
     public function execute() {
         global $DB;
 
-        // get the site language
-        $site_lang = get_config('core', 'lang');
+        // Get the site language.
+        $sitelang = get_config('core', 'lang');
 
-        // get the fetch limit
-        $fetchLimit = get_config('filter_autotranslate', 'fetchlimit');
-        if (!$fetchLimit) {
-            $fetchLimit = 200;
+        // Get the fetch limit.
+        $fetchlimit = get_config('filter_autotranslate', 'fetchlimit');
+        if (!$fetchlimit) {
+            $fetchlimit = 200;
         }
 
-        // Your task logic goes here
+        // Your task logic goes here.
         mtrace("Executing autotranslation fetch jobs...");
 
-        // get the api key from settings
-        $authKey = get_config('filter_autotranslate', 'deeplapikey');
-        if (!$authKey) {
+        // Get the api key from settings.
+        $authkey = get_config('filter_autotranslate', 'deeplapikey');
+        if (!$authkey) {
             throw new \moodle_exception('missingapikey', 'filter_autotranslate');
         }
 
-        // load deepl translator
-        $translator = new \DeepL\Translator($authKey);
+        // Load deepl translator.
+        $translator = new \DeepL\Translator($authkey);
 
-        // get 100 existing jobs
-        $jobs = $DB->get_records('filter_autotranslate_jobs', array('fetched' => '0', 'source_missing' => '0'), null, '*', 0, $fetchLimit);
+        // Get 100 existing jobs.
+        $jobs = $DB->get_records('filter_autotranslate_jobs', [
+            'fetched' => '0',
+            'source_missing' => '0',
+        ], null, '*', 0, $fetchlimit);
         $jobscount = count($jobs);
         mtrace("$jobscount jobs found...");
 
-        // iterate through the jos and add translations
-        foreach($jobs as $job) {
+        // Iterate through the jos and add translations.
+        foreach ($jobs as $job) {
             mtrace("fetching $job->lang translation for $job->hash key...");
 
-            // get the source text
-            $source_record = $DB->get_record('filter_autotranslate', array('hash' => $job->hash, 'lang' => $site_lang));
-            $target_record = $DB->get_record('filter_autotranslate', array('hash' => $job->hash, 'lang' => $job->lang));
+            // Get the source text.
+            $sourcerecord = $DB->get_record('filter_autotranslate', ['hash' => $job->hash, 'lang' => $sitelang]);
+            $targetrecord = $DB->get_record('filter_autotranslate', ['hash' => $job->hash, 'lang' => $job->lang]);
 
-            // only translate if text exists
-            if ($source_record) {
-                // get the translation
-                $translation = $translator->translateText($source_record->text, null, $job->lang, ['formality' => 'prefer_more']);
+            // Only translate if text exists.
+            if ($sourcerecord) {
+                // Get the translation.
+                $translation = $translator->translateText($sourcerecord->text, null, $job->lang, ['formality' => 'prefer_more']);
 
-                // insert translation to the db
-                if (!$target_record) {
+                // Insert translation to the db.
+                if (!$targetrecord) {
                     $tid = $DB->insert_record(
                         'filter_autotranslate',
-                        array(
+                        [
                             'hash' => $job->hash,
                             'lang' => $job->lang,
                             'status' => 0,
                             'text' => $translation->text,
                             'created_at' => time(),
-                            'modified_at' => time()
-                        )
+                            'modified_at' => time(),
+                        ]
                     );
 
                     mtrace("added translation to filter_autotranslate with ID $tid");
                 }
 
-                // update the job to fetched
+                // Update the job to fetched.
                 $jid = $DB->update_record(
                     'filter_autotranslate_jobs',
-                    array(
+                    [
                         'id' => $job->id,
-                        'fetched' => "1"
-                    )
+                        'fetched' => "1",
+                    ]
                 );
 
                 mtrace("completed job $job->id...");
-
-            } else if (!$source_record) {
-                // update the job to fetched
+            } else if (!$sourcerecord) {
+                // Update the job to fetched.
                 $jid = $DB->update_record(
                     'filter_autotranslate_jobs',
-                    array(
+                    [
                         'id' => $job->id,
-                        'source_missing' => "1"
-                    )
+                        'source_missing' => "1",
+                    ]
                 );
             }
         }
-
     }
 }

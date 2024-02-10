@@ -22,10 +22,14 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
+defined('MOODLE_INTERNAL') || die();
+
 global $CFG;
 
-// get libs
+// Get libs.
 require_once(dirname(__DIR__, 2) . '/config.php');
+require_login();
+
 require_once($CFG->libdir . '/filterlib.php');
 require_once(__DIR__ . "/vendor/autoload.php");
 
@@ -39,7 +43,6 @@ require_once(__DIR__ . "/vendor/autoload.php");
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class filter_autotranslate extends moodle_text_filter {
-
     /**
      * Setup page with filter requirements and other prepare stuff.
      *
@@ -122,172 +125,152 @@ class filter_autotranslate extends moodle_text_filter {
      * @param array $options The filter options.
      * @return string The filtered text for this multilang block.
      */
-    public function filter($text, array $options = array()): string {
-        // access constants
+    public function filter($text, array $options = []): string {
+        // Access constants.
         global $DB;
         global $PAGE;
         global $CFG;
 
-        // trim the text
+        // Trim the text.
         $text = trim($text);
 
-        // text is empty
-        if (empty($text)) { return $text; };
+        // Text is empty.
+        if (empty($text)) {
+            return $text;
+        };
 
-        // Define URLs of pages to exempt
-        $exempted_pages = array(
+        // Define URLs of pages to exempt.
+        $exemptedpages = [
             $CFG->wwwroot . '/filter/autotranslate/manage.php',
             $CFG->wwwroot . '/filter/autotranslate/glossary.php',
-            // Add more exempted page URLs as needed
-        );
+            // Add more exempted page URLs as needed.
+        ];
 
-        // Check if the current page URL is in the exempted list
-        if (in_array($PAGE->url, $exempted_pages)) {
-            // Apply your filter logic here for non-exempted pages
+        // Check if the current page URL is in the exempted list.
+        if (in_array($PAGE->url, $exemptedpages)) {
+            // Apply your filter logic here for non-exempted pages.
             return $text;
         }
 
-        // only translate context that are in filter settings
-        // @see https://docs.moodle.org/403/en/Context
+        // Only translate context that are in filter settings
+        // @see https://docs.moodle.org/403/en/Context.
         $selectctx = explode(",", get_config('filter_autotranslate', 'selectctx'));
         if (!in_array(strval($this->context->contextlevel), $selectctx)) {
             return $text;
         }
 
-        // check editing mode
+        // Check editing mode.
         $editing = $PAGE->user_is_editing();
 
-        // language settings
-        $site_lang = get_config('core', 'lang');
-        $current_lang = current_language();
+        // Language settings.
+        $sitelang = get_config('core', 'lang');
+        $currentlang = current_language();
 
-        // parsed text
+        // Parsed text
         // if there is parsed text for the current language
-        // set the text to the parsed text so mlang doesn't get 
-        // stored in the db
-        $langs_result = $this->mlangparser($text);
-        if (!$langs_result) {
-            $langs_result = $this->mlangparser2($text);
+        // set the text to the parsed text so mlang doesn't get
+        // stored in the db.
+        $langsresult = $this->mlangparser($text);
+        if (!$langsresult) {
+            $langsresult = $this->mlangparser2($text);
         }
 
-        // if mlang is detected, parse it out
-        if (!empty($langs_result)) {           
-            // other mlang was found
-            if (array_key_exists('other', $langs_result) && $current_lang === $site_lang) {
-                $text = $langs_result['other'];
-            } 
-            // current language was found
-            else if (array_key_exists($current_lang, $langs_result)) {
-                $text = $langs_result[$current_lang];
+        // If mlang is detected, parse it out.
+        if (!empty($langsresult)) {
+            // Other mlang was found.
+            if (array_key_exists('other', $langsresult) && $currentlang === $sitelang) {
+                $text = $langsresult['other'];
+            } else if (array_key_exists($currentlang, $langsresult)) { // Current language was found.
+                $text = $langsresult[$currentlang];
             }
-        } 
-        // no mlang found and current lang is site lang
-        else if (!array_key_exists($site_lang, $langs_result) && $current_lang === $site_lang) {
-            $langs_result[$current_lang] = $text;
-        } 
-        // no mlang found and current lang is not site lang
-        // setting the value as null will notify jobs code below to create a job
-        else {
-            $langs_result[$current_lang] = null;
+        } else if (!array_key_exists($sitelang, $langsresult) && $currentlang === $sitelang) {
+            // No mlang found and current lang is site lang.
+            $langsresult[$currentlang] = $text;
+        } else {
+            // No mlang found and current lang is not site lang
+            // setting the value as null will notify jobs code below to create a job.
+            $langsresult[$currentlang] = null;
         }
 
-        // generate the md5 hash of the current text
+        // Generate the md5 hash of the current text.
         $hash = md5($text);
 
-        // iterate through each lang results
-        foreach($langs_result as $lang => $content) {
+        // Iterate through each lang results.
+        foreach ($langsresult as $lang => $content) {
+            // Adjust for other when found.
+            $lang = $lang === 'other' ? $sitelang : $lang;
 
-            // adjust for other when found
-            $lang = $lang === 'other' ? $site_lang : $lang;
+            // Null content has been found,
+            // kick off job processing.
+            if (!$content && $currentlang === $lang) {
+                // Check if job exists.
+                $job = $DB->get_record('filter_autotranslate_jobs', ['hash' => $hash, 'lang' => $lang], 'id');
 
-            // null content has been found
-            // kick off job processing
-            if (!$content && $current_lang === $lang) {
-                // check if job exists
-                $job = $DB->get_record('filter_autotranslate_jobs', array('hash' => $hash, 'lang' => $lang), 'id');
-
-                // insert job
+                // Insert job.
                 if (!$job) {
                     $DB->insert_record(
                         'filter_autotranslate_jobs',
-                        array(
+                        [
                             'hash' => $hash,
                             'lang' => $lang,
                             'fetched' => 0,
-                            'source_missing' => 0
-                        )
+                            'source_missing' => 0,
+                        ]
                     );
                 }
             }
 
-            // get the contextid record
-            $ctx_record = $DB->get_record(
-                'filter_autotranslate_ctx', 
-                array(
-                    'hash' => $hash, 
-                    'lang' => $lang, 
+            // Get the contextid record.
+            $ctxrecord = $DB->get_record(
+                'filter_autotranslate_ctx',
+                [
+                    'hash' => $hash,
+                    'lang' => $lang,
                     'contextid' => $this->context->id,
                     'contextlevel' => $this->context->contextlevel,
-                    'instanceid' => $this->context->instanceid
-                )
+                    'instanceid' => $this->context->instanceid,
+                ]
             );
 
-            // insert the context id record if it does not exist
+            // Insert the context id record if it does not exist
             // still create the record even if content is null because
-            // an autotranslation job has been added for the content
-            if (!$ctx_record) {
+            // an autotranslation job has been added for the content.
+            if (!$ctxrecord) {
                 $DB->insert_record(
-                    'filter_autotranslate_ctx', 
-                    array(
+                    'filter_autotranslate_ctx',
+                    [
                         'hash' => $hash,
                         'lang' => $lang,
                         'contextid' => $this->context->id,
                         'contextlevel' => $this->context->contextlevel,
-                        'instanceid' => $this->context->instanceid
-                    )
+                        'instanceid' => $this->context->instanceid,
+                    ]
                 );
             }
 
-            // see if the record exists
-            $record = $DB->get_record('filter_autotranslate', array('hash' => $hash, 'lang' => $lang), 'text');
+            // See if the record exists.
+            $record = $DB->get_record('filter_autotranslate', ['hash' => $hash, 'lang' => $lang], 'text');
 
-            // create a record for the text
-            // do not add null content here
+            // Create a record for the text
+            // do not add null content here.
             if (!$record && $content) {
                 $DB->insert_record(
                     'filter_autotranslate',
-                    array(
+                    [
                         'hash' => $hash,
                         'lang' => $lang,
-                        'status' => $lang === $site_lang ? 2 : 1,
+                        'status' => $lang === $sitelang ? 2 : 1,
                         'text' => $content,
                         'created_at' => time(),
-                        'modified_at' => time()
-                    )
+                        'modified_at' => time(),
+                    ]
                 );
-            } 
-            // translation found, return the text
-            else if ($record && $current_lang === $lang) {
+            } else if ($record && $currentlang === $lang) {
+                // Translation found, return the text.
                 $text = $record->text;
-            }            
+            }
         }
 
-        // if ($editing) {
-
-        //      $url = new \moodle_url('/filter/autotranslate/manage.php', array(
-        //         'source_lang' => $site_lang,
-        //         'target_lang' => $current_lang,
-        //         'hash' => $hash,
-        //     ));
-
-        //     $output = "<div>";
-        //     $output .= $text;
-        //     $output .= '<a href="' . $url->out() . '"><i class="fas fa-language"></i> Translate</a>';
-        //     $output .= "</div>";
-
-        //     $text = $output;
-        // }
-        
         return $text;
     }
 
@@ -323,11 +306,11 @@ class filter_autotranslate extends moodle_text_filter {
     private function mlangparser($text) {
         $result = [];
 
-        if (empty($text) or is_numeric($text)) {
+        if (empty($text) || is_numeric($text)) {
             return $result;
         }
 
-        // Adjust the regular expression pattern accordingly
+        // Adjust the regular expression pattern accordingly.
         $search = '/<(?:lang|span)[^>]+lang="([a-zA-Z0-9_-]+)"[^>]*>(.*?)<\/(?:lang|span)>/is';
 
         preg_replace_callback($search, function ($langblock) use (&$result) {
@@ -343,5 +326,4 @@ class filter_autotranslate extends moodle_text_filter {
 
         return $result;
     }
-
 }

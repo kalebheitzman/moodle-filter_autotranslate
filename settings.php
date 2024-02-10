@@ -24,15 +24,7 @@ defined('MOODLE_INTERNAL') || die();
 
 
 if ($hassiteconfig) {
-
-    // Create new settings page.
-    // $settings = new admin_settingpage('filter_autotranslate', get_string('autotranslate_settings', 'filter_autotranslate'));
-
-    // // Add to admin menu.
-    // $ADMIN->add('filterplugins', $settings);
-
     if ($ADMIN->fulltree) {
-
         // DeepL apikey.
         $settings->add(
             new admin_setting_configtext(
@@ -45,7 +37,7 @@ if ($hassiteconfig) {
             )
         );
 
-        // Schedule jobs limit
+        // Schedule jobs limit.
         $settings->add(
             new admin_setting_configtext(
                 'filter_autotranslate/managelimit',
@@ -56,7 +48,7 @@ if ($hassiteconfig) {
             )
         );
 
-        // Schedule jobs limit
+        // Schedule jobs limit.
         $settings->add(
             new admin_setting_configtext(
                 'filter_autotranslate/fetchlimit',
@@ -67,23 +59,22 @@ if ($hassiteconfig) {
             )
         );
 
-        // Context level
+        // Context level.
         $settings->add(
             new admin_setting_configmulticheckbox(
                 'filter_autotranslate/selectctx',
                 get_string('selectctx', 'filter_autotranslate'),
                 get_string('selectctx_desc', 'filter_autotranslate'),
-                array('40', '50', '70', '80'), // Corrected to use string values
-                array(
+                ['40', '50', '70', '80'], // Corrected to use string values.
+                [
                     '10' => get_string('ctx_system', 'filter_autotranslate'),
                     '30' => get_string('ctx_user', 'filter_autotranslate'),
                     '40' => get_string('ctx_coursecat', 'filter_autotranslate'),
                     '50' => get_string('ctx_course', 'filter_autotranslate'),
                     '70' => get_string('ctx_module', 'filter_autotranslate'),
-                    '80' => get_string('ctx_block', 'filter_autotranslate')
-                )
+                    '80' => get_string('ctx_block', 'filter_autotranslate'),
+                ]
             )
         );
-        
     }
 }

@@ -24,8 +24,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$tasks = array(
-    array(
+$tasks = [
+    [
         'classname' => 'filter_autotranslate\task\autotranslate_task',
         'blocking' => 0,
         'minute' => '*',
@@ -33,5 +33,5 @@ $tasks = array(
         'day' => '*',
         'month' => '*',
         'dayofweek' => '*',
-    ),
-);
+    ],
+];
