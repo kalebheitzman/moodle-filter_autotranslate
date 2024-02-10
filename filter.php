@@ -28,8 +28,6 @@ global $CFG;
 
 // Get libs.
 require_once(dirname(__DIR__, 2) . '/config.php');
-require_login();
-
 require_once($CFG->libdir . '/filterlib.php');
 require_once(__DIR__ . "/vendor/autoload.php");
 
@@ -147,7 +145,7 @@ class filter_autotranslate extends moodle_text_filter {
         ];
 
         // Check if the current page URL is in the exempted list.
-        if (in_array($PAGE->url, $exemptedpages)) {
+        if (in_array($PAGE->url->out(), $exemptedpages)) {
             // Apply your filter logic here for non-exempted pages.
             return $text;
         }

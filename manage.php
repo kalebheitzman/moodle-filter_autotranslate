@@ -30,7 +30,6 @@ $PAGE = new moodle_page();
 
 $context = context_system::instance();
 $PAGE->set_context($context);
-require_login();
 
 // Set initial page layout.
 $title = get_string('manage_title', 'filter_autotranslate');

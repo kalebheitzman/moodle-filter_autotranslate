@@ -19,8 +19,6 @@ namespace filter_autotranslate\task;
 defined('MOODLE_INTERNAL') || die();
 
 require_once(dirname(__DIR__, 4) . '/config.php');
-require_login();
-
 require_once(dirname(__DIR__, 2) . "/vendor/autoload.php");
 
 /**
