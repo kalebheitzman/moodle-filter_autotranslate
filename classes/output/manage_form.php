@@ -86,9 +86,6 @@ class manage_form extends \moodleform {
             array_push($mergedrecords, $mergedrecord);
         }
 
-        // Open Form.
-        $mform->addElement('html', '<div class="container-fluid filter-autotranslate__form">');
-
         // Loop through merged records to build form.
         $formdata = [];
         foreach ($mergedrecords as $record) {
@@ -174,7 +171,6 @@ class manage_form extends \moodleform {
             $mform->addElement('html', '<li class="mr-1 mb-1"><a href="' . $lasturl->out() .
             '" class="btn btn-light">' . get_string('pag_last', 'filter_autotranslate') . '</a></li>');
         }
-
 
         $mform->addElement('html', '</ul>');
         $mform->addElement('html', '</div>');
@@ -307,12 +303,12 @@ class manage_form extends \moodleform {
     }
 
     /**
-     * Specificy Autotranslation Access
+     * Specify Autotranslation Access
      *
      * @return void
      */
     public function require_access() {
-        // require_capability('local/multilingual:edittranslations', \context_system::instance()->id);
+        require_capability('filter/autotranslate:translate', \context_system::instance()->id);
     }
 
     /**

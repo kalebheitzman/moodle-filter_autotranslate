@@ -26,10 +26,14 @@
 require_once(dirname(__DIR__, 2) . '/config.php');
 require_once($CFG->libdir . '/pagelib.php');
 
+// Create page context.
 $PAGE = new moodle_page();
-
 $context = context_system::instance();
 $PAGE->set_context($context);
+
+// Set access permissions.
+require_login();
+require_capability('filter/autotranslate:translate', $context);
 
 // Set initial page layout.
 $title = get_string('manage_title', 'filter_autotranslate');

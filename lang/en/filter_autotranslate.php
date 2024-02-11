@@ -69,3 +69,6 @@ $string['source'] = "Source";
 // Tasks.
 $string['taskname'] = "Autotranslation Fetch";
 $string['missingapikey'] = "You have not entered a DeepL API key";
+
+// Capabilities.
+$string['translate'] = "Manage autotranslations";

@@ -15,17 +15,27 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version details
+ * Moodle Autotranslate Filter Permissions
+ *
+ * Adds filter/autotranslate:translate permissions for checking against
+ * the webservice.
  *
  * @package    filter_autotranslate
  * @copyright  2024 Kaleb Heitzman <kaleb@jamfire.io>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @see        https://docs.moodle.org/dev/Access_API
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2024021000;                // The current plugin version (Date: YYYYMMDDXX).
-$plugin->requires  = 2023042406.00;             // Requires this Moodle version.
-$plugin->component = 'filter_autotranslate';    // Full name of the plugin (used for diagnostics).
-$plugin->release   = '1.0.0';
-$plugin->maturity  = MATURITY_ALPHA;
+// Translator Capabilities.
+$capabilities = [
+    'filter/autotranslate:translate' => [
+        'captype' => 'write',
+        'riskbitmaskt' => 'RISK_CONFIG',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes' => [
+            'manager' => CAP_ALLOW,
+        ],
+    ],
+];
