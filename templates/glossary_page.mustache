@@ -1,0 +1,93 @@
+{{!
+This file is part of Moodle - http://moodle.org/
+
+Moodle is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+Moodle is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}{{!
+  @template filter_autotranslate/manage_page
+
+  Provides autotranslation manage form header and controls
+
+  Classes required for JS:
+  * local-coursetranslator__localeswitcher
+  * local-coursetranslator__select-all
+  * local-coursetranslator__show-updated
+  * local-coursetranslator__show-needsupdate
+  * local-coursetranslator__autotranslate-btn
+
+  Data attributes required for JS:
+  * none
+
+  Context variables required for this template:
+  * lang
+  * langs
+  * wordcount
+  * charcount
+  * charcountspaces
+
+  Example context (json):
+  {
+    "lang": "en",
+    "langs": [
+      {
+        "code": "other",
+        "lang": "Other (other)"
+      },
+      {
+        "code": "en",
+        "lang": "English (en)"
+      }
+    ],
+    "wordcount": 4,
+    "charcount": 20,
+    "charcountspaces": 25
+  }
+}}
+<div class="container-fluid filter-autotranslate__container">
+  
+  {{{tform}}}
+
+  <div class="row">
+    <div class="col-2 d-flex flex-column justify-content-end align-items-start">
+      <p>{{#str}}hash_text,filter_autotranslate{{/str}}</p>
+    </div>
+    <div class="col-5 filter-autotranslate__language-selector">
+      <p class="mb-0">{{#str}}site_language,filter_autotranslate{{/str}}</p>
+      <ul class="mb-1">
+        <li class="text-uppercase"><a href="{{ url }}?source_lang={{code}}&target_lang={{target_lang_code}}&limit={{limit}}&status={{status}}&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="text-decoration-none btn btn-dark">{{ sitelangcode }}</a></li>
+      </ul>
+    </div>
+    <div class="col-5 filter-autotranslate__language-selector">
+      <p class="mb-0">{{#str}}select_target_language,filter_autotranslate{{/str}}</p>
+      <ul class="mb-1">
+        {{#langs}}
+          <li class="text-uppercase"><a href="{{ url }}?source_lang={{sitelangcode}}&target_lang={{code}}&limit={{limit}}&status={{status}}&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="text-decoration-none btn {{target-btn-class}}">{{ code }}</a></li>
+        {{/langs}}
+      </ul>
+    </div>
+  </div>
+
+  <div class="row align-items-start border-bottom py-3 bg-secondary text-dark">
+    <div class="col-2 pl-3">
+      {{#str}}available_translations,filter_autotranslate{{/str}}    
+    </div>
+    <div class="col-5">
+      {{#str}}source_text,filter_autotranslate{{/str}}: {{{source_lang}}}
+    </div>
+    <div class="col-5">
+      {{#str}}translation_text,filter_autotranslate{{/str}}: {{{target_lang}}}
+    </div>
+  </div>
+</div>
+
+{{{mform}}}

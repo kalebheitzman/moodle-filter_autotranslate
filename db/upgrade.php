@@ -175,5 +175,34 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2024013101, 'filter', 'autotranslate');
     }
 
+        // Add status field for tracking translations.
+    if ($oldversion < 2024021200) {
+        // Define table filter_autotranslate to be created.
+        $table = new xmldb_table('filter_autotranslate_glossary');
+
+        // Define fields to be added to filter_autotranslate.
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('hash', XMLDB_TYPE_CHAR, '32', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('lang', XMLDB_TYPE_CHAR, '2', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('text', XMLDB_TYPE_TEXT, 'longtext', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('created_at', XMLDB_TYPE_INTEGER, '11', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('modified_at', XMLDB_TYPE_INTEGER, '11', null, XMLDB_NOTNULL, null, null);
+
+        // Add keys to filter_autotranslate.
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+
+        // Add indexes to filter_autotranslate.
+        $table->add_index('hash_index', XMLDB_INDEX_NOTUNIQUE, ['hash']);
+        $table->add_index('lang_index', XMLDB_INDEX_NOTUNIQUE, ['lang']);
+
+        // Conditionally launch create table for filter_autotranslate.
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        // Update the version number to the latest.
+        upgrade_plugin_savepoint(true, 2024021200, 'filter', 'autotranslate');
+    }
+
     return true;
 }

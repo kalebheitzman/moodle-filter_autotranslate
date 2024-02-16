@@ -63,5 +63,23 @@
         <INDEX NAME="instanceid_index" UNIQUE="false" FIELDS="instanceid" COMMENT="Instance ID index"/>
       </INDEXES>
     </TABLE>
+    <!-- New glossary table 2024021200 -->
+    <TABLE NAME="filter_autotranslate_glossary" COMMENT="Autotranslate glossary by ids">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="hash" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="text" TYPE="text"  NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="lang" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
+        <FIELD NAME="created_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Created time of entry"/>
+        <FIELD NAME="modified_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Last modified time of entry"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id" />
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="lang_index" UNIQUE="false" FIELDS="lang" COMMENT="Glossary language index"/>
+        <INDEX NAME="hash_index" UNIQUE="false" FIELDS="hash" COMMENT="Glossary hash index" />
+      </INDEXES>
+    </TABLE>
   </TABLES>
 </XMLDB>

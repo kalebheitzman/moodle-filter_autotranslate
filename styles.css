@@ -4,6 +4,10 @@
   width: 100% !important;
 }
 
+.filter-autotranslate__form input[type="text"] {
+  width: 100%;
+}
+
 .filter-autotranslate__language-selector ul {
   padding: 1rem 0;
   margin: 0;

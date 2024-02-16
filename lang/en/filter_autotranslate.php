@@ -40,6 +40,11 @@ $string['supported_languages'] = 'bg,cs,da,de,el,en,es,et,fi,fr,hu,it,ja,lt,lv,n
 // Settings page.
 $string['autotranslate_settings'] = 'Autotranslate filter settings';
 
+// Glossary page strings.
+$string['glossary_title'] = "Autotranslation Glossary";
+$string['site_language'] = "Default Site Language";
+$string['glossary_term'] = "Add a new glossary term";
+
 // Manage page strings.
 $string['manage_title'] = "Manage Autotranslations";
 $string['hash_text'] = "ID: Hash Key";
