@@ -113,7 +113,7 @@ class glossary_page implements renderable, templatable {
 
         // Qury params.
         $this->sitelang = get_config('core', 'lang', PARAM_NOTAGS);
-        $this->langs = $translator->glossarylangs;
+        $this->langs = $translator->getsupportedglossarylangs();
         $this->sourcelang = optional_param('source_lang', $this->sitelang, PARAM_NOTAGS);
         $this->sourcelang = clean_param($this->sourcelang, PARAM_NOTAGS);
         $this->targetlang = optional_param('target_lang', $this->sitelang, PARAM_NOTAGS);
@@ -143,7 +143,7 @@ class glossary_page implements renderable, templatable {
 
         // Source records.
         $sourcerecords = $DB->get_records(
-            'filter_autotranslate_glossary',
+            'filter_autotranslate_gterms',
             [ "lang" => $this->sitelang ],
             'id ASC',
             "*",
@@ -161,7 +161,7 @@ class glossary_page implements renderable, templatable {
             $placeholders = implode(',', array_fill(0, count($hashes), '?'));
 
             // Construct the SQL query with a prepared statement.
-            $sql = "SELECT * FROM {filter_autotranslate_glossary} WHERE hash IN ($placeholders) AND lang = ?";
+            $sql = "SELECT * FROM {filter_autotranslate_gterms} WHERE hash IN ($placeholders) AND lang = ?";
 
             // Append the locale code to the array of hashes.
             $hashes[] = $this->targetlang;
@@ -251,7 +251,7 @@ class glossary_page implements renderable, templatable {
                     if ($hashcheck !== $hash && $this->sitelang === $fromform->target_lang) {
                         // Set the new text.
                         $DB->set_field(
-                            'filter_autotranslate_glossary',
+                            'filter_autotranslate_gterms',
                             'text',
                             $translation,
                             ['hash' => $hash, 'lang' => $fromform->target_lang]
@@ -259,7 +259,7 @@ class glossary_page implements renderable, templatable {
 
                         // Update all existing hashes.
                         $DB->set_field(
-                            'filter_autotranslate_glossary',
+                            'filter_autotranslate_gterms',
                             'hash',
                             $hashcheck,
                             ['hash' => $hash]
@@ -267,7 +267,7 @@ class glossary_page implements renderable, templatable {
 
                         // Update modified times.
                         $DB->set_field(
-                            'filter_autotranslate_glossary',
+                            'filter_autotranslate_gterms',
                             'modified_at',
                             time(),
                             ['hash' => $hashcheck]
@@ -275,14 +275,14 @@ class glossary_page implements renderable, templatable {
                     } else if ($this->sitelang !== $fromform->target_lang && !empty($translation)) {
                         // Get the glossary term.
                         $glossaryrecord = $DB->get_record(
-                            'filter_autotranslate_glossary',
+                            'filter_autotranslate_gterms',
                             ['hash' => $hash, 'lang' => $fromform->target_lang]
                         );
 
                         // If it does not exist, create it.
                         if (!$glossaryrecord) {
                             $DB->insert_record(
-                                'filter_autotranslate_glossary',
+                                'filter_autotranslate_gterms',
                                 [
                                     'hash' => $hash,
                                     'lang' => $fromform->target_lang,
@@ -294,7 +294,7 @@ class glossary_page implements renderable, templatable {
                         } else if (!empty($translation) && $glossaryrecord->text !== $translation) {
                             // Submitted translation does not equal the saved translation.
                             $DB->update_record(
-                                'filter_autotranslate_glossary',
+                                'filter_autotranslate_gterms',
                                 [
                                     'id' => $glossaryrecord->id,
                                     'hash' => $hash,
@@ -334,6 +334,43 @@ class glossary_page implements renderable, templatable {
                 // then the `is_cancelled()` function will return true.
                 // You can handle the cancel operation here.
                 return;
+            } else if ($this->tform->no_submit_button_pressed()) {
+                // If you have a no-submit button on your form, then you can handle that action here.
+                // Create a sync job for the current glossary.
+                $name = "glossary-{$this->sourcelang}_{$this->targetlang}";
+
+                $glossary = $DB->get_record(
+                    'filter_autotranslate_gids',
+                    ['name' => $name]
+                );
+
+                if (!$glossary) {
+                    $glossarydata = [
+                        'name' => $name,
+                        'ready' => 0,
+                        'source_lang' => $this->sourcelang,
+                        'target_lang' => $this->targetlang,
+                        'created_at' => time(),
+                        'modified_at' => time(),
+                        'last_sync' => 0,
+                        'entry_count' => 0,
+                    ];
+
+                    $DB->insert_record('filter_autotranslate_gids', $glossarydata);
+
+                    echo "<pre>";
+                    var_dump($glossarydata);
+                    echo "</pre>";
+                } else {
+                    echo "<pre>";
+                    var_dump($glossary);
+                    echo "</pre>";
+                }
+
+
+                // Check to see if the glossary glossary exists.
+
+                // Create the glossary glossary if it doesn't exist.
             } else if ($fromform = $this->tform->get_data()) {
                 // When the form is submitted, and the data is successfully validated,
                 // the `get_data()` function will return the data posted in the form.
@@ -342,13 +379,13 @@ class glossary_page implements renderable, templatable {
                     $md5hash = md5($fromform->term);
 
                     $recordexists = $DB->get_record(
-                        'filter_autotranslate_glossary',
+                        'filter_autotranslate_gterms',
                         ['hash' => $md5hash, 'lang' => $this->sitelang]
                     );
 
                     if (!$recordexists) {
                         $DB->insert_record(
-                            'filter_autotranslate_glossary',
+                            'filter_autotranslate_gterms',
                             [
                                 'text' => $fromform->term,
                                 'hash' => $md5hash,

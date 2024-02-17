@@ -14,33 +14,35 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+namespace filter_autotranslate\task;
+
+defined('MOODLE_INTERNAL') || die();
+
+require_once(dirname(__DIR__, 4) . '/config.php');
+require_once(dirname(__DIR__, 2) . "/vendor/autoload.php");
+
 /**
- * Task schedule configuration for filter_autotranslate.
+ * Sync Glossaries Task
+ *
+ * Checks last modified time against last sync time to
+ * update glossaries on DeepL.
  *
  * @package    filter_autotranslate
  * @copyright  2024 Kaleb Heitzman <kaleb@jamfire.io>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+class sync_glossaries_task extends \core\task\scheduled_task {
+    public function get_name() {
+        return get_string('synctask', 'filter_autotranslate');
+    }
 
-defined('MOODLE_INTERNAL') || die();
+    public function execute() {
+        global $DB;
 
-$tasks = [
-    [
-        'classname' => 'filter_autotranslate\task\autotranslate_task',
-        'blocking' => 0,
-        'minute' => '*',
-        'hour' => '*',
-        'day' => '*',
-        'month' => '*',
-        'dayofweek' => '*',
-    ],
-    [
-        'classname' => 'filter_autotranslate\task\sync_glossaries_task',
-        'blocking' => 0,
-        'minute' => '*',
-        'hour' => '*',
-        'day' => '*',
-        'month' => '*',
-        'dayofweek' => '*',
-    ],
-];
+        // Get the site language.
+        $sitelang = get_config('core', 'lang');
+
+        // Your task logic goes here.
+        mtrace("Executing sync glossaries task...");
+    }
+}

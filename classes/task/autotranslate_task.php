@@ -32,7 +32,7 @@ require_once(dirname(__DIR__, 2) . "/vendor/autoload.php");
  */
 class autotranslate_task extends \core\task\scheduled_task {
     public function get_name() {
-        return get_string('taskname', 'filter_autotranslate');
+        return get_string('fetchtask', 'filter_autotranslate');
     }
 
     public function execute() {

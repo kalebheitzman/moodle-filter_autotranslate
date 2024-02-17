@@ -39,42 +39,46 @@ $string['supported_languages'] = 'bg,cs,da,de,el,en,es,et,fi,fr,hu,it,ja,lt,lv,n
 
 // Settings page.
 $string['autotranslate_settings'] = 'Autotranslate filter settings';
+$string['usage'] = 'Current Usage';
+$string['usagedesc'] = 'You have used {$a->count} of {$a->limit} characters.';
 
 // Glossary page strings.
-$string['glossary_title'] = "Autotranslation Glossary";
-$string['site_language'] = "Default Site Language";
-$string['supported_glossary_langs'] = "Supported Glossary Languages";
-$string['glossary_term'] = "Add a new glossary term";
+$string['glossary_title'] = 'Autotranslation Glossary';
+$string['site_language'] = 'Default Site Language';
+$string['supported_glossary_langs'] = 'Supported Glossary Languages';
+$string['glossary_term'] = 'Add a new glossary term';
+$string['sync_glossary'] = 'Sync Glossary';
 
 // Manage page strings.
-$string['manage_title'] = "Manage Autotranslations";
-$string['hash_text'] = "ID: Hash Key";
-$string['available_translations'] = "Languages Translated";
-$string['source_text'] = "Source Text";
-$string['translation_text'] = "Translation Text";
-$string['select_source_language'] = "Select Source Language";
-$string['select_target_language'] = "Select Target Language";
-$string['pag_first'] = "&laquo; First";
-$string['pag_previous'] = "&lsaquo; Previous";
-$string['pag_next'] = "Next &rsaquo;";
-$string['pag_last'] = "Last &raquo;";
-$string['selectctx'] = "Context Levels";
-$string['selectctx_desc'] = "Context levels in Moodle that should be autotranslated";
-$string['ctx_system'] = "System";
-$string['ctx_user'] = "User";
-$string['ctx_coursecat'] = "Course Category";
-$string['ctx_course'] = "Course";
-$string['ctx_module'] = "Module";
-$string['ctx_block'] = "Block";
-$string['resetstatus'] = "Reset";
-$string['allstatuses'] = "All Statuses";
-$string['autotranslated'] = "Auto";
-$string['verified'] = "Verified";
-$string['source'] = "Source";
+$string['manage_title'] = 'Manage Autotranslations';
+$string['hash_text'] = 'ID: Hash Key';
+$string['available_translations'] = 'Languages Translated';
+$string['source_text'] = 'Source Text';
+$string['translation_text'] = 'Translation Text';
+$string['select_source_language'] = 'Select Source Language';
+$string['select_target_language'] = 'Select Target Language';
+$string['pag_first'] = '&laquo; First';
+$string['pag_previous'] = '&lsaquo; Previous';
+$string['pag_next'] = 'Next &rsaquo;';
+$string['pag_last'] = 'Last &raquo;';
+$string['selectctx'] = 'Context Levels';
+$string['selectctx_desc'] = 'Context levels in Moodle that should be autotranslated';
+$string['ctx_system'] = 'System';
+$string['ctx_user'] = 'User';
+$string['ctx_coursecat'] = 'Course Category';
+$string['ctx_course'] = 'Course';
+$string['ctx_module'] = 'Module';
+$string['ctx_block'] = 'Block';
+$string['resetstatus'] = 'Reset';
+$string['allstatuses'] = 'All Statuses';
+$string['autotranslated'] = 'Auto';
+$string['verified'] = 'Verified';
+$string['source'] = 'Source';
 
 // Tasks.
-$string['taskname'] = "Autotranslation Fetch";
-$string['missingapikey'] = "You have not entered a DeepL API key";
+$string['fetchtask'] = 'Autotranslation Fetch';
+$string['missingapikey'] = 'You have not entered a DeepL API key';
+$string['synctask'] = 'Sync Glossaries';
 
 // Capabilities.
-$string['translate'] = "Manage autotranslations";
+$string['translate'] = 'Manage autotranslations';

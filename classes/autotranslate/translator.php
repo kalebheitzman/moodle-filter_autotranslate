@@ -62,15 +62,12 @@ class translator {
         // Load deepl translator.
         $this->translator = new \DeepL\Translator($authkey);
         $this->langs = get_string_manager()->get_list_of_translations();
-        $this->sourcelangs = $this->getsupportedsourcelangs();
-        $this->targetlangs = $this->getsupportedtargetlangs();
-        $this->glossarylangs = $this->getsupportedglossarylangs();
     }
 
     /**
      * Get Supported Source Langs
      */
-    private function getsupportedsourcelangs() {
+    public function getsupportedsourcelangs() {
         $sourcelangs = $this->translator->getSourceLanguages();
 
         $supportedsourcelangs = [];
@@ -86,7 +83,7 @@ class translator {
     /**
      * Get Supported Target Langs
      */
-    private function getsupportedtargetlangs() {
+    public function getsupportedtargetlangs() {
         $targetlangs = $this->translator->getTargetLanguages();
 
         $supportedtargetlangs = [];
@@ -105,7 +102,7 @@ class translator {
      * This function relies on the Moodle
      * site language be set as the sourceLang
      */
-    private function getsupportedglossarylangs() {
+    public function getsupportedglossarylangs() {
         $sitelang = get_config('core', 'lang', PARAM_NOTAGS);
         $glossarylangs = $this->translator->getGlossaryLanguages();
 
@@ -121,5 +118,12 @@ class translator {
             }
         }
         return $supportedglossarylangs;
+    }
+
+    /**
+     * Get DeepL Usage
+     */
+    public function getusage() {
+        return $this->translator->getUsage();
     }
 }

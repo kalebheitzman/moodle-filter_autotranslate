@@ -22,8 +22,34 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+use filter_autotranslate\autotranslate\translator;
+
 if ($hassiteconfig) {
     if ($ADMIN->fulltree) {
+        $translator = new translator();
+        $usage = $translator->getusage();
+        $a = new stdClass();
+        $a->count = $usage->character->count;
+        $a->limit = number_format($usage->character->limit);
+
+        // Usage.
+        $settings->add(
+            new admin_setting_description(
+                'filter_autotranslate/usage',
+                get_string('usage', 'filter_autotranslate'),
+                get_string('usagedesc', 'filter_autotranslate', $a)
+            )
+        );
+
+        // Usage.
+        $settings->add(
+            new admin_setting_description(
+                'filter_autotranslate/usagebreak',
+                null,
+                "<br />"
+            )
+        );
+
         // DeepL apikey.
         $settings->add(
             new admin_setting_configtext(

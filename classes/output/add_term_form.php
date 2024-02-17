@@ -49,6 +49,7 @@ class add_term_form extends \moodleform {
         $mform = $this->_form;
 
         // Get customdata.
+        $sitelang = get_config('core', 'lang', PARAM_NOTAGS);
         $sourcelang = $this->_customdata['source_lang'];
         $targetlang = $this->_customdata['target_lang'];
         $langdir = $this->_customdata['lang_dir'];
@@ -60,7 +61,6 @@ class add_term_form extends \moodleform {
         $this->urlparams['source_lang'] = $sourcelang;
         $this->urlparams['target_lang'] = $targetlang;
         $this->urlparams['limit'] = $limit;
-
 
         // Open Form.
         $mform->addElement('html', '<div class="row pt-5 filter-autotranslate__form">');
@@ -80,7 +80,7 @@ class add_term_form extends \moodleform {
         $mform->addElement('html', '</div>');
 
         // Action Buttons.
-        $mform->addElement('html', '<div class="col-6">');
+        $mform->addElement('html', '<div class="col-3">');
 
         // Hidden Fields.
         $mform->addElement('hidden', 'source_lang', $sourcelang);
@@ -100,6 +100,16 @@ class add_term_form extends \moodleform {
         $buttonarray[] = $mform->createElement('submit', 'submitbutton', get_string('submit'));
         $mform->addGroup($buttonarray, 'buttonar', '', '', false);
         $mform->addElement('html', '</div>');
+
+        // Sync Glossary Button.
+        if ($sitelang !== $targetlang) {
+            $mform->addElement('html', '<div class="col-3">');
+            $mform->addElement('html', '<div class="float-right">');
+            $mform->registerNoSubmitButton('syncglossary');
+            $mform->addElement('submit', 'syncglossary', get_string('sync_glossary', 'filter_autotranslate'));
+            $mform->addElement('html', '</div>');
+            $mform->addElement('html', '</div>');
+        }
 
         // Close Form.
         $mform->addElement('html', '</div>');

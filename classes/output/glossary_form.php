@@ -199,7 +199,7 @@ class glossary_form extends \moodleform {
 
         // First column.
         $translations = $DB->get_records(
-            'filter_autotranslate_glossary',
+            'filter_autotranslate_gterms',
             [
                 'hash' => $record->hash,
             ],
