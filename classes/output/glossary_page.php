@@ -16,11 +16,6 @@
 
 namespace filter_autotranslate\output;
 
-defined('MOODLE_INTERNAL') || die();
-
-// Load the files we're going to need.
-require_once(dirname(__DIR__, 2) . "/vendor/autoload.php");
-
 use renderable;
 use renderer_base;
 use templatable;
@@ -28,6 +23,7 @@ use stdClass;
 use Punic\Data;
 use filter_autotranslate\output\glossary_form;
 use filter_autotranslate\output\add_term_form;
+use filter_autotranslate\autotranslate\translator;
 
 /**
  * Autotranslate Glossary Page Output
@@ -112,9 +108,12 @@ class glossary_page implements renderable, templatable {
             $glossarylimit = 20;
         }
 
+        // Translation API.
+        $translator = new translator();
+
         // Qury params.
         $this->sitelang = get_config('core', 'lang', PARAM_NOTAGS);
-        $this->langs = get_string_manager()->get_list_of_translations();
+        $this->langs = $translator->glossarylangs;
         $this->sourcelang = optional_param('source_lang', $this->sitelang, PARAM_NOTAGS);
         $this->sourcelang = clean_param($this->sourcelang, PARAM_NOTAGS);
         $this->targetlang = optional_param('target_lang', $this->sitelang, PARAM_NOTAGS);
@@ -250,10 +249,6 @@ class glossary_page implements renderable, templatable {
                     // of the existing hashes if the term has changed.
                     $hashcheck = md5($translation);
                     if ($hashcheck !== $hash && $this->sitelang === $fromform->target_lang) {
-                        var_dump($hash);
-                        var_dump($hashcheck);
-                        var_dump($translation);
-
                         // Set the new text.
                         $DB->set_field(
                             'filter_autotranslate_glossary',
