@@ -43,6 +43,7 @@ $string['autotranslate_settings'] = 'Autotranslate filter settings';
 // Glossary page strings.
 $string['glossary_title'] = "Autotranslation Glossary";
 $string['site_language'] = "Default Site Language";
+$string['supported_glossary_langs'] = "Supported Glossary Languages";
 $string['glossary_term'] = "Add a new glossary term";
 
 // Manage page strings.

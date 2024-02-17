@@ -68,7 +68,7 @@ along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
       </ul>
     </div>
     <div class="col-5 filter-autotranslate__language-selector">
-      <p class="mb-0">{{#str}}select_target_language,filter_autotranslate{{/str}}</p>
+      <p class="mb-0">{{#str}}supported_glossary_langs,filter_autotranslate{{/str}}</p>
       <ul class="mb-1">
         {{#langs}}
           <li class="text-uppercase"><a href="{{ url }}?source_lang={{sitelangcode}}&target_lang={{code}}&limit={{limit}}&status={{status}}&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="text-decoration-none btn {{target-btn-class}}">{{ code }}</a></li>
