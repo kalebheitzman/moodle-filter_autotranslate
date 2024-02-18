@@ -111,6 +111,10 @@ class glossary_page implements renderable, templatable {
         // Translation API.
         $translator = new translator();
 
+        // echo "<pre>";
+        // var_dump($translator->listglossaries());
+        // echo "</pre>";
+
         // Qury params.
         $this->sitelang = get_config('core', 'lang', PARAM_NOTAGS);
         $this->langs = $translator->getsupportedglossarylangs();
@@ -339,11 +343,13 @@ class glossary_page implements renderable, templatable {
                 // Create a sync job for the current glossary.
                 $name = "glossary-{$this->sourcelang}_{$this->targetlang}";
 
+                // Get existing glossary record.
                 $glossary = $DB->get_record(
                     'filter_autotranslate_gids',
                     ['name' => $name]
                 );
 
+                // No glossary found, add new glossary record.
                 if (!$glossary) {
                     $glossarydata = [
                         'name' => $name,
@@ -357,14 +363,14 @@ class glossary_page implements renderable, templatable {
                     ];
 
                     $DB->insert_record('filter_autotranslate_gids', $glossarydata);
-
-                    echo "<pre>";
-                    var_dump($glossarydata);
-                    echo "</pre>";
                 } else {
-                    echo "<pre>";
-                    var_dump($glossary);
-                    echo "</pre>";
+                    // Glossary record found, but it needs rebuilt.
+                    $DB->set_field(
+                        'filter_autotranslate_gids',
+                        'modified_at',
+                        time(),
+                        ['name' => $name]
+                    );
                 }
 
 

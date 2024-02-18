@@ -26,7 +26,7 @@ class translator {
     /**
      * @param \DeepL\Translator $this->translator DeepL Translator
      */
-    private \DeepL\Translator $translator;
+    public \DeepL\Translator $translator;
 
     /**
      * @param array $this->sourcelangs Supported Source Languages
@@ -125,5 +125,12 @@ class translator {
      */
     public function getusage() {
         return $this->translator->getUsage();
+    }
+
+    /**
+     * Get Glossaries.
+     */
+    public function listglossaries() {
+        return $this->translator->listGlossaries();
     }
 }
