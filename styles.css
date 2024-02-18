@@ -1,7 +1,9 @@
 .filter-autotranslate__container,
 .filter-autotranslate__form {
+    /* stylelint-disable declaration-no-important */
     max-width: 100% !important;
     width: 100% !important;
+    /* stylelint-enable */
 }
 
 .filter-autotranslate__form input[type="text"] {
