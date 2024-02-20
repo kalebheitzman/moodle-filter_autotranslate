@@ -204,7 +204,7 @@ class manage_form extends \moodleform {
      * Generate Form Row
      *
      * @param \MoodleQuickForm $mform Moodle Form
-     * @param \stdClass $item Row Item
+     * @param \stdClass $record Row Item
      * @return void
      */
     private function get_formrow(\MoodleQuickForm $mform, \stdClass $record) {
@@ -333,9 +333,9 @@ class manage_form extends \moodleform {
     /**
      * Find Object by Key Value
      *
-     * @param $array Array of objects
-     * @param $key Array Key to reference
-     * @param $value Value to search for
+     * @param array $array Array of objects
+     * @param string $key Key to reference
+     * @param string $value to search for
      * @return Object that matches
      */
     private function findobjectbykeyvalue($array, $key, $value) {
@@ -350,7 +350,7 @@ class manage_form extends \moodleform {
     /**
      * Detect if string has html
      *
-     * @param $string String to check
+     * @param string $string String to check
      * @return boolean If html was detected
      */
     private function contains_html($string) {

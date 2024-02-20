@@ -184,7 +184,7 @@ class glossary_form extends \moodleform {
      * Generate Form Row
      *
      * @param \MoodleQuickForm $mform Moodle Form
-     * @param \stdClass $item Item to be rendered
+     * @param \stdClass $record Item to be rendered
      * @return void
      */
     private function get_formrow(\MoodleQuickForm $mform, \stdClass $record) {
@@ -293,9 +293,9 @@ class glossary_form extends \moodleform {
     /**
      * Find Object by Key Value
      *
-     * @param $array Array of Objects to search
-     * @param $key Array Key to reference
-     * @param $value Value to search for
+     * @param array $array Array of Objects to search
+     * @param string $key Array Key to reference
+     * @param string $value Value to search for
      * @return Object
      */
     private function findobjectbykeyvalue($array, $key, $value) {
@@ -310,7 +310,7 @@ class glossary_form extends \moodleform {
     /**
      * Detect if string has html
      *
-     * @param $string String to check
+     * @param string $string String to check
      * @return boolean
      */
     private function contains_html($string) {

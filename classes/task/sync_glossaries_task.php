@@ -153,9 +153,9 @@ class sync_glossaries_task extends \core\task\scheduled_task {
     /**
      * Find Object by Key Value
      *
-     * @param array Array of objects
-     * @param key Array Key to reference
-     * @param value Value to search for
+     * @param $array Array of objects
+     * @param $key Array Key to reference
+     * @param $value Value to search for
      * @return Object Object found by key value
      */
     private function findobjectbykeyvalue($array, $key, $value) {
