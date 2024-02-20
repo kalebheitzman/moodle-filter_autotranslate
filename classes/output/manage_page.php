@@ -62,12 +62,12 @@ class manage_page implements renderable, templatable {
     /**
      * @var int $instanceid Context instanceid associated with the text
      */
-    private null | int $instanceid;
+    private ?int $instanceid;
 
     /**
      * @var int $contextlevel Context  associated with the text
      */
-    private null | int $contextlevel;
+    private ?int $contextlevel;
 
     /**
      * @var int Current page number

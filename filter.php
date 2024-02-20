@@ -149,8 +149,7 @@ class filter_autotranslate extends moodle_text_filter {
             return $text;
         }
 
-        // Only translate context that are in filter settings
-        // @see https://docs.moodle.org/403/en/Context.
+        // Only translate contexts that are in filter settings.
         $selectctx = explode(",", get_config('filter_autotranslate', 'selectctx'));
         if (!in_array(strval($this->context->contextlevel), $selectctx)) {
             return $text;
