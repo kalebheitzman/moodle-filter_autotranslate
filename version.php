@@ -25,7 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->version   = 2024021700;                // The current plugin version (Date: YYYYMMDDXX).
-$plugin->requires  = 2023042406.00;             // Requires this Moodle version.
+$plugin->requires  = 2023042400;                // Requires this Moodle version.
 $plugin->component = 'filter_autotranslate';    // Full name of the plugin (used for diagnostics).
 $plugin->release   = '1.0.0';
 $plugin->maturity  = MATURITY_ALPHA;
