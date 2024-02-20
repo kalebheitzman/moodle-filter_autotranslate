@@ -21,6 +21,8 @@ defined('MOODLE_INTERNAL') || die();
 require_once(dirname(__DIR__, 4) . '/config.php');
 require_once(dirname(__DIR__, 2) . "/vendor/autoload.php");
 
+use filter_autotranslate\autotranslate\translator;
+
 /**
  * Autotranslate Jobs
  *
@@ -75,10 +77,34 @@ class autotranslate_task extends \core\task\scheduled_task {
             $sourcerecord = $DB->get_record('filter_autotranslate', ['hash' => $job->hash, 'lang' => $sitelang]);
             $targetrecord = $DB->get_record('filter_autotranslate', ['hash' => $job->hash, 'lang' => $job->lang]);
 
+            // Get glossary if it exists.
+            $glossary = $DB->get_record(
+                'filter_autotranslate_gids',
+                ['source_lang' => $sitelang, 'target_lang' => $job->lang],
+                'glossary_id,name'
+            );
+
+            // Set glossaryid if glossary exists.
+            $glossaryid = null;
+            if ($glossary && $glossary->glossary_id) {
+                $glossaryid = $glossary->glossary_id;
+                mtrace("retrieved $glossary->name version $glossary->glossary_id");
+            }
+
             // Only translate if text exists.
             if ($sourcerecord) {
                 // Get the translation.
-                $translation = $translator->translateText($sourcerecord->text, null, $job->lang, ['formality' => 'prefer_more']);
+                $options = [];
+                $options['formality'] = 'prefer_more';
+                if ($glossaryid) {
+                    $options['glossary'] = $glossaryid;
+                }
+                $translation = $translator->translateText(
+                    $sourcerecord->text,
+                    $sitelang,
+                    $job->lang,
+                    $options
+                );
 
                 // Insert translation to the db.
                 if (!$targetrecord) {

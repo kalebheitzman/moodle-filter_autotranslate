@@ -78,7 +78,7 @@ $string['source'] = 'Source';
 // Tasks.
 $string['fetchtask'] = 'Autotranslation Fetch';
 $string['missingapikey'] = 'You have not entered a DeepL API key';
-$string['synctask'] = 'Sync Glossaries';
+$string['synctask'] = 'Sync DeepL Glossaries';
 
 // Capabilities.
 $string['translate'] = 'Manage autotranslations';
