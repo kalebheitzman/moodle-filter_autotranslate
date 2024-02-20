@@ -1,40 +1,41 @@
-# moodle-filter_autotranslate
+# Moodle Autostranslate Filter
 
-[![Latest Release](https://img.shields.io/github/v/release/iarenaza/moodle-filter_autotranslate?sort=semver&color=orange)](https://github.com/iarenaza/moodle-filter_autotranslate/releases)
+[![Latest Release](https://img.shields.io/github/v/release/jamfire/moodle-filter_autotranslate?sort=semver&color=orange)](https://github.com/jamfire/moodle-filter_autotranslate/releases)
 [![Moodle Plugin
-CI](https://github.com/iarenaza/moodle-filter_autotranslate/workflows/Moodle%20plugin%20CI/badge.svg?branch=master)](https://github.com/iarenaza/moodle-filter_autotranslate/actions?query=workflow%3A%22Moodle+plugin+CI%22+branch%3Amaster)
+CI](https://github.com/jamfire/moodle-filter_autotranslate/workflows/Moodle%20plugin%20CI/badge.svg?branch=master)](https://github.com/jamfire/moodle-filter_autotranslate/actions?query=workflow%3A%22Moodle+plugin+CI%22+branch%3Amaster)
 
-# To Install it manually
+# Installation
 
-- Unzip the plugin in the moodle .../filter/ directory.
+-   Unzip the plugin in the moodle .../filter/ directory.
 
-# To Enable it
+# Enable the filter
 
-- Go to "Site Administration &gt;&gt; Plugins &gt;&gt; Filters &gt;&gt; Manage filters" and enable the plugin there.
+-   Go to "Site Administration &gt;&gt; Plugins &gt;&gt; Filters &gt;&gt; Manage filters" and enable the plugin there.
+-   It is recommended that you position the Autotranslate Filter at the top of your filter list and enable it on headings and content.
 
 # To Use it
 
-- Create your contents in multiple languages.
-- Enclose every language content between {mlang NN} and {mlang} tags:
-  <pre>
-    {mlang XX}content in language XX{mlang}
-    {mlang YY}content in language YY{mlang}
-    {mlang other}content for other languages{mlang}</pre>
-- where **XX** and **YY** are the Moodle short names for the language packs (i.e., en, fr, de, etc.) or the special language name 'other'.
-- **Version 1.1.1** and later: a new enhanced syntax to be able to specify multiple languages for a single tag is now available. Just specify the list of the languages separated by commas:
-  <pre>
-  {mlang XX,YY,ZZ}Text displayed if current lang is XX, YY or ZZ, or one of their parent laguages.{mlang}</pre>
-- Test it (by changing your browsing language in Moodle).
+-   Create your contents in multiple languages.
+-   Enclose every language content between {mlang NN} and {mlang} tags:
+    <pre>
+      {mlang XX}content in language XX{mlang}
+      {mlang YY}content in language YY{mlang}
+      {mlang other}content for other languages{mlang}</pre>
+-   where **XX** and **YY** are the Moodle short names for the language packs (i.e., en, fr, de, etc.) or the special language name 'other'.
+-   **Version 1.1.1** and later: a new enhanced syntax to be able to specify multiple languages for a single tag is now available. Just specify the list of the languages separated by commas:
+    <pre>
+    {mlang XX,YY,ZZ}Text displayed if current lang is XX, YY or ZZ, or one of their parent laguages.{mlang}</pre>
+-   Test it (by changing your browsing language in Moodle).
 
 # How it works
 
-- Look for "lang blocks" in the text to be filtered.
-- For each "lang block":
-  - If there are texts in the currently active language, print them.
-  - Else, if there exist texts in the current parent language, print them.
-  - Else, as fallback, print the text with language 'other' if such
-    one is set.
-- Text outside of "lang blocks" will always be shown.
+-   Look for "lang blocks" in the text to be filtered.
+-   For each "lang block":
+    -   If there are texts in the currently active language, print them.
+    -   Else, if there exist texts in the current parent language, print them.
+    -   Else, as fallback, print the text with language 'other' if such
+        one is set.
+-   Text outside of "lang blocks" will always be shown.
 
 ## Definition of "lang block"
 
@@ -67,21 +68,21 @@ This text:
   This text is common for all languages because it's outside of all lang blocks.
   {mlang other}Bye!{mlang}{mlang it}Ciao!{mlang}</pre>
 
-- If the current language is any language except "Spanish International", "Spanish - Mexico" or Italian, it will print:
-  <pre>
-  Hello!
-  This text is common for all languages because it's outside of all lang blocks.
-  Bye!</pre>
-- If the current language is "Spanish International" or "Spanish - Mexico", it will print:
-  <pre>
-  ¡Hola!
-  This text is common for all languages because it's outside of all lang blocks.</pre>
-- Notice the final 'Bye!' / 'Ciao!' is not printed.
-- If the current language is Italian, it will print:
-  <pre>
-  This text is common for all languages because it's outside of all lang blocks.
-  Ciao!</pre>
-- Notice the leading 'Hello!' / '¡Hola!' and the final 'Bye!' are not printed.
+-   If the current language is any language except "Spanish International", "Spanish - Mexico" or Italian, it will print:
+    <pre>
+    Hello!
+    This text is common for all languages because it's outside of all lang blocks.
+    Bye!</pre>
+-   If the current language is "Spanish International" or "Spanish - Mexico", it will print:
+    <pre>
+    ¡Hola!
+    This text is common for all languages because it's outside of all lang blocks.</pre>
+-   Notice the final 'Bye!' / 'Ciao!' is not printed.
+-   If the current language is Italian, it will print:
+    <pre>
+    This text is common for all languages because it's outside of all lang blocks.
+    Ciao!</pre>
+-   Notice the leading 'Hello!' / '¡Hola!' and the final 'Bye!' are not printed.
 
 ### Using text, images and external embedded content
 
