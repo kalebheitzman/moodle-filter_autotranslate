@@ -1,8 +1,7 @@
 # Moodle Autostranslate Filter
 
 [![Latest Release](https://img.shields.io/github/v/release/jamfire/moodle-filter_autotranslate?sort=semver&color=orange)](https://github.com/jamfire/moodle-filter_autotranslate/releases)
-[![Moodle Plugin
-CI](https://github.com/jamfire/moodle-filter_autotranslate/workflows/Moodle%20plugin%20CI/badge.svg?branch=master)](https://github.com/jamfire/moodle-filter_autotranslate/actions?query=workflow%3A%22Moodle+plugin+CI%22+branch%3Amaster)
+[![Moodle Plugin CI](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml/badge.svg)](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml)
 
 # Installation
 
