@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<libraries>
+    <library>
+        <location>vendor/deeplcom/deepl-php/</location>
+        <name>deepl-php</name>
+        <version>v1.6.0</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+    <library>
+        <location>vendor/punic/punic/</location>
+        <name>punic</name>
+        <version>v3.8.1</version>
+        <license>MIT</license>
+        <licenseversion></licenseversion>
+    </library>
+</libraries>
