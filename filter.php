@@ -27,7 +27,6 @@ defined('MOODLE_INTERNAL') || die();
 global $CFG;
 
 // Get libs.
-require_once(dirname(__DIR__, 2) . '/config.php');
 require_once($CFG->libdir . '/filterlib.php');
 require_once(__DIR__ . "/vendor/autoload.php");
 

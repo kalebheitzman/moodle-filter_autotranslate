@@ -369,7 +369,6 @@ class glossary_page implements renderable, templatable {
                     );
                 }
 
-
                 // Check to see if the glossary glossary exists.
 
                 // Create the glossary glossary if it doesn't exist.
