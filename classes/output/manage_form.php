@@ -33,7 +33,7 @@ require_once($CFG->libdir . '/formslib.php');
  */
 class manage_form extends \moodleform {
     /**
-     * @param string $urlparms URL Params from Manage Page
+     * @var string $urlparms URL Params from Manage Page
      */
     private array $urlparams;
 
@@ -203,8 +203,8 @@ class manage_form extends \moodleform {
     /**
      * Generate Form Row
      *
-     * @param \MoodleQuickForm $mform
-     * @param \stdClass $item
+     * @param \MoodleQuickForm $mform Moodle Form
+     * @param \stdClass $item Row Item
      * @return void
      */
     private function get_formrow(\MoodleQuickForm $mform, \stdClass $record) {
@@ -313,6 +313,9 @@ class manage_form extends \moodleform {
 
     /**
      * Validation
+     *
+     * @param array $data Form Data
+     * @param array $files Uploaded Files
      */
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
@@ -330,10 +333,10 @@ class manage_form extends \moodleform {
     /**
      * Find Object by Key Value
      *
-     * @param array Array
-     * @param key Array Key
-     * @param value Value to search for
-     * @return Object
+     * @param $array Array of objects
+     * @param $key Array Key to reference
+     * @param $value Value to search for
+     * @return Object that matches
      */
     private function findobjectbykeyvalue($array, $key, $value) {
         $filteredarray = array_filter($array, function ($object) use ($key, $value) {
@@ -348,7 +351,7 @@ class manage_form extends \moodleform {
      * Detect if string has html
      *
      * @param $string String to check
-     * @return boolean
+     * @return boolean If html was detected
      */
     private function contains_html($string) {
         // Strip HTML and PHP tags from the input string.

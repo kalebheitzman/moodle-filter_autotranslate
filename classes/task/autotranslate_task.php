@@ -33,10 +33,16 @@ use filter_autotranslate\autotranslate\translator;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class autotranslate_task extends \core\task\scheduled_task {
+    /**
+     * Get name of the Autotranslate Task
+     */
     public function get_name() {
         return get_string('fetchtask', 'filter_autotranslate');
     }
 
+    /**
+     * Execute the Autotranslate Task
+     */
     public function execute() {
         global $DB;
 

@@ -33,7 +33,7 @@ require_once($CFG->libdir . '/formslib.php');
  */
 class add_term_form extends \moodleform {
     /**
-     * @param string $urlparms URL Params from Glossary Page
+     * @var string $urlparms URL Params from Glossary Page
      */
     private array $urlparams;
 
@@ -126,6 +126,9 @@ class add_term_form extends \moodleform {
 
     /**
      * Validation
+     *
+     * @param array $data Form Data
+     * @param array $files Uploaded Files
      */
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);

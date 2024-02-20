@@ -33,7 +33,7 @@ require_once($CFG->libdir . '/formslib.php');
  */
 class glossary_form extends \moodleform {
     /**
-     * @param string $urlparms URL Params from Glossary Page
+     * @var string $urlparms URL Params from Glossary Page
      */
     private array $urlparams;
 
@@ -183,8 +183,8 @@ class glossary_form extends \moodleform {
     /**
      * Generate Form Row
      *
-     * @param \MoodleQuickForm $mform
-     * @param \stdClass $item
+     * @param \MoodleQuickForm $mform Moodle Form
+     * @param \stdClass $item Item to be rendered
      * @return void
      */
     private function get_formrow(\MoodleQuickForm $mform, \stdClass $record) {
@@ -273,6 +273,9 @@ class glossary_form extends \moodleform {
 
     /**
      * Validation
+     *
+     * @param array $data Form Data
+     * @param array $files Uploaded Files
      */
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
@@ -290,9 +293,9 @@ class glossary_form extends \moodleform {
     /**
      * Find Object by Key Value
      *
-     * @param array Array
-     * @param key Array Key
-     * @param value Value to search for
+     * @param $array Array of Objects to search
+     * @param $key Array Key to reference
+     * @param $value Value to search for
      * @return Object
      */
     private function findobjectbykeyvalue($array, $key, $value) {

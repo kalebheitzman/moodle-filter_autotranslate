@@ -39,74 +39,74 @@ use filter_autotranslate\output\manage_form;
  */
 class manage_page implements renderable, templatable {
     /**
-     * @param string $this->sitelang Default Moodle Language
+     * @var string $this->sitelang Default Moodle Language
      */
     private string $sitelang;
 
     /**
-     * @param array $langs Languages supported on the site
+     * @var array $langs Languages supported on the site
      */
     private array $langs;
 
 
     /**
-     * @param string $source_lange Source language of the text
+     * @var string $source_lange Source language of the text
      */
     private string $sourcelang;
 
     /**
-     * @param string $target_lang Target language of the text
+     * @var string $target_lang Target language of the text
      */
     private string $targetlang;
 
     /**
-     * @param int $instanceid Context instanceid associated with the text
+     * @var int $instanceid Context instanceid associated with the text
      */
     private null | int $instanceid;
 
     /**
-     * @param int $contextlevel Context  associated with the text
+     * @var int $contextlevel Context  associated with the text
      */
     private null | int $contextlevel;
 
     /**
-     * @param int Current page number
+     * @var int Current page number
      */
     private int $page;
 
     /**
-     * @param int Limit for query
+     * @var int Limit for query
      */
     private int $limit;
 
     /**
-     * @param int Offset for query
+     * @var int Offset for query
      */
     private int $offset;
 
     /**
-     * @param array $pages Array map of pages for pagination
+     * @var array $pages Array map of pages for pagination
      */
     private array $pages;
 
     /**
-     * @param ing $status Status of translations to query
+     * @var ing $status Status of translations to query
      */
     private int $status;
 
     /**
-     * @param string $target_lang_dir Target text rtl or ltr
+     * @var string $target_lang_dir Target text rtl or ltr
      */
     private string $targetlangdir;
 
     /**
-     * @param string $urlquery Url query
+     * @var string $urlquery Url query
      */
     private string $urlquery;
 
 
     /**
-     * @param manage_form $mform Autotranslation management form
+     * @var manage_form $mform Autotranslation management form
      */
     private manage_form $mform;
 

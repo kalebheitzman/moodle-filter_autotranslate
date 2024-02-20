@@ -22,29 +22,39 @@ defined('MOODLE_INTERNAL') || die();
 // Load the files we're going to need.
 require_once(dirname(__DIR__, 2) . "/vendor/autoload.php");
 
+/**
+ * Translator API
+ *
+ * Extend the DeepL PHP Api with functionality
+ * used by this plugin.
+ *
+ * @package    filter_autotranslate
+ * @copyright  2024 Kaleb Heitzman <kaleb@jamfire.io>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class translator {
     /**
-     * @param \DeepL\Translator $this->translator DeepL Translator
+     * @var \DeepL\Translator $translator DeepL Translator
      */
     public \DeepL\Translator $translator;
 
     /**
-     * @param array $this->sourcelangs Supported Source Languages
+     * @var array $sourcelangs Supported Source Languages
      */
     public array $sourcelangs;
 
     /**
-     * @param array $this->targetlangs Supported Target Languages
+     * @var array $targetlangs Supported Target Languages
      */
     public array $targetlangs;
 
     /**
-     * @param array $this->glossarylangs Glossary Languages
+     * @var array $glossarylangs Glossary Languages
      */
     public array $glossarylangs;
 
     /**
-     * @param array $this->langs Supported Moodle Langs
+     * @var array $langs Supported Moodle Langs
      */
     public array $langs;
 

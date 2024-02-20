@@ -34,10 +34,16 @@ use filter_autotranslate\autotranslate\translator;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class sync_glossaries_task extends \core\task\scheduled_task {
+    /**
+     * Get the name of Sync Glossaries Task
+     */
     public function get_name() {
         return get_string('synctask', 'filter_autotranslate');
     }
 
+    /**
+     * Execute the Sync Glossaries Task
+     */
     public function execute() {
         global $DB;
 
@@ -147,10 +153,10 @@ class sync_glossaries_task extends \core\task\scheduled_task {
     /**
      * Find Object by Key Value
      *
-     * @param array Array
-     * @param key Array Key
+     * @param array Array of objects
+     * @param key Array Key to reference
      * @param value Value to search for
-     * @return Object
+     * @return Object Object found by key value
      */
     private function findobjectbykeyvalue($array, $key, $value) {
         $filteredarray = array_filter($array, function ($object) use ($key, $value) {

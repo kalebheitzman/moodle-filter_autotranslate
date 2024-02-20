@@ -36,62 +36,62 @@ use filter_autotranslate\autotranslate\translator;
  */
 class glossary_page implements renderable, templatable {
     /**
-     * @param string $this->sitelang Default Moodle Language
+     * @var string $this->sitelang Default Moodle Language
      */
     private string $sitelang;
 
     /**
-     * @param array $langs Languages supported on the site
+     * @var array $langs Languages supported on the site
      */
     private array $langs;
 
     /**
-     * @param string $source_lange Source language of the text
+     * @var string $source_lange Source language of the text
      */
     private string $sourcelang;
 
     /**
-     * @param string $target_lang Target language of the text
+     * @var string $target_lang Target language of the text
      */
     private string $targetlang;
 
     /**
-     * @param int Current page number
+     * @var int Current page number
      */
     private int $page;
 
     /**
-     * @param int Limit for query
+     * @var int Limit for query
      */
     private int $limit;
 
     /**
-     * @param int Offset for query
+     * @var int Offset for query
      */
     private int $offset;
 
     /**
-     * @param array $pages Array map of pages for pagination
+     * @var array $pages Array map of pages for pagination
      */
     private array $pages;
 
     /**
-     * @param string $target_lang_dir Target text rtl or ltr
+     * @var string $target_lang_dir Target text rtl or ltr
      */
     private string $targetlangdir;
 
     /**
-     * @param string $urlquery Url query
+     * @var string $urlquery Url query
      */
     private string $urlquery;
 
     /**
-     * @param glossary_form $mform Autotranslation glossary form
+     * @var glossary_form $mform Autotranslation glossary form
      */
     private glossary_form $mform;
 
     /**
-     * @param add_term_form $tform Autotranslation add term form
+     * @var add_term_form $tform Autotranslation add term form
      */
     private add_term_form $tform;
 
@@ -110,10 +110,6 @@ class glossary_page implements renderable, templatable {
 
         // Translation API.
         $translator = new translator();
-
-        // echo "<pre>";
-        // var_dump($translator->listglossaries());
-        // echo "</pre>";
 
         // Qury params.
         $this->sitelang = get_config('core', 'lang', PARAM_NOTAGS);
