@@ -307,6 +307,7 @@ class manage_page implements renderable, templatable {
             ]);
         }
         $data->langs = $langs;
+        $data->sitelang = $this->sitelang;
         $data->sourcelang = $this->langs[$this->sourcelang];
         $data->targetlang = $this->langs[$this->targetlang];
         $data->sourcelangcode = $this->sourcelang;
