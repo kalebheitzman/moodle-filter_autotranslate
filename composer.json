@@ -1,12 +1,21 @@
 {
-    "require": {
-        "deeplcom/deepl-php": "^1.6",
-        "symfony/http-client": "^7.0",
-        "nyholm/psr7": "^1.8"
-    },
-    "config": {
-        "allow-plugins": {
-            "php-http/discovery": true
-        }
+  "name": "kalebheitzman/autotranslate",
+  "description": "Autotranslation Filter for Moodle",
+  "authors": [
+    {
+      "name": "Kaleb Heitzman",
+      "email": "kaleb@jamfire.io"
     }
+  ],
+  "require": {
+    "deeplcom/deepl-php": "^1.6",
+    "symfony/http-client": "^7.0",
+    "nyholm/psr7": "^1.8",
+    "punic/punic": "^3.8"
+  },
+  "config": {
+    "allow-plugins": {
+      "php-http/discovery": true
+    }
+  }
 }

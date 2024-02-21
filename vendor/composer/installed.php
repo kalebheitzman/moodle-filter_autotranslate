@@ -1,30 +1,30 @@
 <?php return array(
     'root' => array(
-        'name' => '__root__',
-        'pretty_version' => 'dev-master',
-        'version' => 'dev-master',
-        'reference' => '6080ef9fe7f09fe86fc4bd3440587a18b0b86784',
+        'name' => 'kalebheitzman/autotranslate',
+        'pretty_version' => 'dev-develop',
+        'version' => 'dev-develop',
+        'reference' => '0e2d8aca1501b824a02929d15c0d355b1aceb60e',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
         'dev' => true,
     ),
     'versions' => array(
-        '__root__' => array(
-            'pretty_version' => 'dev-master',
-            'version' => 'dev-master',
-            'reference' => '6080ef9fe7f09fe86fc4bd3440587a18b0b86784',
-            'type' => 'library',
-            'install_path' => __DIR__ . '/../../',
-            'aliases' => array(),
-            'dev_requirement' => false,
-        ),
         'deeplcom/deepl-php' => array(
             'pretty_version' => 'v1.6.0',
             'version' => '1.6.0.0',
             'reference' => '2f301d555b0ef7c9dde626877e4301d0b04ba29d',
             'type' => 'library',
             'install_path' => __DIR__ . '/../deeplcom/deepl-php',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'kalebheitzman/autotranslate' => array(
+            'pretty_version' => 'dev-develop',
+            'version' => 'dev-develop',
+            'reference' => '0e2d8aca1501b824a02929d15c0d355b1aceb60e',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
             'dev_requirement' => false,
         ),
@@ -110,8 +110,8 @@
         'psr/http-factory-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '*',
-                1 => '1.0',
+                0 => '1.0',
+                1 => '*',
             ),
         ),
         'psr/http-message' => array(
@@ -126,8 +126,8 @@
         'psr/http-message-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '*',
-                1 => '1.0',
+                0 => '1.0',
+                1 => '*',
             ),
         ),
         'psr/log' => array(
@@ -139,10 +139,31 @@
             'aliases' => array(),
             'dev_requirement' => false,
         ),
+        'punic/calendar' => array(
+            'dev_requirement' => false,
+            'replaced' => array(
+                0 => '*',
+            ),
+        ),
+        'punic/common' => array(
+            'dev_requirement' => false,
+            'replaced' => array(
+                0 => '*',
+            ),
+        ),
+        'punic/punic' => array(
+            'pretty_version' => '3.8.1',
+            'version' => '3.8.1.0',
+            'reference' => '142707201a246a9c2ea909605cd56177af87f961',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../punic/punic',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
         'symfony/http-client' => array(
-            'pretty_version' => 'v7.0.2',
-            'version' => '7.0.2.0',
-            'reference' => 'db714986d3b84330bb6196fdb201c9f79b3a8853',
+            'pretty_version' => 'v7.0.3',
+            'version' => '7.0.3.0',
+            'reference' => '3d2605c07cd14aec294f72f5bf8147702f7a5ada',
             'type' => 'library',
             'install_path' => __DIR__ . '/../symfony/http-client',
             'aliases' => array(),

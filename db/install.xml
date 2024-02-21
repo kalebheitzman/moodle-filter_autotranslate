@@ -4,12 +4,14 @@
     xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
 >
   <TABLES>
-    <TABLE NAME="filter_autotranslate" COMMENT="Autotranslate cache.">
+    <TABLE NAME="filter_autotranslate" COMMENT="Autotranslate stored translations">
       <FIELDS>
         <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
         <FIELD NAME="hash" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="lang" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
         <FIELD NAME="text" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
+        <!-- 0 = auto, 1 = verified, 2 = source -->
+        <FIELD NAME="status" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" />
         <FIELD NAME="created_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Created time of translation"/>
         <FIELD NAME="modified_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Last modified time of translation"/>
       </FIELDS>
@@ -19,6 +21,87 @@
       <INDEXES>
         <INDEX NAME="lang_index" UNIQUE="false" FIELDS="lang" COMMENT="Translation language index"/>
         <INDEX NAME="hash_index" UNIQUE="false" FIELDS="hash" COMMENT="Translation hash index" />
+        <INDEX NAME="status_index" UNIQUE="false" FIELDS="status" COMMENT="Translation status index" />
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="filter_autotranslate_jobs" COMMENT="Autotranslate jobs">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="hash" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="lang" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
+        <FIELD NAME="fetched" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" />
+        <FIELD NAME="source_missing" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" />
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id" />
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="lang_index" UNIQUE="false" FIELDS="lang" COMMENT="Translation language index"/>
+        <INDEX NAME="hash_index" UNIQUE="false" FIELDS="hash" COMMENT="Translation hash index" />
+        <INDEX NAME="source_missing_index" UNIQUE="false" FIELDS="source_missing" COMMENT="Translation source_missing index" />
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="filter_autotranslate_ctx" COMMENT="Autotranslate index by content ids">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="hash" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="lang" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
+        <FIELD NAME="contextid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
+        <!-- New fields 2024013000 -->
+        <FIELD NAME="contextlevel" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Context level"/>
+        <FIELD NAME="instanceid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Instance ID"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id" />
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="lang_index" UNIQUE="false" FIELDS="lang" COMMENT="Translation language index"/>
+        <INDEX NAME="hash_index" UNIQUE="false" FIELDS="hash" COMMENT="Translation hash index" />
+        <INDEX NAME="contextid_index" UNIQUE="false" FIELDS="contextid" COMMENT="Translation hash index" />
+        <!-- New indexes 2024013000 -->
+        <INDEX NAME="contextlevel_index" UNIQUE="false" FIELDS="contextlevel" COMMENT="Context level index"/>
+        <INDEX NAME="instanceid_index" UNIQUE="false" FIELDS="instanceid" COMMENT="Instance ID index"/>
+      </INDEXES>
+    </TABLE>
+    <!-- New glossary table 2024021200 -->
+    <TABLE NAME="filter_autotranslate_gterms" COMMENT="Autotranslate glossary terms">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="hash" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="text" TYPE="text"  NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="lang" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
+        <FIELD NAME="created_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Created time of entry"/>
+        <FIELD NAME="modified_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Last modified time of entry"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id" />
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="lang_index" UNIQUE="false" FIELDS="lang" COMMENT="Glossary language index"/>
+        <INDEX NAME="hash_index" UNIQUE="false" FIELDS="hash" COMMENT="Glossary hash index" />
+      </INDEXES>
+    </TABLE>
+    <!-- glossary jobs and ids tables 2024021700 -->
+    <TABLE NAME="filter_autotranslate_gids" COMMENT="Autotranslate glossary ids">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="glossary_id" TYPE="char" LENGTH="42" NOTNULL="false" SEQUENCE="false"/>
+        <FIELD NAME="name" TYPE="text" NOTNULL="true" SEQUENCE="false"/>
+        <FIELD NAME="ready" TYPE="int" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
+        <FIELD NAME="source_lang" TYPE="char" LENGTH="5" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
+        <FIELD NAME="target_lang" TYPE="char" LENGTH="5" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
+        <FIELD NAME="created_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Created time of glossary"/>
+        <FIELD NAME="modifed_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Modified time of glossary"/>
+        <FIELD NAME="last_sync" TYPE="int" LENGTH="11" NOTNULL="false" SEQUENCE="false" COMMENT="Last Sync time of glossary"/>
+        <FIELD NAME="entry_count" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0"  SEQUENCE="false" COMMENT="Entrie count in glossary"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id" />
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="source_lang_index" UNIQUE="false" FIELDS="source_lang" COMMENT="Glossary source language index"/>
+        <INDEX NAME="target_lang_index" UNIQUE="false" FIELDS="target_lang" COMMENT="Glossary target language index"/>
+        <INDEX NAME="name_index" UNIQUE="false" FIELDS="name" COMMENT="Glossary name index" />
       </INDEXES>
     </TABLE>
   </TABLES>

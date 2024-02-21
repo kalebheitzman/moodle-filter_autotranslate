@@ -1,12 +1,55 @@
 .filter-autotranslate__container,
-.filter-autotranslate_form {
-  max-width: 100% !important;
-  width: 100% !important;
+.filter-autotranslate__form {
+    /* stylelint-disable declaration-no-important */
+    max-width: 100% !important;
+    width: 100% !important;
+    /* stylelint-enable */
 }
 
-.filter-autotranslate__target-text,
-.filter-autotranslate__target-text .row,
-.filter-autotranslate__target-text textarea {
-  height: 100%;
-  height: fit-content;
+.filter-autotranslate__form input[type="text"] {
+    width: 100%;
+}
+
+.filter-autotranslate__language-selector ul {
+    padding: 1rem 0;
+    margin: 0;
+    list-style: none;
+}
+.filter-autotranslate__language-selector ul li {
+    display: inline-block;
+}
+
+.filter-autotranslate__status-selector {
+    padding: 1rem 0;
+    margin: 0 0 0.25rem;
+    list-style: none;
+}
+.filter-autotranslate__status-selector li {
+    display: inline-block;
+}
+
+.filter-autotranslate__pagination ul {
+    padding: 1rem 0;
+    margin: 0;
+    list-style: none;
+}
+.filter-autotranslate__pagination ul li {
+    display: inline-block;
+}
+
+.filter-autotranslate__lang-list {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+.filter-autotranslate__lang-list li {
+    display: inline-block;
+}
+
+.right-to-left {
+    text-align: right;
+}
+
+.right-to-left * {
+    direction: rtl;
 }

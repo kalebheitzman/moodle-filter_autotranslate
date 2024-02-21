@@ -15,6 +15,8 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
+ * Autotranslate Settings
+ *
  * @package    filter_autotranslate
  * @copyright  2024 Kaleb Heitzman <kaleb@jamfire.io>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -22,141 +24,84 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+use filter_autotranslate\autotranslate\translator;
 
 if ($hassiteconfig) {
+    if ($ADMIN->fulltree) {
+        $translator = new translator();
+        $usage = $translator->getusage();
+        $a = new stdClass();
+        $a->count = $usage->character->count;
+        $a->limit = number_format($usage->character->limit);
 
-    // Create new settings page.
-    $settings = new admin_settingpage('filter_autotranslate', get_string('pluginname', 'filter_autotranslate'));
+        // Usage.
+        $settings->add(
+            new admin_setting_description(
+                'filter_autotranslate/usage',
+                get_string('usage', 'filter_autotranslate'),
+                get_string('usagedesc', 'filter_autotranslate', $a)
+            )
+        );
 
-    // Add to admin menu.
-    $ADMIN->add('filterplugins', $settings);
+        // Usage.
+        $settings->add(
+            new admin_setting_description(
+                'filter_autotranslate/usagebreak',
+                null,
+                "<br />"
+            )
+        );
 
-    // Use deepl machine translation.
-    // $settings->add(
-    //     new admin_setting_configcheckbox(
-    //         'filter_autotranslate/usedeepl',
-    //         get_string('usedeepl', 'filter_autotranslate'),
-    //         get_string('usedeepl_desc', 'filter_autotranslate'),
-    //         false
-    //     )
-    // );
+        // DeepL apikey.
+        $settings->add(
+            new admin_setting_configtext(
+                'filter_autotranslate/deeplapikey',
+                get_string('apikey', 'filter_autotranslate'),
+                get_string('apikey_desc', 'filter_autotranslate'),
+                null,
+                PARAM_RAW_TRIMMED,
+                40
+            )
+        );
 
-    // DeepL apikey.
-    $settings->add(
-        new admin_setting_configtext(
-            'filter_autotranslate/deeplapikey',
-            get_string('apikey', 'filter_autotranslate'),
-            get_string('apikey_desc', 'filter_autotranslate'),
-            null,
-            PARAM_RAW_TRIMMED,
-            40
-        )
-    );
+        // Schedule jobs limit.
+        $settings->add(
+            new admin_setting_configtext(
+                'filter_autotranslate/managelimit',
+                get_string('managelimit', 'filter_autotranslate'),
+                get_string('managelimit_desc', 'filter_autotranslate'),
+                20,
+                PARAM_INT
+            )
+        );
 
-    // DeepL Free or Pro?
-    // $settings->add(
-    //     new admin_setting_configcheckbox(
-    //         'filter_autotranslate/deeplpro',
-    //         get_string('deeplpro', 'filter_autotranslate'),
-    //         get_string('deeplpro_desc', 'filter_autotranslate'),
-    //         false
-    //     )
-    // );
+        // Schedule jobs limit.
+        $settings->add(
+            new admin_setting_configtext(
+                'filter_autotranslate/fetchlimit',
+                get_string('fetchlimit', 'filter_autotranslate'),
+                get_string('fetchlimit_desc', 'filter_autotranslate'),
+                200,
+                PARAM_INT
+            )
+        );
 
-    // Use translation page autotranslation.
-    $settings->add(
-        new admin_setting_configcheckbox(
-            'filter_autotranslate/useautotranslate',
-            get_string('useautotranslate', 'filter_autotranslate'),
-            get_string('useautotranslate_desc', 'filter_autotranslate'),
-            true
-        )
-    );
-
-}
-
-if ($ADMIN->fulltree) {
-    // $listoftranslations = get_string_manager()->get_list_of_translations(true);
-
-    // $settings->add(new admin_setting_heading('managetranslations', '',
-    //     html_writer::link(new moodle_url('/filter/translations/managetranslations.php'),
-    //         get_string('managetranslations', 'filter_autotranslate'), ['class' => "btn btn-primary"])));
-
-    // $settings->add(new admin_setting_heading('managetranslationissues', '',
-    //     html_writer::link(new moodle_url('/filter/translations/managetranslationissues.php'),
-    //         get_string('managetranslationissues', 'filter_autotranslate'), ['class' => "btn btn-primary"])));
-
-
-    // $settings->add(new admin_setting_heading('performance', get_string('performance', 'admin'), ''));
-
-    // $settings->add(new admin_setting_configcheckbox('filter_autotranslate/showperfdata',
-    //     get_string('showperfdata', 'filter_autotranslate'), '', false));
-
-    // $options = [];
-    // foreach ([cache_store::MODE_REQUEST, cache_store::MODE_SESSION, cache_store::MODE_APPLICATION] as $mode) {
-    //     $options[$mode] = get_string('mode_' . $mode, 'cache');
-    // }
-    // $settings->add(new admin_setting_configselect('filter_autotranslate/cachingmode',
-    //     get_string('cachingmode', 'filter_autotranslate'), get_string('cachingmode_desc', 'filter_autotranslate'),
-    //     cache_store::MODE_REQUEST, $options));
-
-    // $settings->add(new admin_setting_configtextarea('filter_autotranslate/untranslatedpages',
-    //     new lang_string('untranslatedpages', 'filter_autotranslate'),
-    //     new lang_string('untranslatedpages_desc', 'filter_autotranslate'),
-    //     '/blocks/configurable_reports/viewreport.php')
-    // );
-
-    // $settings->add(new admin_setting_configmultiselect('filter_autotranslate/excludelang',
-    //     get_string('excludelang', 'filter_autotranslate'),
-    //     get_string('excludelang_desc', 'filter_autotranslate'), [],
-    //     $listoftranslations));
-
-    // $settings->add(new admin_setting_heading('logging', get_string('logging', 'filter_autotranslate'), ''));
-
-    // $settings->add(new admin_setting_configmultiselect('filter_autotranslate/logexcludelang',
-    //     get_string('logexcludelang', 'filter_autotranslate'),
-    //     get_string('logexcludelang_desc', 'filter_autotranslate'), [],
-    //     $listoftranslations));
-
-    // $settings->add(new admin_setting_configcheckbox('filter_autotranslate/loghistory',
-    //     get_string('loghistory', 'filter_autotranslate'), '', false));
-
-    // $settings->add(new admin_setting_configcheckbox('filter_autotranslate/logmissing',
-    //     get_string('logmissing', 'filter_autotranslate'), '', false));
-
-    // $settings->add(new admin_setting_configcheckbox('filter_autotranslate/logstale',
-    //     get_string('logstale', 'filter_autotranslate'), '', false));
-
-    // $settings->add(new admin_setting_configduration('filter_autotranslate/logdebounce',
-    //     get_string('logdebounce', 'filter_autotranslate'), '', DAYSECS));
-
-    // $settings->add(new admin_setting_heading('scheduledtasks', get_string('scheduledtasksheading', 'filter_autotranslate'), ''));
-
-    // $settings->add(new admin_setting_configtextarea('filter_autotranslate/columndefinition',
-    //     new lang_string('columndefinition', 'filter_autotranslate'),
-    //     new lang_string('columndefinition_desc', 'filter_autotranslate'),
-    //     '')
-    // );
-
-    // $settings->add(new admin_setting_heading('languagestringreverseapi',
-    //     get_string('languagestringreverse', 'filter_autotranslate'), ''));
-
-    // $settings->add(new admin_setting_configcheckbox('filter_autotranslate/languagestringreverse_enable',
-    //     get_string('languagestringreverse_enable', 'filter_autotranslate'), '', false));
-
-    // $settings->add(new admin_setting_heading('googletranslateapi',
-    //     get_string('googletranslate', 'filter_autotranslate'), ''));
-
-    // $settings->add(new admin_setting_configcheckbox('filter_autotranslate/google_enable',
-    //     get_string('google_enable', 'filter_autotranslate'), '', false));
-
-    // $settings->add(new admin_setting_configcheckbox('filter_autotranslate/google_backoffonerror',
-    //     get_string('google_backoffonerror', 'filter_autotranslate'), '', false));
-
-    // $settings->add(new admin_setting_configtext('filter_autotranslate/google_apiendpoint',
-    //     get_string('google_apiendpoint', 'filter_autotranslate'), '', 'https://translation.googleapis.com/language/translate/v2',
-    //     PARAM_URL));
-
-    // $settings->add(new admin_setting_configtext('filter_autotranslate/google_apikey',
-    //     get_string('google_apikey', 'filter_autotranslate'), '', null, PARAM_RAW_TRIMMED, 40));
+        // Context level.
+        $settings->add(
+            new admin_setting_configmulticheckbox(
+                'filter_autotranslate/selectctx',
+                get_string('selectctx', 'filter_autotranslate'),
+                get_string('selectctx_desc', 'filter_autotranslate'),
+                ['40', '50', '70', '80'], // Corrected to use string values.
+                [
+                    '10' => get_string('ctx_system', 'filter_autotranslate'),
+                    '30' => get_string('ctx_user', 'filter_autotranslate'),
+                    '40' => get_string('ctx_coursecat', 'filter_autotranslate'),
+                    '50' => get_string('ctx_course', 'filter_autotranslate'),
+                    '70' => get_string('ctx_module', 'filter_autotranslate'),
+                    '80' => get_string('ctx_block', 'filter_autotranslate'),
+                ]
+            )
+        );
+    }
 }

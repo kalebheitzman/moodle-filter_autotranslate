@@ -1,100 +1,83 @@
-# moodle-filter_autotranslate
+# Moodle Autostranslate Filter
 
-[![Latest Release](https://img.shields.io/github/v/release/iarenaza/moodle-filter_autotranslate?sort=semver&color=orange)](https://github.com/iarenaza/moodle-filter_autotranslate/releases)
-[![Moodle Plugin
-CI](https://github.com/iarenaza/moodle-filter_autotranslate/workflows/Moodle%20plugin%20CI/badge.svg?branch=master)](https://github.com/iarenaza/moodle-filter_autotranslate/actions?query=workflow%3A%22Moodle+plugin+CI%22+branch%3Amaster)
+[![Latest Release](https://img.shields.io/github/v/release/jamfire/moodle-filter_autotranslate)](https://github.com/jamfire/moodle-filter_autotranslate/releases)
+[![Moodle Plugin CI](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml/badge.svg)](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml)
 
-# To Install it manually
+## Installation
 
-- Unzip the plugin in the moodle .../filter/ directory.
+-   Unzip the plugin in the moodle .../filter/ directory.
 
-# To Enable it
+This plugin is in an Alpha state and it is highly recommended that you backup your database before installing and enabling this plugin.
 
-- Go to "Site Administration &gt;&gt; Plugins &gt;&gt; Filters &gt;&gt; Manage filters" and enable the plugin there.
+## Non-destructive translation
 
-# To Use it
+This autotranslation filter does not alter the original text of any of your content on Moodle. It stores all source text and translations in a translation table. The filter works by retrieving the source text from the translation table after it has been saved for the first time. If in the event something goes arwy, disable the filter and all of your original text will be restored immediately.
 
-- Create your contents in multiple languages.
-- Enclose every language content between {mlang NN} and {mlang} tags:
-  <pre>
-    {mlang XX}content in language XX{mlang}
-    {mlang YY}content in language YY{mlang}
-    {mlang other}content for other languages{mlang}</pre>
-- where **XX** and **YY** are the Moodle short names for the language packs (i.e., en, fr, de, etc.) or the special language name 'other'.
-- **Version 1.1.1** and later: a new enhanced syntax to be able to specify multiple languages for a single tag is now available. Just specify the list of the languages separated by commas:
-  <pre>
-  {mlang XX,YY,ZZ}Text displayed if current lang is XX, YY or ZZ, or one of their parent laguages.{mlang}</pre>
-- Test it (by changing your browsing language in Moodle).
+You need to consider your database performance and size when using this plugin. It will effectively double the size of your database if every page of your Moodle site is visited because all source text is being saved as a reference.
 
-# How it works
+## Multlang support
 
-- Look for "lang blocks" in the text to be filtered.
-- For each "lang block":
-  - If there are texts in the currently active language, print them.
-  - Else, if there exist texts in the current parent language, print them.
-  - Else, as fallback, print the text with language 'other' if such
-    one is set.
-- Text outside of "lang blocks" will always be shown.
+This plugin provides limited support for [multilang](https://docs.moodle.org/403/en/Multi-language_content_filter) and [multilang2.](https://moodle.org/plugins/filter_multilang2). A custom parser has been written to find existing translations on your website and store those in the autotranslate table instead of fetching new translations from DeepL. This requires that you have only used a single {mlang} tag per translation in your content using the following format:
 
-## Definition of "lang block"
+```
+{mlang en}Hello{mlang}
+{mlang es}Hola{mlang}
+{mlang fr}Bonjour{mlang}
+```
 
-Is any text (including spaces, tabs, linefeeds or return characters) placed between '{mlang XX}' and '{mlang}' markers. You can not only put text inside "lang block", but also images, videos or external embedded content. For example, this is a valid "lang block":
+This filter does not support the following structure:
 
-<pre>
-{mlang es,es_mx,es_co}
-First paragraph of text. First paragraph of text. First paragraph of text.
+```
+Moodle
+{mlang en}Hello{mlang}
+{mlang es}Hola{mlang}
+{mlang fr}Bonjour{mlang}
+{mlang en}Goodbye{mlang}
+```
 
-Second paragraph of text. Second paragraph of text. Second paragraph of text.
+The word Moodle would be stripped out from your translation and you would end up with the words Hola, Bonjour, Goodbye in the translation table. The first Hello would be lost because of the duplicate "en" key.
 
-                   An image could go here
+## DeepL integration and plugin settings
 
-Third paragraph of text. Third paragraph of text. Third paragraph of text.
+This plugin uses DeepL to autotranslate content on your Moodle site into any of the languages that DeepL supports. The source language is always your Moodle default site language. The target language are any of the languages that are not your default site language.
 
-                   An embedded Youtube video could go here
+You can signup for a free or pro version key of DeepL's [API.](https://www.deepl.com/pro-api) This plugin utilizes the official [DeepL PHP client library](https://github.com/DeepLcom/deepl-php) for connecting to the API. **You will need to enter your DeepL API key under the Autotranslate filter settings before this filter will work.**
 
-Fourth paragraph of text. Fourth paragraph of text. Fourth paragraph of text.
-{mlang}
-</pre>
+![Autotranslate Settings](docs/settings.jpg)
 
-## A couple of examples in action
+## Enable the filter and move it to the top
 
-### Using text only
+-   Go to "Site Administration &gt;&gt; Plugins &gt;&gt; Filters &gt;&gt; Manage filters" and enable the plugin there.
+-   It is recommended that you position the Autotranslate Filter at the top of your filter list and enable it on headings and content.
 
-This text:
+## Autotranslation scheduled task
 
-  <pre>
-  {mlang other}Hello!{mlang}{mlang es,es_mx}¡Hola!{mlang}
-  This text is common for all languages because it's outside of all lang blocks.
-  {mlang other}Bye!{mlang}{mlang it}Ciao!{mlang}</pre>
+There are two scheduled tasks that run every minute that can be configured in the Autotranslate Filter settings. The first task is an autotranslate job that translates any content loaded that is not your Moodle default site language. For example, if someone selects Spanish in the language switcher, and the default language of Moodle is in English, each line of text of the page visited will be queued for autotranslation. In the first minute after content on a page has been queued, the default site language will be served but after the autotranslate job has finished, the autotranslated version of the page will be served and become available for editing on the Autotranslation Management screen. By default, 200 strings are translated per minute using this scheduled task.
 
-- If the current language is any language except "Spanish International", "Spanish - Mexico" or Italian, it will print:
-  <pre>
-  Hello!
-  This text is common for all languages because it's outside of all lang blocks.
-  Bye!</pre>
-- If the current language is "Spanish International" or "Spanish - Mexico", it will print:
-  <pre>
-  ¡Hola!
-  This text is common for all languages because it's outside of all lang blocks.</pre>
-- Notice the final 'Bye!' / 'Ciao!' is not printed.
-- If the current language is Italian, it will print:
-  <pre>
-  This text is common for all languages because it's outside of all lang blocks.
-  Ciao!</pre>
-- Notice the leading 'Hello!' / '¡Hola!' and the final 'Bye!' are not printed.
+Running from the CLI:
 
-### Using text, images and external embedded content
+```bash
+php admin/cli/scheduled_task.php --execute='\filter_autotranslate\task\autotranslate_task'
+```
 
-We create a label with the content shown in the following image:
+## Autotranslation management
 
-<img src="https://moodle.org/pluginfile.php/50/local_plugins/plugin_screenshots/1560/multilang-example-1-modificado.png" height="694" width="800" alt="Multi-Language content in Spanish, English, an language-independent content" />
+This filter provides a string management interface for translators to manually adjust autotranslations at `/filter/autotranslate/manage.php`. If the identical string shows up in multiple places on your Moodle site, you only need to translate the string once. This is useful for items like blocks, additional navigation, etc. You can select the different contexts you want to translate under the Autotranslate filter settings.
 
-The "lang block" tags are highlighted using blue boxes. You can see that we have three pieces of content: the Spanish-only content (light yellow box), the language-independent content (light blue) and the English-only content (light red).
+![Manage Page](docs/manage.jpg)
 
-If the user browses the page with English as her configured language, she will see the common content (light blue box) and the English-only content (light red):
+You can also find a link in each course to translate only the content found in the course under "More &gt;&gt; Manage Autotranslations."
 
-<img src="https://moodle.org/pluginfile.php/50/local_plugins/plugin_screenshots/1560/multilang-example-2.png" width="800" height="586" alt="Multi-Language content when browsed in English" />
+![Manage from Course](docs/course.jpg)
 
-If the user browses the page with Spanish as her configured language, she will see the Spanish-only content (light yellow) plus the common content (light blue box):
+## Glossary sync task
 
-<img src="https://moodle.org/pluginfile.php/50/local_plugins/plugin_screenshots/1560/multilang-example-3.png" width="800" height="586" alt="Multi-Language content when browsed in Spanish" />
+The second scheduled task syncs a local copy of your Autotranslation glossary to DeepL for any [language combinations supported by DeepL.](https://www.deepl.com/docs-api/glossaries). You can manage your glossaries at `/filter/autotranslate/glossary.php`. To create a sync job, you will need to click "Sync Glossary" on the Glossary Management page for the selected source and target language pair.
+
+Running from the CLI:
+
+```bash
+php admin/cli/scheduled_task.php --execute='\filter_autotranslate\task\sync_glossaries_task'
+```
+
+![Glossary Page](docs/glossary.jpg)

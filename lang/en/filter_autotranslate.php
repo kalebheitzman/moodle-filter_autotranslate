@@ -31,11 +31,54 @@ $string['privacy:metadata'] = 'The Autotranslate Filter plugin does not store an
 // DeepL strings.
 $string['apikey'] = 'API Key for DeepL Translations';
 $string['apikey_desc'] = 'Your API key from DeepL.';
-$string['useautotranslate'] = 'Enable autotranslation';
-$string['useautotranslate_desc'] = 'Enable autotranslate on this site. This will cause a slow initial page load until the translations have been saved to the database.';
+$string['managelimit'] = 'Manage Page Record Limit';
+$string['managelimit_desc'] = 'Max number of records visible on the Manage page.';
+$string['fetchlimit'] = 'Scheduled Task Fetch Limit';
+$string['fetchlimit_desc'] = 'Max number of fetches to the DeepL API per autotranslate scheduled task run (task runs every 60 seconds).';
 $string['supported_languages'] = 'bg,cs,da,de,el,en,es,et,fi,fr,hu,it,ja,lt,lv,nl,pl,pt,ro,ru,sk,sl,sv,zh'; // Do not change between translations.
 
-// Manage page strings
-$string['hash_text'] = "Hash Key";
-$string['source_text'] = "Source Text";
-$string['translation_text'] = "Translation Text";
+// Settings page.
+$string['autotranslate_settings'] = 'Autotranslate filter settings';
+$string['usage'] = 'Current Usage';
+$string['usagedesc'] = 'You have used {$a->count} of {$a->limit} characters.';
+
+// Glossary page strings.
+$string['glossary_title'] = 'Autotranslation Glossary';
+$string['site_language'] = 'Default Site Language';
+$string['supported_glossary_langs'] = 'Supported Glossary Languages';
+$string['glossary_term'] = 'Add a new glossary term';
+$string['sync_glossary'] = 'Sync Glossary';
+
+// Manage page strings.
+$string['manage_title'] = 'Manage Autotranslations';
+$string['hash_text'] = 'ID: Hash Key';
+$string['available_translations'] = 'Languages Translated';
+$string['source_text'] = 'Source Text';
+$string['translation_text'] = 'Translation Text';
+$string['source_language'] = 'Source Language';
+$string['select_target_language'] = 'Target Language';
+$string['pag_first'] = '&laquo; First';
+$string['pag_previous'] = '&lsaquo; Previous';
+$string['pag_next'] = 'Next &rsaquo;';
+$string['pag_last'] = 'Last &raquo;';
+$string['selectctx'] = 'Context Levels';
+$string['selectctx_desc'] = 'Context levels in Moodle that should be autotranslated';
+$string['ctx_system'] = 'System';
+$string['ctx_user'] = 'User';
+$string['ctx_coursecat'] = 'Course Category';
+$string['ctx_course'] = 'Course';
+$string['ctx_module'] = 'Module';
+$string['ctx_block'] = 'Block';
+$string['resetstatus'] = 'Reset';
+$string['allstatuses'] = 'All Statuses';
+$string['autotranslated'] = 'Auto';
+$string['verified'] = 'Verified';
+$string['source'] = 'Source';
+
+// Tasks.
+$string['fetchtask'] = 'Autotranslation Fetch';
+$string['missingapikey'] = 'You have not entered a DeepL API key';
+$string['synctask'] = 'Sync DeepL Glossaries';
+
+// Capabilities.
+$string['translate'] = 'Manage autotranslations';

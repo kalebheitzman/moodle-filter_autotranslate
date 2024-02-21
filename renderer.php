@@ -27,15 +27,25 @@ use plugin_renderer_base;
  * @see        https://docs.moodle.org/dev/Output_API
  */
 class renderer extends plugin_renderer_base {
-
     /**
-     * Render Translate Content Page
+     * Render Manage Page
      *
      * @param object $page
      * @return string
      */
-    public function render_translate_page($page) {
+    public function render_manage_page($page) {
         $data = $page->export_for_template($this);
-        return parent::render_from_template('filter_autotranslate/translate_page', $data);
+        return parent::render_from_template('filter_autotranslate/manage_page', $data);
+    }
+
+    /**
+     * Render Glossary Page
+     *
+     * @param object $page
+     * @return string
+     */
+    public function render_glossary_page($page) {
+        $data = $page->export_for_template($this);
+        return parent::render_from_template('filter_autotranslate/glossary_page', $data);
     }
 }
