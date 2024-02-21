@@ -41,7 +41,7 @@ The word Moodle would be stripped out from your translation and you would end up
 
 This plugin uses DeepL to autotranslate content on your Moodle site into any of the languages that DeepL supports. The source language is always your Moodle default site language. The target language are any of the languages that are not your default site language.
 
-You can signup for a free or pro version key of DeepL's [API.](https://www.deepl.com/pro-api). This plugin utilizes the official [DeepL PHP client library](https://github.com/DeepLcom/deepl-php) for connecting to the API. **You will need to enter your DeepL API key under the Autotranslate filter settings before this filter will work.**
+You can signup for a free or pro version key of DeepL's [API.](https://www.deepl.com/pro-api) This plugin utilizes the official [DeepL PHP client library](https://github.com/DeepLcom/deepl-php) for connecting to the API. **You will need to enter your DeepL API key under the Autotranslate filter settings before this filter will work.**
 
 ![Autotranslate Settings](docs/settings.jpg)
 
