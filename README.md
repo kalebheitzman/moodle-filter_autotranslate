@@ -58,6 +58,8 @@ There are two scheduled tasks that run every minute that can be configured in th
 
 This filter provides a string management interface for translators to manually adjust autotranslations at `/filter/autotranslate/manage.php`. If the identical string shows up in multiple places on your Moodle site, you only need to translate the string once. This is useful for items like blocks, additional navigation, etc. You can select the different contexts you want to translate under the Autotranslate filter settings.
 
+You can also find a link in each course to translate only the content found in the course under "More &gt;&gt; Manage Autotranslations."
+
 ![Manage Page](docs/manage.jpg)
 
 ## Glossary sync task
