@@ -13,6 +13,8 @@ This plugin uses DeepL to autotranslate content on your Moodle site into any of 
 
 You can signup for a free or pro version key of DeepL's [API.](https://www.deepl.com/pro-api). This plugin utilizes the official [DeepL PHP client library](https://github.com/DeepLcom/deepl-php) for connecting to the API. **You will need to enter your DeepL API key under the Autotranslate filter settings before this filter will work.**
 
+![Autotranslate Settings](docs/settings.jpg)
+
 ## Enable the filter
 
 -   Go to "Site Administration &gt;&gt; Plugins &gt;&gt; Filters &gt;&gt; Manage filters" and enable the plugin there.
