@@ -7,6 +7,34 @@
 
 -   Unzip the plugin in the moodle .../filter/ directory.
 
+## Non-destructive Translation
+
+This autotranslation filter does not alter the original text of any of your content on Moodle. It stores all source text and translations in a translation table. The filter works by retrieving the source text from the translation table after it has been saved for the first time. If in the event something goes arwy, disable the filter and all of your original text will be restored immediately.
+
+You need to consider your database performance and size when using this plugin. It will effectively double the size of your database if every page of your Moodle site is visited because all source text is being saved as a reference.
+
+## Multling Support
+
+This plugin provides limited support for [multilang](https://docs.moodle.org/403/en/Multi-language_content_filter) and [multilang2.](https://moodle.org/plugins/filter_multilang2). A custom parser has been written to find existing translations on your website and store those in the autotranslate table instead of fetching new translations from DeepL. This requires that you have only used a single {mlang} tag per translation in your content using the following format:
+
+```
+{mlang en}Hello{mlang}
+{mlang es}Hola{mlang}
+{mlang fr}Bonjour{mlang}
+```
+
+This filter does not support the following structure:
+
+```
+Moodle
+{mlang en}Hello{mlang}
+{mlang es}Hola{mlang}
+{mlang fr}Bonjour{mlang}
+{mlang en}Goodbye{mlang}
+```
+
+The word Moodle would be stripped out from your translation and you would end up with the words Hola, Bonjour, Goodbye in the translation table. The first Hello would be lost because of the duplicate "en" key.
+
 ## DeepL Integration and Plugin Settings
 
 This plugin uses DeepL to autotranslate content on your Moodle site into any of the languages that DeepL supports. The source language is always your Moodle default site language. The target language are any of the languages that are not your default site language.
@@ -19,7 +47,6 @@ You can signup for a free or pro version key of DeepL's [API.](https://www.deepl
 
 -   Go to "Site Administration &gt;&gt; Plugins &gt;&gt; Filters &gt;&gt; Manage filters" and enable the plugin there.
 -   It is recommended that you position the Autotranslate Filter at the top of your filter list and enable it on headings and content.
--   There is built in support to parse existing {mlang} content and create the necessary translations in the `filter_autotranslate` table instead of losing them to autotranslation.
 
 ## Autotranslation Scheduled Task
 
