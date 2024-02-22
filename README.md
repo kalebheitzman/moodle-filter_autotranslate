@@ -1,7 +1,6 @@
 # Moodle Autostranslate Filter
 
-[![Latest Release](https://img.shields.io/github/v/release/jamfire/moodle-filter_autotranslate)](https://github.com/jamfire/moodle-filter_autotranslate/releases)
-[![Moodle Plugin CI](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml/badge.svg)](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/jamfire/moodle-filter_autotranslate)](https://github.com/jamfire/moodle-filter_autotranslate/releases) [![Moodle Plugin CI](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml/badge.svg)](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml) [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=jamfire_moodle-filter_autotranslate&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=jamfire_moodle-filter_autotranslate)
 
 ## Installation
 
@@ -17,7 +16,7 @@ You need to consider your database performance and size when using this plugin. 
 
 ## Multlang support
 
-This plugin provides limited support for [multilang](https://docs.moodle.org/403/en/Multi-language_content_filter) and [multilang2.](https://moodle.org/plugins/filter_multilang2). A custom parser has been written to find existing translations on your website and store those in the autotranslate table instead of fetching new translations from DeepL. This requires that you have only used a single {mlang} tag per translation in your content using the following format:
+This plugin provides limited support for [multilang](https://docs.moodle.org/403/en/Multi-language_content_filter) and [multilang2.](https://moodle.org/plugins/filter_multilang2) A custom parser has been written to find existing translations on your website and store those in the autotranslate table instead of fetching new translations from DeepL. This requires that you have only used a single {mlang} tag per translation in your content using the following format:
 
 ```
 {mlang en}Hello{mlang}

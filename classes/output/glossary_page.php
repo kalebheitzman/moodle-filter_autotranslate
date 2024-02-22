@@ -36,7 +36,7 @@ use filter_autotranslate\autotranslate\translator;
  */
 class glossary_page implements renderable, templatable {
     /**
-     * @var string $this->sitelang Default Moodle Language
+     * @var string $sitelang Default Moodle Language
      */
     private string $sitelang;
 
