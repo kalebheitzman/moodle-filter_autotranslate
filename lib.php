@@ -38,7 +38,7 @@ function filter_autotranslate_extend_navigation_course($navigation, $course) {
 
     // Build a moodle url.
     $url = new moodle_url(
-        "/filter/autotranslate/manage.php?sourcelang=$sitelang&targetlang=$currentlang&limit=500&instanceid=$course->id"
+        "/filter/autotranslate/manage.php?targetlang=$currentlang&limit=500&instanceid=$course->id"
     );
 
     // Get title of translate page for navigation menu.
