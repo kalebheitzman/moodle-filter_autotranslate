@@ -64,14 +64,14 @@ along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
     <div class="col-5 filter-autotranslate__language-selector">
       <p class="mb-0">{{#str}}site_language,filter_autotranslate{{/str}}</p>
       <ul class="mb-1">
-        <li class="text-uppercase"><a href="{{ url }}?source_lang={{code}}&target_lang={{target_lang_code}}&limit={{limit}}&status={{status}}&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="text-decoration-none btn btn-dark">{{ sitelangcode }}</a></li>
+        <li class="text-uppercase"><a href="{{ url }}?target_lang={{target_lang_code}}&limit={{limit}}&status={{status}}&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="text-decoration-none btn btn-dark">{{ sitelangcode }}</a></li>
       </ul>
     </div>
     <div class="col-5 filter-autotranslate__language-selector">
       <p class="mb-0">{{#str}}supported_glossary_langs,filter_autotranslate{{/str}}</p>
       <ul class="mb-1">
         {{#langs}}
-          <li class="text-uppercase"><a href="{{ url }}?source_lang={{sitelangcode}}&target_lang={{code}}&limit={{limit}}&status={{status}}&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="text-decoration-none btn {{target-btn-class}}">{{ code }}</a></li>
+          <li class="text-uppercase"><a href="{{ url }}?target_lang={{code}}&limit={{limit}}&status={{status}}&instanceid={{instanceid}}&contextlevel={{contextlevel}}" class="text-decoration-none btn {{target-btn-class}}">{{ code }}</a></li>
         {{/langs}}
       </ul>
     </div>

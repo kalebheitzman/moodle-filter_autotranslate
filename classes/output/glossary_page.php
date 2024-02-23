@@ -46,12 +46,12 @@ class glossary_page implements renderable, templatable {
     private array $langs;
 
     /**
-     * @var string $source_lange Source language of the text
+     * @var string $sourcelang Source language of the text
      */
     private string $sourcelang;
 
     /**
-     * @var string $target_lang Target language of the text
+     * @var string $targetlang Target language of the text
      */
     private string $targetlang;
 
@@ -114,8 +114,7 @@ class glossary_page implements renderable, templatable {
         // Qury params.
         $this->sitelang = get_config('core', 'lang', PARAM_NOTAGS);
         $this->langs = $translator->getsupportedglossarylangs();
-        $this->sourcelang = optional_param('source_lang', $this->sitelang, PARAM_NOTAGS);
-        $this->sourcelang = clean_param($this->sourcelang, PARAM_NOTAGS);
+        $this->sourcelang = $this->sitelang;
         $this->targetlang = optional_param('target_lang', $this->sitelang, PARAM_NOTAGS);
         $this->targetlang = clean_param($this->targetlang, PARAM_NOTAGS);
         $this->page = optional_param('page', 1, PARAM_INT);
@@ -135,7 +134,6 @@ class glossary_page implements renderable, templatable {
 
         // Url params.
         $urlparams = [];
-        $urlparams['source_lang'] = $this->sourcelang;
         $urlparams['target_lang'] = $this->targetlang;
         $urlparams['limit'] = $this->limit;
         $urlparams['page'] = $this->page;
