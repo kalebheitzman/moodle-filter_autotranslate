@@ -136,13 +136,13 @@ class translator {
      * Get DeepL Usage
      */
     public function getusage() {
-        return $this->translator->getUsage();
+        return $this->translator ? $this->translator->getUsage() : 0;
     }
 
     /**
      * Get Glossaries.
      */
     public function listglossaries() {
-        return $this->translator->listGlossaries();
+        return $this->translator ? $this->translator->listGlossaries() : [];
     }
 }
