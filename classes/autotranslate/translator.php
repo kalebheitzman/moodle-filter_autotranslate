@@ -66,7 +66,7 @@ class translator {
         // Get the api key from settings.
         $authkey = get_config('filter_autotranslate', 'deeplapikey');
         if (!$authkey) {
-            throw new \moodle_exception('missingapikey', 'filter_autotranslate');
+            // throw new \moodle_exception('missingapikey', 'filter_autotranslate');
         }
 
         // Load deepl translator.
