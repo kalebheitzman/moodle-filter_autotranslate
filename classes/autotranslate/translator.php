@@ -72,8 +72,7 @@ class translator {
             $this->translator = new \DeepL\Translator($authkey);
         }
 
-        // Load deepl translator.
-        $this->translator = new \DeepL\Translator($authkey);
+        // Get the langs supported by the site.
         $this->langs = get_string_manager()->get_list_of_translations();
     }
 
