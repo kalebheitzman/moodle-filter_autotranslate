@@ -36,7 +36,7 @@ class translator {
     /**
      * @var \DeepL\Translator $translator DeepL Translator
      */
-    public \DeepL\Translator $translator;
+    public ?\DeepL\Translator $translator;
 
     /**
      * @var array $sourcelangs Supported Source Languages
