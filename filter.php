@@ -181,37 +181,26 @@ class filter_autotranslate extends moodle_text_filter {
 
         // Update the langsresult with appropriate values.
         if ($textistranslation) {
-            // Text is from core.
-            $langsresult[$currentlang] = $text;
-        } else {
-            // Text is not from core.
-            $langsresult[$sitelang] = $text;
+            // Text is from core so we can return it
+            // without further processing.
+            return $text;
+        }
+
+        // Current language for string not detected in multilang.
+        if (!array_key_exists($currentlang, $langsresult)) {
             $langsresult[$currentlang] = null;
         }
 
-        // return empty($langsresult[$currentlang]) ? $langsresult[$sitelang] : $langsresult[$currentlang];
-
-        // If mlang is detected, parse it out.
-        // if (!empty($langsresult)) {
-        // Other mlang was found.
-        // if (array_key_exists('other', $langsresult) && $currentlang === $sitelang) {
-        // $text = $langsresult['other'];
-        // } else if (array_key_exists($currentlang, $langsresult)) { // Current language was found.
-        // $text = $langsresult[$currentlang];
-        // }
-        // } else if (!array_key_exists($sitelang, $langsresult) && $currentlang === $sitelang) {
-        // No mlang found and current lang is site lang.
-        // $langsresult[$currentlang] = $text;
-        // } else {
-        // No mlang found and current lang is not site lang
-        // setting the value as null will notify jobs code below to create a job.
-        // $langsresult[$currentlang] = null;
-        // }
+        // Default language for site not detected in multilang.
+        if (!array_key_exists($sitelang, $langsresult)) {
+            $langsresult[$sitelang] = $text;
+        }
 
         // Generate the md5 hash of the current text.
         $hash = md5($text);
 
         // Iterate through each lang results.
+        // Remember: this includes the default site language.
         foreach ($langsresult as $lang => $content) {
             // Null content has been found,
             // kick off job processing.
@@ -280,10 +269,11 @@ class filter_autotranslate extends moodle_text_filter {
                 );
             } else if ($record && $currentlang === $lang) {
                 // Translation found, return the text.
-                $text = $record->text;
+                return $record->text;
             }
         }
 
+        $text = empty($langsresult[$currentlang]) ? $langsresult[$sitelang] : $langsresult[$currentlang];
         return $text;
     }
 
