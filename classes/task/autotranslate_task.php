@@ -69,7 +69,7 @@ class autotranslate_task extends \core\task\scheduled_task {
         // Get 100 existing jobs.
         $jobs = $DB->get_records('filter_autotranslate_jobs', [
             'fetched' => '0',
-            'source_missing' => '0',
+            'source' => '1',
         ], null, '*', 0, $fetchlimit);
         $jobscount = count($jobs);
         mtrace("$jobscount jobs found...");
@@ -129,24 +129,24 @@ class autotranslate_task extends \core\task\scheduled_task {
                 }
 
                 // Update the job to fetched.
-                $jid = $DB->update_record(
+                $DB->set_field(
                     'filter_autotranslate_jobs',
+                    'modified_at',
+                    time(),
                     [
                         'id' => $job->id,
-                        'fetched' => "1",
+                    ]
+                );
+                $jid = $DB->set_field(
+                    'filter_autotranslate_jobs',
+                    'fetched',
+                    '1',
+                    [
+                        'id' => $job->id,
                     ]
                 );
 
                 mtrace("completed job $job->id...");
-            } else if (!$sourcerecord) {
-                // Update the job to fetched.
-                $jid = $DB->update_record(
-                    'filter_autotranslate_jobs',
-                    [
-                        'id' => $job->id,
-                        'source_missing' => "1",
-                    ]
-                );
             }
         }
     }

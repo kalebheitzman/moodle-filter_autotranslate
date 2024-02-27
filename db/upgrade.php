@@ -238,5 +238,78 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2024021700, 'filter', 'autotranslate');
     }
 
+    // Add status field for tracking translations.
+    if ($oldversion < 2024022700) {
+        // Define the table.
+        $table = new xmldb_table('filter_autotranslate_jobs');
+
+        // Drop the source_missing index on _jobs.
+        $index = new xmldb_index('source_missing_index', XMLDB_INDEX_NOTUNIQUE, ['source_missing']);
+        $dbman->drop_index($table, $index);
+
+        // Modify the source_missing field to just source on _jobs.
+        $field = new xmldb_field('source_missing', XMLDB_TYPE_INTEGER, '1', null, null, null, 0);
+        $dbman->rename_field($table, $field, 'source');
+
+        // Add the source index on _jobs.
+        $index = new xmldb_index('source_index', XMLDB_INDEX_NOTUNIQUE, ['source']);
+        $dbman->add_index($table, $index);
+
+        // Update the version number to the latest.
+        upgrade_plugin_savepoint(true, 2024022700, 'filter', 'autotranslate');
+    }
+
+    // Update old source_missing field values.
+    if ($oldversion < 2024022701) {
+        $tablename = 'filter_autotranslate_jobs';
+        $fieldname = 'source';
+        $oldvalue = '1';
+        $newvalue = '0';
+
+        // Query records with the old value.
+        $records = $DB->get_records($tablename, [$fieldname => $oldvalue]);
+
+        // Loop through each record and update the value.
+        foreach ($records as $record) {
+            $record->$fieldname = $newvalue;
+            $DB->update_record($tablename, $record);
+        }
+
+        // Update the version number to the latest.
+        upgrade_plugin_savepoint(true, 2024022701, 'filter', 'autotranslate');
+    }
+
+    // Update old source_missing field values.
+    if ($oldversion < 2024022702) {
+        // Define the table to be modified.
+        $table = new xmldb_table('filter_autotranslate_jobs');
+
+        // Add new fields to the table.
+        $field1 = new xmldb_field('created_at', XMLDB_TYPE_INTEGER, '11', null, XMLDB_NOTNULL, null, time());
+        $field2 = new xmldb_field('modified_at', XMLDB_TYPE_INTEGER, '11', null, XMLDB_NOTNULL, null, time());
+
+        // Add the fields.
+        $dbman->add_field($table, $field1);
+        $dbman->add_field($table, $field2);
+
+        // Set created_at field.
+        $DB->set_field(
+            'filter_autotranslate_jobs',
+            'created_at',
+            time(),
+            [ "created_at" => null ]
+        );
+
+        // Set modified_at field.
+        $DB->set_field(
+            'filter_autotranslate_jobs',
+            'modified_at',
+            time(),
+            [ "modified_at" => null ]
+        );
+
+        // Update the version number to the latest.
+        upgrade_plugin_savepoint(true, 2024022702, 'filter', 'autotranslate');
+    }
     return true;
 }

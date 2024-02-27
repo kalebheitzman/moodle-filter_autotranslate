@@ -30,7 +30,10 @@
         <FIELD NAME="hash" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
         <FIELD NAME="lang" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
         <FIELD NAME="fetched" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" />
-        <FIELD NAME="source_missing" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" />
+        <FIELD NAME="source" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" />
+        <!-- 20240227002 -->
+        <FIELD NAME="created_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Created time of job"/>
+        <FIELD NAME="modified_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Last modified time of job"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id" />
@@ -38,7 +41,7 @@
       <INDEXES>
         <INDEX NAME="lang_index" UNIQUE="false" FIELDS="lang" COMMENT="Translation language index"/>
         <INDEX NAME="hash_index" UNIQUE="false" FIELDS="hash" COMMENT="Translation hash index" />
-        <INDEX NAME="source_missing_index" UNIQUE="false" FIELDS="source_missing" COMMENT="Translation source_missing index" />
+        <INDEX NAME="source_index" UNIQUE="false" FIELDS="source" COMMENT="Translation source index" />
       </INDEXES>
     </TABLE>
     <TABLE NAME="filter_autotranslate_ctx" COMMENT="Autotranslate index by content ids">

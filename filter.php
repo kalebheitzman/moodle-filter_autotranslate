@@ -155,12 +155,14 @@ class filter_autotranslate extends moodle_text_filter {
             return $text;
         }
 
-        // Check editing mode.
-        $editing = $PAGE->user_is_editing();
-
         // Language settings.
         $sitelang = get_config('core', 'lang');
         $currentlang = current_language();
+
+        // Clean the mlang text.
+        if (str_contains($text, "mlang other")) {
+            $text = str_replace("mlang other", "mlang $sitelang", $text);
+        }
 
         // Parsed text
         // if there is parsed text for the current language
@@ -171,31 +173,46 @@ class filter_autotranslate extends moodle_text_filter {
             $langsresult = $this->mlangparser2($text);
         }
 
-        // If mlang is detected, parse it out.
-        if (!empty($langsresult)) {
-            // Other mlang was found.
-            if (array_key_exists('other', $langsresult) && $currentlang === $sitelang) {
-                $text = $langsresult['other'];
-            } else if (array_key_exists($currentlang, $langsresult)) { // Current language was found.
-                $text = $langsresult[$currentlang];
-            }
-        } else if (!array_key_exists($sitelang, $langsresult) && $currentlang === $sitelang) {
-            // No mlang found and current lang is site lang.
+        // Check for translated string from core.
+        // This is to catch translated text that is not coming from multilang. Its possible
+        // that other components will need to be called and merged in.
+        $strings = get_string_manager()->load_component_strings('core', $currentlang);
+        $textistranslation = in_array($text, array_values($strings));
+
+        // Update the langsresult with appropriate values.
+        if ($textistranslation) {
+            // Text is from core.
             $langsresult[$currentlang] = $text;
         } else {
-            // No mlang found and current lang is not site lang
-            // setting the value as null will notify jobs code below to create a job.
+            // Text is not from core.
+            $langsresult[$sitelang] = $text;
             $langsresult[$currentlang] = null;
         }
+
+        // return empty($langsresult[$currentlang]) ? $langsresult[$sitelang] : $langsresult[$currentlang];
+
+        // If mlang is detected, parse it out.
+        // if (!empty($langsresult)) {
+        // Other mlang was found.
+        // if (array_key_exists('other', $langsresult) && $currentlang === $sitelang) {
+        // $text = $langsresult['other'];
+        // } else if (array_key_exists($currentlang, $langsresult)) { // Current language was found.
+        // $text = $langsresult[$currentlang];
+        // }
+        // } else if (!array_key_exists($sitelang, $langsresult) && $currentlang === $sitelang) {
+        // No mlang found and current lang is site lang.
+        // $langsresult[$currentlang] = $text;
+        // } else {
+        // No mlang found and current lang is not site lang
+        // setting the value as null will notify jobs code below to create a job.
+        // $langsresult[$currentlang] = null;
+        // }
 
         // Generate the md5 hash of the current text.
         $hash = md5($text);
 
         // Iterate through each lang results.
         foreach ($langsresult as $lang => $content) {
-            // Adjust for other when found.
-            $lang = $lang === 'other' ? $sitelang : $lang;
-
             // Null content has been found,
             // kick off job processing.
             if (!$content && $currentlang === $lang) {
@@ -210,7 +227,7 @@ class filter_autotranslate extends moodle_text_filter {
                             'hash' => $hash,
                             'lang' => $lang,
                             'fetched' => 0,
-                            'source_missing' => 0,
+                            'source' => 0,
                         ]
                     );
                 }
@@ -281,12 +298,14 @@ class filter_autotranslate extends moodle_text_filter {
     private function mlangparser2($text) {
         $result = [];
         $pattern = '/{\s*mlang\s+([^}]+)\s*}(.*?){\s*mlang\s*(?:[^}]+)?}/is';
+        $sitelang = get_config('core', 'lang');
 
         if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $lang = $match[1];
+                $lang = $lang === 'other' ? $sitelang : $lang;
                 $content = $match[2];
-                $result[$lang] = $content;
+                $result[strtolower($lang)] = $content;
             }
         }
 
@@ -314,7 +333,7 @@ class filter_autotranslate extends moodle_text_filter {
             if (preg_match_all('/[a-zA-Z0-9_-]+/', $langblock[1], $langs)) {
                 foreach ($langs[0] as $lang) {
                     $lang = str_replace('-', '_', strtolower($lang)); // Normalize languages.
-                    $langlist[$lang] = trim($langblock[2]);
+                    $langlist[strtolower($lang)] = trim($langblock[2]);
                 }
             }
             $result += $langlist;
