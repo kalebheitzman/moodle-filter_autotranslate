@@ -2,9 +2,14 @@
 
 [![Latest Release](https://img.shields.io/github/v/release/jamfire/moodle-filter_autotranslate)](https://github.com/jamfire/moodle-filter_autotranslate/releases) [![Moodle Plugin CI](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml/badge.svg)](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml) [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=jamfire_moodle-filter_autotranslate&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=jamfire_moodle-filter_autotranslate)
 
+## Requirements
+
+- PHP 8.2+
+- Moodle 4.2+
+
 ## Installation
 
--   Unzip the plugin in the moodle .../filter/ directory.
+- Unzip the plugin in the moodle .../filter/ directory.
 
 This plugin is in an Alpha state and it is highly recommended that you backup your database before installing and enabling this plugin.
 
@@ -46,8 +51,8 @@ You can signup for a free or pro version key of DeepL's [API.](https://www.deepl
 
 ## Enable the filter and move it to the top
 
--   Go to "Site Administration &gt;&gt; Plugins &gt;&gt; Filters &gt;&gt; Manage filters" and enable the plugin there.
--   It is recommended that you position the Autotranslate Filter at the top of your filter list and enable it on headings and content.
+- Go to "Site Administration &gt;&gt; Plugins &gt;&gt; Filters &gt;&gt; Manage filters" and enable the plugin there.
+- It is recommended that you position the Autotranslate Filter at the top of your filter list and enable it on headings and content.
 
 ## Autotranslation scheduled task
 
