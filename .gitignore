@@ -1,2 +1,3 @@
 .vscode
 .phpcs.xml
+.DS_Store

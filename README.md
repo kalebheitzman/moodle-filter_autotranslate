@@ -1,26 +1,46 @@
 # Moodle Autostranslate Filter
 
-[![Latest Release](https://img.shields.io/github/v/release/jamfire/moodle-filter_autotranslate)](https://github.com/jamfire/moodle-filter_autotranslate/releases)
-[![Moodle Plugin CI](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml/badge.svg)](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml)
+[![Latest Release](https://img.shields.io/github/v/release/jamfire/moodle-filter_autotranslate)](https://github.com/jamfire/moodle-filter_autotranslate/releases) [![Moodle Plugin CI](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml/badge.svg)](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml) [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=jamfire_moodle-filter_autotranslate&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=jamfire_moodle-filter_autotranslate)
+
+## Requirements
+
+- PHP 8.2+
+- Moodle 4.2+
+
+## Limitations
+
+- Only supports 2 letter locale codes.
+- Limited multilang ({mlang}) support. This filter will process your existing translations in mlang. See the Multilang Support section for more information.
+- This filter only supports languages supported in DeepL.
 
 ## Installation
 
--   Unzip the plugin in the moodle .../filter/ directory.
+- Unzip the plugin in the moodle .../filter/ directory.
 
 This plugin is in an Alpha state and it is highly recommended that you backup your database before installing and enabling this plugin.
 
 ## Non-destructive translation
 
-This autotranslation filter does not alter the original text of any of your content on Moodle. It stores all source text and translations in a translation table. The filter works by retrieving the source text from the translation table after it has been saved for the first time. If in the event something goes arwy, disable the filter and all of your original text will be restored immediately.
+This autotranslation filter does not alter the original text of any of your content on Moodle. It stores all source and target text in a translation table. The filter works by retrieving the source text from the translation table after it has been saved for the first time. If in the event something goes arwy, disable the filter and all of your original text will be restored immediately.
 
 You need to consider your database performance and size when using this plugin. It will effectively double the size of your database if every page of your Moodle site is visited because all source text is being saved as a reference.
 
-## Multlang support
+## Multilang support
 
-This plugin provides limited support for [multilang](https://docs.moodle.org/403/en/Multi-language_content_filter) and [multilang2.](https://moodle.org/plugins/filter_multilang2). A custom parser has been written to find existing translations on your website and store those in the autotranslate table instead of fetching new translations from DeepL. This requires that you have only used a single {mlang} tag per translation in your content using the following format:
+This plugin provides limited support for [multilang](https://docs.moodle.org/403/en/Multi-language_content_filter) and [multilang2.](https://moodle.org/plugins/filter_multilang2) A custom parser has been written to find existing translations on your website and store those in the autotranslate table instead of fetching new translations from DeepL. You should enable the translator on each context where you have used multilang in the Autotranslate filter settings.
+
+### Database prepwork
+
+If you choose to leave the Multilang and Multilang 2 filters on, you need to do some database prepwork before enabling the Autotranslate filter. You should have a default site language set and know the 2 letter local code for that language. We will use en (English) as an example.
+
+Navigate to `/admin/tool/replace` and perform a search and replace across your entire database for any `{mlang en}` tags and replace them with `{mlang other}`. It goes without saying that you should backup your database before performing this step. This can also be done via the [CLI.](https://docs.moodle.org/403/en/Search_and_replace_tool) This step is needed for the Autotranslate filter to work correctly. The `other` lang code is needed so that text can be referenced for pages without a translation.
+
+### Multilang 2 formatting requirements
+
+This filter was developed against a production database where mlang had been wildly used. It is impossible to account for every variation of how someone might have used `{mlang}` tags and whether they used them properly. This filter requires that you have only used a single {mlang} tag per translation in your content using the following format:
 
 ```
-{mlang en}Hello{mlang}
+{mlang other}Hello{mlang}
 {mlang es}Hola{mlang}
 {mlang fr}Bonjour{mlang}
 ```
@@ -29,13 +49,13 @@ This filter does not support the following structure:
 
 ```
 Moodle
-{mlang en}Hello{mlang}
+{mlang other}Hello{mlang}
 {mlang es}Hola{mlang}
 {mlang fr}Bonjour{mlang}
-{mlang en}Goodbye{mlang}
+{mlang other}Goodbye{mlang}
 ```
 
-The word Moodle would be stripped out from your translation and you would end up with the words Hola, Bonjour, Goodbye in the translation table. The first Hello would be lost because of the duplicate "en" key.
+The word Moodle would be stripped out from your translation and you would end up with the words Hola, Bonjour, Goodbye in the translation table. The first Hello would be lost because of the duplicate "other" key.
 
 ## DeepL integration and plugin settings
 
@@ -47,8 +67,8 @@ You can signup for a free or pro version key of DeepL's [API.](https://www.deepl
 
 ## Enable the filter and move it to the top
 
--   Go to "Site Administration &gt;&gt; Plugins &gt;&gt; Filters &gt;&gt; Manage filters" and enable the plugin there.
--   It is recommended that you position the Autotranslate Filter at the top of your filter list and enable it on headings and content.
+- Go to "Site Administration &gt;&gt; Plugins &gt;&gt; Filters &gt;&gt; Manage filters" and enable the plugin there.
+- It is recommended that you position the Autotranslate Filter at the top of your filter list and enable it on headings and content.
 
 ## Autotranslation scheduled task
 

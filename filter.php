@@ -155,12 +155,14 @@ class filter_autotranslate extends moodle_text_filter {
             return $text;
         }
 
-        // Check editing mode.
-        $editing = $PAGE->user_is_editing();
-
         // Language settings.
         $sitelang = get_config('core', 'lang');
         $currentlang = current_language();
+
+        // Clean the mlang text.
+        if (str_contains($text, "mlang other")) {
+            $text = str_replace("mlang other", "mlang $sitelang", $text);
+        }
 
         // Parsed text
         // if there is parsed text for the current language
@@ -168,37 +170,63 @@ class filter_autotranslate extends moodle_text_filter {
         // stored in the db.
         $langsresult = $this->mlangparser($text);
         if (!$langsresult) {
+            // Look for multilang2 text.
             $langsresult = $this->mlangparser2($text);
         }
 
-        // If mlang is detected, parse it out.
-        if (!empty($langsresult)) {
-            // Other mlang was found.
-            if (array_key_exists('other', $langsresult) && $currentlang === $sitelang) {
-                $text = $langsresult['other'];
-            } else if (array_key_exists($currentlang, $langsresult)) { // Current language was found.
-                $text = $langsresult[$currentlang];
+        // Check for translated string from core.
+        // This is to catch translated text that is not coming from multilang. Its possible
+        // that other components will need to be called and merged in.
+        $component = $this->get_component_name();
+        $strings = get_string_manager()->load_component_strings($component, $currentlang);
+        $textistranslation = in_array($text, array_values($strings));
+
+        // Text is from stringidentifier so we
+        // return it without further processing.
+        if ($textistranslation) {
+            return $text;
+        }
+
+        // Clean the langresults.
+        foreach ($langsresult as $lang => $value) {
+            // Catch bad multilang usage and clean it up.
+            // Note: there might be value in printing this to the page
+            // so it can be cleaned up in the editor.
+            if (str_contains($langsresult[$lang], "{mlang")) {
+                unset($langsresult[$lang]);
             }
-        } else if (!array_key_exists($sitelang, $langsresult) && $currentlang === $sitelang) {
-            // No mlang found and current lang is site lang.
-            $langsresult[$currentlang] = $text;
-        } else {
-            // No mlang found and current lang is not site lang
-            // setting the value as null will notify jobs code below to create a job.
+
+            // Empty lang or value detected, unset the array item.
+            if (empty($lang) || empty($value)) {
+                unset($langsresult[$lang]);
+            }
+
+            // Lang codes longer than 2 characters are unsupported.
+            if (strlen($lang) > 2) {
+                unset($langsresult[$lang]);
+            }
+        }
+
+        // Current language for string not detected in multilang.
+        if (!array_key_exists($currentlang, $langsresult) && $currentlang !== $sitelang) {
             $langsresult[$currentlang] = null;
+        }
+
+        // Default language for site not detected in multilang.
+        // Note: we don't want to enter text based on string identifiers in another language.
+        if (!array_key_exists($sitelang, $langsresult) && $currentlang === $sitelang) {
+            $langsresult[$sitelang] = $text;
         }
 
         // Generate the md5 hash of the current text.
         $hash = md5($text);
 
         // Iterate through each lang results.
+        // Remember: this includes the default site language.
         foreach ($langsresult as $lang => $content) {
-            // Adjust for other when found.
-            $lang = $lang === 'other' ? $sitelang : $lang;
-
             // Null content has been found,
             // kick off job processing.
-            if (!$content && $currentlang === $lang) {
+            if (!$content && $currentlang === $lang && $currentlang !== $sitelang) {
                 // Check if job exists.
                 $job = $DB->get_record('filter_autotranslate_jobs', ['hash' => $hash, 'lang' => $lang], 'id');
 
@@ -210,7 +238,7 @@ class filter_autotranslate extends moodle_text_filter {
                             'hash' => $hash,
                             'lang' => $lang,
                             'fetched' => 0,
-                            'source_missing' => 0,
+                            'source' => 0,
                         ]
                     );
                 }
@@ -231,7 +259,7 @@ class filter_autotranslate extends moodle_text_filter {
             // Insert the context id record if it does not exist
             // still create the record even if content is null because
             // an autotranslation job has been added for the content.
-            if (!$ctxrecord) {
+            if (!$ctxrecord && $lang) {
                 $DB->insert_record(
                     'filter_autotranslate_ctx',
                     [
@@ -249,7 +277,8 @@ class filter_autotranslate extends moodle_text_filter {
 
             // Create a record for the text
             // do not add null content here.
-            if (!$record && $content) {
+            // Note: We don't want to insert stringidentifier content here.
+            if (!$record && $content && $lang) {
                 $DB->insert_record(
                     'filter_autotranslate',
                     [
@@ -263,11 +292,74 @@ class filter_autotranslate extends moodle_text_filter {
                 );
             } else if ($record && $currentlang === $lang) {
                 // Translation found, return the text.
-                $text = $record->text;
+                return $record->text;
             }
         }
 
+        // Never gonna give you up.
+        if (!empty($langsresult[$currentlang])) {
+            return $langsresult[$currentlang];
+        }
+
+        // Never gonna let you down.
+        if (!empty($langsresult[$sitelang])) {
+            return $langsresult[$sitelang];
+        }
+
+        // Never gonna run around and desert you.
         return $text;
+    }
+
+    /**
+     * Get Component Name from the Context
+     *
+     * This is used to check against string tranlsations
+     * in Moodle so that we dont store unnecessary db info.
+     *
+     * @return string $component Component Name
+     */
+    private function get_component_name() {
+        global $DB;
+
+        // Initialize an array to store components.
+        $components = [];
+
+        // Get the context.
+        $context = $this->context;
+
+        // Check the type of context and infer associated components.
+        if ($context instanceof context_system) {
+            // For the system context, add the system component.
+            $components[] = 'core_system';
+        } else if ($context instanceof context_course) {
+            // For a course context, add sub-components related to course management.
+            $components[] = 'core_course';
+        } else if ($context instanceof context_module) {
+            // For a module context, add sub-components related to the specific module.
+            $module = $DB->get_record('course_modules', ['id' => $context->instanceid]);
+            if ($module && !empty($module->module)) {
+                $components[] = 'mod_' . $module->module;
+            }
+        } else if ($context instanceof context_block) {
+            // For a block context, add sub-components related to the specific block.
+            $blockconfig = get_config('block', $context->instanceid);
+            if ($blockconfig && !empty($blockconfig->name)) {
+                $components[] = 'block_' . $blockconfig->name;
+            } else {
+                $components[] = 'block_system'; // Fallback block component.
+            }
+        } else if ($context instanceof context_coursecat) {
+            // For a course category context, add sub-components related to course categories.
+            $components[] = 'core_coursecat';
+        } else if ($context instanceof context_user) {
+            // For a user context, add the user component.
+            $components[] = 'core_user';
+        }
+
+        // Convert the array of components into a string.
+        $componentstring = implode(',', $components);
+
+        return !empty($componentstring) ? $componentstring : null;
     }
 
     /**
@@ -281,12 +373,14 @@ class filter_autotranslate extends moodle_text_filter {
     private function mlangparser2($text) {
         $result = [];
         $pattern = '/{\s*mlang\s+([^}]+)\s*}(.*?){\s*mlang\s*(?:[^}]+)?}/is';
+        $sitelang = get_config('core', 'lang');
 
         if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $lang = $match[1];
+                $lang = $lang === 'other' ? $sitelang : $lang;
                 $content = $match[2];
-                $result[$lang] = $content;
+                $result[strtolower($lang)] = trim($content);
             }
         }
 
@@ -314,7 +408,7 @@ class filter_autotranslate extends moodle_text_filter {
             if (preg_match_all('/[a-zA-Z0-9_-]+/', $langblock[1], $langs)) {
                 foreach ($langs[0] as $lang) {
                     $lang = str_replace('-', '_', strtolower($lang)); // Normalize languages.
-                    $langlist[$lang] = trim($langblock[2]);
+                    $langlist[strtolower($lang)] = trim($langblock[2]);
                 }
             }
             $result += $langlist;

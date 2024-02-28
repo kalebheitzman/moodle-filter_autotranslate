@@ -37,20 +37,38 @@ function filter_autotranslate_extend_navigation_course($navigation, $course) {
     $currentlang = current_language();
 
     // Build a moodle url.
-    $url = new moodle_url(
-        "/filter/autotranslate/manage.php?sourcelang=$sitelang&targetlang=$currentlang&limit=500&instanceid=$course->id"
+    $manageurl = new moodle_url(
+        "/filter/autotranslate/manage.php?targetlang=$currentlang&limit=500&instanceid=$course->id"
     );
 
     // Get title of translate page for navigation menu.
-    $title = get_string('manage_title', 'filter_autotranslate');
+    $managetitle = get_string('manage_title', 'filter_autotranslate');
 
     // Navigation node.
-    $translatecontent = navigation_node::create(
-        $title,
-        $url,
+    $managecontent = navigation_node::create(
+        $managetitle,
+        $manageurl,
         navigation_node::TYPE_CUSTOM,
-        $title,
+        $managetitle,
         'autotranslate',
     );
-    $navigation->add_node($translatecontent);
+    $navigation->add_node($managecontent);
+
+    // Build a moodle url.
+    $glossaryurl = new moodle_url(
+        "/filter/autotranslate/glossary.php"
+    );
+
+    // Get title of glossary page for navigation menu.
+    $glossarytitle = get_string('glossary_title', 'filter_autotranslate');
+
+    // Navigation node.
+    $glossarycontent = navigation_node::create(
+        $glossarytitle,
+        $glossaryurl,
+        navigation_node::TYPE_CUSTOM,
+        $glossarytitle,
+        'autotranslate',
+    );
+    $navigation->add_node($glossarycontent);
 }

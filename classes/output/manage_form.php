@@ -63,7 +63,6 @@ class manage_form extends \moodleform {
 
         // URL params for pagination.
         $this->urlparams = [];
-        $this->urlparams['source_lang'] = $sourcelang;
         $this->urlparams['target_lang'] = $targetlang;
         $this->urlparams['limit'] = $limit;
         if ($instanceid) {

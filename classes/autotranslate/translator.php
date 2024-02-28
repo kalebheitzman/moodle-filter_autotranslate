@@ -36,7 +36,7 @@ class translator {
     /**
      * @var \DeepL\Translator $translator DeepL Translator
      */
-    public \DeepL\Translator $translator;
+    public ?\DeepL\Translator $translator;
 
     /**
      * @var array $sourcelangs Supported Source Languages
@@ -66,11 +66,13 @@ class translator {
         // Get the api key from settings.
         $authkey = get_config('filter_autotranslate', 'deeplapikey');
         if (!$authkey) {
-            throw new \moodle_exception('missingapikey', 'filter_autotranslate');
+            $this->translator = null;
+        } else {
+            // Load deepl translator.
+            $this->translator = new \DeepL\Translator($authkey);
         }
 
-        // Load deepl translator.
-        $this->translator = new \DeepL\Translator($authkey);
+        // Get the langs supported by the site.
         $this->langs = get_string_manager()->get_list_of_translations();
     }
 
@@ -134,13 +136,13 @@ class translator {
      * Get DeepL Usage
      */
     public function getusage() {
-        return $this->translator->getUsage();
+        return $this->translator ? $this->translator->getUsage() : 0;
     }
 
     /**
      * Get Glossaries.
      */
     public function listglossaries() {
-        return $this->translator->listGlossaries();
+        return $this->translator ? $this->translator->listGlossaries() : [];
     }
 }

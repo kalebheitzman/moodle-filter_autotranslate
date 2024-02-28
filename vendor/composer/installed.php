@@ -3,7 +3,7 @@
         'name' => 'kalebheitzman/autotranslate',
         'pretty_version' => 'dev-develop',
         'version' => 'dev-develop',
-        'reference' => '0e2d8aca1501b824a02929d15c0d355b1aceb60e',
+        'reference' => 'd3bbe2843498dd2ca9ce52e4085a38aff6c664e7',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -22,7 +22,7 @@
         'kalebheitzman/autotranslate' => array(
             'pretty_version' => 'dev-develop',
             'version' => 'dev-develop',
-            'reference' => '0e2d8aca1501b824a02929d15c0d355b1aceb60e',
+            'reference' => 'd3bbe2843498dd2ca9ce52e4085a38aff6c664e7',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
