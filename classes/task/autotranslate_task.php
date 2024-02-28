@@ -101,6 +101,7 @@ class autotranslate_task extends \core\task\scheduled_task {
                 // Get the translation.
                 $options = [];
                 $options['formality'] = 'prefer_more';
+                $options['tag_handling'] = 'html';
                 if ($glossaryid) {
                     $options['glossary'] = $glossaryid;
                 }
