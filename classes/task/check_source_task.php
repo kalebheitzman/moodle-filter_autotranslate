@@ -51,7 +51,6 @@ class check_source_task extends \core\task\scheduled_task {
         // Your task logic goes here.
         mtrace("Executing autotranslation check source tasks...");
 
-
         // Get 100 existing jobs.
         $jobs = $DB->get_records('filter_autotranslate_jobs', [
             'fetched' => '0',
