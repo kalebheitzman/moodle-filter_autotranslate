@@ -261,40 +261,36 @@ class manage_form extends \moodleform {
         $mform->addElement('html', '<div
             class="col-5 filter-autotranslate__target-text ' . $record->target_lang_dir . '"
         >');
-        if ($PAGE->user_is_editing()) {
-            // Edit mode is on.
-            $fieldname = 'translation[' . $record->hash . ']';
-            $fieldname2 = 'original[' . $record->hash . ']';
-            $ishtml = $this->contains_html($record->text);
-            if ($ishtml) {
-                $mform->addElement(
-                    'editor',
-                    $fieldname,
-                    null,
-                    [
-                        'autosave' => false,
-                        'removeorphaneddrafts' => true,
-                    ]
-                )->setValue(['text' => $record->target_text]);
-                $mform->setType($fieldname, PARAM_RAW);
-            } else {
-                $mform->addElement(
-                    'textarea',
-                    $fieldname,
-                    null,
-                    [
-                        'oninput' => 'this.style.height = "";this.style.height = this.scrollHeight + "px"',
-                        'onfocus' => 'this.style.height = "";this.style.height = this.scrollHeight + "px"',
-                    ]
-                );
-                $mform->setDefault($fieldname, $record->target_text);
-            }
+
+        $fieldname = 'translation[' . $record->hash . ']';
+        $fieldname2 = 'original[' . $record->hash . ']';
+        $ishtml = $this->contains_html($record->text);
+        if ($ishtml) {
+            $mform->addElement(
+                'editor',
+                $fieldname,
+                null,
+                [
+                    'autosave' => false,
+                    'removeorphaneddrafts' => true,
+                ]
+            )->setValue(['text' => $record->target_text]);
+            $mform->setType($fieldname, PARAM_RAW);
+        } else {
+            $mform->addElement(
+                'textarea',
+                $fieldname,
+                null,
+                [
+                    'oninput' => 'this.style.height = "";this.style.height = this.scrollHeight + "px"',
+                    'onfocus' => 'this.style.height = "";this.style.height = this.scrollHeight + "px"',
+                ]
+            );
+            $mform->setDefault($fieldname, $record->target_text);
+        }
             $mform->addElement('textarea', $fieldname2, null, ["class" => "d-none"]);
             $mform->setDefault($fieldname2, $record->target_text);
-        } else {
-            // Edit mode is off.
-            $mform->addElement('html', $record->target_text);
-        }
+
         $mform->addElement('html', '</div>');
 
         // Close translation item.
