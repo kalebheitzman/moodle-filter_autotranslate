@@ -262,7 +262,6 @@ class manage_form extends \moodleform {
             class="col-5 filter-autotranslate__target-text ' . $record->target_lang_dir . '"
         >');
 
-        // Edit mode is on.
         $fieldname = 'translation[' . $record->hash . ']';
         $fieldname2 = 'original[' . $record->hash . ']';
         $ishtml = $this->contains_html($record->text);

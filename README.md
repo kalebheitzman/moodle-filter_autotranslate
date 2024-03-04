@@ -94,10 +94,17 @@ You can also find a link in each course to translate only the content found in t
 
 The second scheduled task syncs a local copy of your Autotranslation glossary to DeepL for any [language combinations supported by DeepL.](https://www.deepl.com/docs-api/glossaries). You can manage your glossaries at `/filter/autotranslate/glossary.php`. To create a sync job, you will need to click "Sync Glossary" on the Glossary Management page for the selected source and target language pair.
 
+![Glossary Page](docs/glossary.jpg)
+
 Running from the CLI:
 
 ```bash
 php admin/cli/scheduled_task.php --execute='\filter_autotranslate\task\sync_glossaries_task'
 ```
 
-![Glossary Page](docs/glossary.jpg)
+## Other Tasks
+
+```bash
+# checks that the requested translation has a source text available
+php admin/cli/scheduled_task.php --execute='\filter_autotranslate\task\check_source_task'
+```
