@@ -1,5 +1,9 @@
 # Changelog
 
+## 2024030400
+
+- Disabled having to be in edit mode for the manage page
+
 ## 2024022202
 
 - Major Refactor
