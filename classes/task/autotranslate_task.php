@@ -82,6 +82,10 @@ class autotranslate_task extends \core\task\scheduled_task {
             $sourcerecord = $DB->get_record('filter_autotranslate', ['hash' => $job->hash, 'lang' => $sitelang]);
             $targetrecord = $DB->get_record('filter_autotranslate', ['hash' => $job->hash, 'lang' => $job->lang]);
 
+            if ($job->lang === 'en') {
+                $job->lang = 'en-US';
+            }
+
             // Get glossary if it exists.
             $glossary = $DB->get_record(
                 'filter_autotranslate_gids',
