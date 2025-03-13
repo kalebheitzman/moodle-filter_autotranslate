@@ -15,17 +15,30 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version details
+ * Recalculate hashes via observers for filter_autotranslate.
  *
  * @package    filter_autotranslate
- * @copyright  2024 Kaleb Heitzman <kaleb@jamfire.io>
+ * @copyright  2025 Kaleb Heitzman <kaleb@jamfire.io>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2025031207;                // The current plugin version (Date: YYYYMMDDXX).
-$plugin->requires  = 2023042400;                // Requires this Moodle version.
-$plugin->component = 'filter_autotranslate';    // Full name of the plugin (used for diagnostics).
-$plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = '4.3.0 (Build: 2024030400)';
+// Explicitly include lib.php to ensure the class is loaded.
+require_once(__DIR__ . '/../lib.php');
+
+$observers = [
+    [
+        'eventname' => '\core\event\course_module_updated',
+        'callback'  => 'filter_autotranslate_observer::handle_course_module_updated',
+        'priority'  => 0,
+    ],
+    [
+        'eventname' => '\core\event\course_section_updated',
+        'callback'  => 'filter_autotranslate_observer::handle_course_section_updated',
+        'priority'  => 0,
+    ],
+];
+
+// Debug to confirm registration
+error_log("Events: Observer registration loaded for filter_autotranslate");

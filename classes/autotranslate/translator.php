@@ -25,7 +25,7 @@ require_once(dirname(__DIR__, 2) . "/vendor/autoload.php");
 /**
  * Translator API
  *
- * Extend the DeepL PHP Api with functionality
+ * Extend the DeepL PHP API with functionality
  * used by this plugin.
  *
  * @package    filter_autotranslate
@@ -65,6 +65,7 @@ class translator {
 
         // Get the api key from settings.
         $authkey = get_config('filter_autotranslate', 'deeplapikey');
+
         if (!$authkey) {
             $this->translator = null;
         } else {

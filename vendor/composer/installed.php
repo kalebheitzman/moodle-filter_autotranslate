@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => 'kalebheitzman/autotranslate',
-        'pretty_version' => 'dev-develop',
-        'version' => 'dev-develop',
-        'reference' => 'd3bbe2843498dd2ca9ce52e4085a38aff6c664e7',
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => '20358807fa0c3c85dd01a2ac91dd4365051d5460',
         'type' => 'library',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -20,9 +20,9 @@
             'dev_requirement' => false,
         ),
         'kalebheitzman/autotranslate' => array(
-            'pretty_version' => 'dev-develop',
-            'version' => 'dev-develop',
-            'reference' => 'd3bbe2843498dd2ca9ce52e4085a38aff6c664e7',
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => '20358807fa0c3c85dd01a2ac91dd4365051d5460',
             'type' => 'library',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -110,8 +110,8 @@
         'psr/http-factory-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '1.0',
-                1 => '*',
+                0 => '*',
+                1 => '1.0',
             ),
         ),
         'psr/http-message' => array(
@@ -126,8 +126,8 @@
         'psr/http-message-implementation' => array(
             'dev_requirement' => false,
             'provided' => array(
-                0 => '1.0',
-                1 => '*',
+                0 => '*',
+                1 => '1.0',
             ),
         ),
         'psr/log' => array(
