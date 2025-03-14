@@ -18,14 +18,15 @@
  * Version details
  *
  * @package    filter_autotranslate
- * @copyright  2024 Kaleb Heitzman <kaleb@jamfire.io>
+ * @copyright  20245Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2025031207;                // The current plugin version (Date: YYYYMMDDXX).
+$plugin->version   = 2025031410;                // The current plugin version (Date: YYYYMMDDXX).
 $plugin->requires  = 2023042400;                // Requires this Moodle version.
 $plugin->component = 'filter_autotranslate';    // Full name of the plugin (used for diagnostics).
 $plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = '4.3.0 (Build: 2024030400)';
+$plugin->release   = '2025031300';
+$plugin->displayname = get_string('filtername', 'filter_autotranslate');

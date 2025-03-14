@@ -1,158 +1,257 @@
 <?php
-// This file is part of Moodle - http://moodle.org/
-//
-// Moodle is free software: you can redistribute it and/or modify
-// it under the terms of the GNU General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// Moodle is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU General Public License for more details.
-//
-// You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
-
 namespace filter_autotranslate\task;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once(dirname(__DIR__, 2) . "/vendor/autoload.php");
+use core\task\scheduled_task;
 
-use filter_autotranslate\autotranslate\translator;
+class autotranslate_task extends scheduled_task {
 
-/**
- * Autotranslate Jobs
- *
- * Checks against the job database for unfetched translations
- *
- * @package    filter_autotranslate
- * @copyright  2024 Kaleb Heitzman <kaleb@jamfire.io>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-class autotranslate_task extends \core\task\scheduled_task {
     /**
-     * Get name of the Autotranslate Task
+     * Returns the name of the scheduled task.
+     *
+     * @return string
      */
     public function get_name() {
-        return get_string('fetchtask', 'filter_autotranslate');
+        return 'Auto Translate Text Tagging';
     }
 
     /**
-     * Execute the Autotranslate Task
+     * Executes the scheduled task to tag untagged text and store source text.
      */
     public function execute() {
         global $DB;
 
-        // Get the site language.
-        $sitelang = get_config('core', 'lang');
+        // Get settings
+        $selectedctx = get_config('filter_autotranslate', 'selectctx');
+        $selectedctx = $selectedctx ? explode(',', $selectedctx) : ['40', '50', '70', '80']; // Default to 40, 50, 70, 80
+        $managelimit = get_config('filter_autotranslate', 'managelimit') ?: 20;
+        $sitelang = get_config('core', 'lang') ?: 'en'; // Default to 'en' if not set
 
-        // Get the fetch limit.
-        $fetchlimit = get_config('filter_autotranslate', 'fetchlimit');
-        if (!$fetchlimit) {
-            $fetchlimit = 200;
-        }
+        // Batch size for processing
+        $batchsize = $managelimit;
 
-        // Your task logic goes here.
-        mtrace("Executing autotranslation fetch jobs...");
+        // Define tables and fields to scan by context level
+        $tables = [
+            10 => ['message' => ['fullmessage'], 'block_instances' => ['configdata']], // System
+            30 => ['user_info_data' => ['data']], // User
+            40 => ['course_categories' => ['description']], // Course Category
+            50 => ['course_sections' => ['name', 'summary']], // Course
+            70 => [
+                'assign' => ['name', 'intro'],
+                'book' => ['name', 'intro'],
+                'chat' => ['name', 'intro'],
+                'choice' => ['name', 'intro'],
+                'data' => ['name', 'intro'],
+                'feedback' => ['name', 'intro'],
+                'folder' => ['name', 'intro'],
+                'forum' => ['name', 'intro'],
+                'glossary' => ['name', 'intro'],
+                'h5pactivity' => ['name', 'intro'],
+                'imscp' => ['name', 'intro'],
+                'label' => ['intro'],
+                'lesson' => ['name', 'intro'],
+                'lti' => ['name', 'intro'],
+                'page' => ['name', 'intro', 'content'],
+                'quiz' => ['name', 'intro'],
+                'resource' => ['name', 'intro'],
+                'scorm' => ['name', 'intro'],
+                'survey' => ['name', 'intro'],
+                'url' => ['name', 'intro'],
+                'wiki' => ['name', 'intro'],
+                'workshop' => ['name', 'intro'],
+            ],
+            80 => ['block_instances' => ['configdata']], // Block
+        ];
 
-        // Get the api key from settings.
-        $authkey = get_config('filter_autotranslate', 'deeplapikey');
-        if (!$authkey) {
-            throw new \moodle_exception('missingapikey', 'filter_autotranslate');
-        }
+        mtrace("Starting Auto Translate task with contexts: " . implode(', ', $selectedctx));
 
-        // Load deepl translator.
-        $translator = new \DeepL\Translator($authkey);
-
-        // Get 100 existing jobs.
-        $jobs = $DB->get_records('filter_autotranslate_jobs', [
-            'fetched' => '0',
-            'source' => '1',
-        ], null, '*', 0, $fetchlimit);
-        $jobscount = count($jobs);
-        mtrace("$jobscount jobs found...");
-
-        // Iterate through the jos and add translations.
-        foreach ($jobs as $job) {
-            mtrace("fetching $job->lang translation for $job->hash key...");
-
-            // Get the source text.
-            $sourcerecord = $DB->get_record('filter_autotranslate', ['hash' => $job->hash, 'lang' => $sitelang]);
-            $targetrecord = $DB->get_record('filter_autotranslate', ['hash' => $job->hash, 'lang' => $job->lang]);
-
-            if ($job->lang === 'en') {
-                $job->lang = 'en-US';
+        foreach ($selectedctx as $ctx) {
+            if (!isset($tables[$ctx])) {
+                mtrace("Skipping invalid context level: $ctx");
+                continue;
             }
 
-            // Get glossary if it exists.
-            $glossary = $DB->get_record(
-                'filter_autotranslate_gids',
-                ['source_lang' => $sitelang, 'target_lang' => $job->lang],
-                'glossary_id,name'
-            );
+            foreach ($tables[$ctx] as $table => $fields) {
+                $offset = 0;
 
-            // Set glossaryid if glossary exists.
-            $glossaryid = null;
-            if ($glossary && $glossary->glossary_id) {
-                $glossaryid = $glossary->glossary_id;
-                mtrace("retrieved $glossary->name version $glossary->glossary_id");
-            }
+                do {
+                    try {
+                        foreach ($fields as $field) {
+                            $sql = "SELECT id AS instanceid, $field AS content
+                                    FROM {" . $table . "}
+                                    WHERE $field IS NOT NULL AND TRIM($field) != ''";
+                            $params = [];
+                            $records = $DB->get_records_sql($sql, $params, $offset, $batchsize);
+                            $count = count($records);
 
-            // Only translate if text exists.
-            if ($sourcerecord) {
-                // Get the translation.
-                $options = [];
-                $options['formality'] = 'prefer_more';
-                $options['tag_handling'] = 'html';
-                if ($glossaryid) {
-                    $options['glossary'] = $glossaryid;
-                }
-                $translation = $translator->translateText(
-                    $sourcerecord->text,
-                    $sitelang,
-                    $job->lang,
-                    $options
-                );
+                            mtrace("Processing batch for $table.$field, context $ctx, offset $offset, records: $count");
 
-                // Insert translation to the db.
-                if (!$targetrecord) {
-                    $tid = $DB->insert_record(
-                        'filter_autotranslate',
-                        [
-                            'hash' => $job->hash,
-                            'lang' => $job->lang,
-                            'status' => 0,
-                            'text' => $translation->text,
-                            'created_at' => time(),
-                            'modified_at' => time(),
-                        ]
-                    );
+                            foreach ($records as $record) {
+                                $content = trim($record->content);
+                                if (empty($content)) {
+                                    mtrace("Warning: Empty content skipped for instanceid={$record->instanceid}");
+                                    continue;
+                                }
 
-                    mtrace("added translation to filter_autotranslate with ID $tid");
-                }
+                                // Check if content already has our tag or needs mlang conversion
+                                if (strpos($content, '{translation hash=') === false) {
+                                    // Check for existing mlang tags
+                                    if (preg_match_all('/{mlang\s+([\w]+)}(.+?)(?:{mlang}|$)/s', $content, $matches, PREG_SET_ORDER)) {
+                                        $source_text = '';
+                                        $translations = [];
+                                        $outside_text = '';
 
-                // Update the job to fetched.
-                $DB->set_field(
-                    'filter_autotranslate_jobs',
-                    'modified_at',
-                    time(),
-                    [
-                        'id' => $job->id,
-                    ]
-                );
-                $jid = $DB->set_field(
-                    'filter_autotranslate_jobs',
-                    'fetched',
-                    '1',
-                    [
-                        'id' => $job->id,
-                    ]
-                );
+                                        // Extract mlang content
+                                        $last_pos = 0;
+                                        foreach ($matches as $match) {
+                                            $lang = $match[1];
+                                            $text = trim($match[2]);
+                                            $start_pos = strpos($content, $match[0], $last_pos);
+                                            $outside = trim(substr($content, $last_pos, $start_pos - $last_pos));
+                                            if (!empty($outside)) {
+                                                $outside_text .= $outside;
+                                            }
+                                            $last_pos = $start_pos + strlen($match[0]);
 
-                mtrace("completed job $job->id...");
+                                            if ($lang === 'other' || $lang === $sitelang) {
+                                                $source_text .= $text . ' ';
+                                            } else {
+                                                $translations[$lang] = isset($translations[$lang]) ? $translations[$lang] . ' ' . $text : $text;
+                                            }
+                                        }
+
+                                        // Capture any remaining text after the last mlang tag
+                                        $outside_text .= trim(substr($content, $last_pos));
+
+                                        // If there's outside text, treat it as source text if no source was found
+                                        if (!empty($outside_text) && empty($source_text)) {
+                                            $source_text = $outside_text;
+                                        } elseif (!empty($outside_text)) {
+                                            mtrace("Warning: Text outside mlang tags for instanceid={$record->instanceid}: '$outside_text'");
+                                            $source_text .= $outside_text;
+                                        }
+
+                                        if (!empty($source_text)) {
+                                            $source_text = trim($source_text);
+                                            // Generate a unique 10-character hash
+                                            $hash = $this->generate_unique_hash();
+                                            $taggedcontent = "{translation hash=$hash}" . $source_text . "{/translation}";
+
+                                            // Update the database with the new tag
+                                            $DB->set_field($table, $field, $taggedcontent, ['id' => $record->instanceid]);
+
+                                            // Store source text
+                                            $this->store_source_text($hash, $source_text, $ctx, $record->instanceid);
+                                            mtrace("Converted mlang to hash: hash=$hash, source='$source_text', context=$ctx, instanceid={$record->instanceid}");
+
+                                            // Store existing translations
+                                            foreach ($translations as $lang => $translated_text) {
+                                                $this->store_translation($hash, $lang, $translated_text, $ctx, $record->instanceid);
+                                                mtrace("Stored translation: hash=$hash, lang=$lang, text='$translated_text'");
+                                            }
+                                        } else {
+                                            mtrace("No source language found in mlang tags for instanceid={$record->instanceid}, skipping");
+                                            continue;
+                                        }
+                                    } else {
+                                        // Untagged text
+                                        $hash = $this->generate_unique_hash();
+                                        $taggedcontent = "{translation hash=$hash}" . $content . "{/translation}";
+
+                                        // Update the database with the tagged text
+                                        $DB->set_field($table, $field, $taggedcontent, ['id' => $record->instanceid]);
+
+                                        // Store the source text in the translations table
+                                        $this->store_source_text($hash, $content, $ctx, $record->instanceid);
+                                        mtrace("Tagged and stored: hash=$hash, text='$content', context=$ctx, instanceid={$record->instanceid}");
+                                    }
+                                } else {
+                                    mtrace("Skipping already tagged content for instanceid={$record->instanceid}");
+                                }
+                            }
+
+                            $offset += $batchsize;
+                        }
+                    } catch (\dml_exception $e) {
+                        mtrace("Error processing $table for context $ctx: " . $e->getMessage() . " - Query: $sql with params " . json_encode($params));
+                        break;
+                    }
+                } while ($count >= $batchsize);
             }
         }
+
+        mtrace("Auto Translate task completed");
+    }
+
+    /**
+     * Generates a unique 10-character alphanumeric hash.
+     *
+     * @return string
+     */
+    private function generate_unique_hash() {
+        global $DB;
+
+        $characters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        $length = 10;
+        $max = strlen($characters) - 1;
+
+        do {
+            $hash = '';
+            for ($i = 0; $i < $length; $i++) {
+                $hash .= $characters[random_int(0, $max)];
+            }
+        } while ($DB->record_exists('autotranslate_translations', ['hash' => $hash]));
+
+        return $hash;
+    }
+
+    /**
+     * Stores the source text in the translations table with fallback as the source.
+     *
+     * @param string $hash The unique hash
+     * @param string $source_text The source text
+     * @param int $contextlevel The context level
+     * @param int $instanceid The instance ID
+     */
+    private function store_source_text($hash, $source_text, $contextlevel, $instanceid) {
+        global $DB;
+
+        $record = new \stdClass();
+        $record->hash = $hash;
+        $record->lang = 'other'; // Fallback language
+        $record->translated_text = $source_text; // Store source as fallback
+        $record->contextlevel = $contextlevel;
+        $record->instanceid = $instanceid;
+        $record->timecreated = time();
+        $record->timemodified = time();
+        $record->human = 1;
+
+        $DB->insert_record('autotranslate_translations', $record);
+    }
+
+    /**
+     * Stores a translation in the translations table.
+     *
+     * @param string $hash The unique hash
+     * @param string $lang The language code
+     * @param string $translated_text The translated text
+     * @param int $contextlevel The context level
+     * @param int $instanceid The instance ID
+     */
+    private function store_translation($hash, $lang, $translated_text, $contextlevel, $instanceid) {
+        global $DB;
+
+        $record = new \stdClass();
+        $record->hash = $hash;
+        $record->lang = $lang;
+        $record->translated_text = $translated_text;
+        $record->contextlevel = $contextlevel;
+        $record->instanceid = $instanceid;
+        $record->timecreated = time();
+        $record->timemodified = time();
+        $record->human = 1;
+
+        $DB->insert_record('autotranslate_translations', $record);
     }
 }

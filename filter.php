@@ -19,8 +19,8 @@
  *
  * @todo MDL-82708 delete this file as part of Moodle 6.0 development.
  * @deprecated This file is no longer required in Moodle 4.5+.
- * @package filter_multilang
- * @copyright Gaetan Frenoy <gaetan@frenoy.net>
+ * @package filter_autotranslate
+ * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 defined('MOODLE_INTERNAL') || die();

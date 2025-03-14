@@ -18,7 +18,7 @@
  * Task schedule configuration for filter_autotranslate.
  *
  * @package    filter_autotranslate
- * @copyright  2024 Kaleb Heitzman <kaleb@jamfire.io>
+ * @copyright  20245Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -26,30 +26,21 @@ defined('MOODLE_INTERNAL') || die();
 
 $tasks = [
     [
-        'classname' => 'filter_autotranslate\task\check_source_task',
-        'blocking' => 0,
-        'minute' => '*',
-        'hour' => '*',
-        'day' => '*',
-        'month' => '*',
-        'dayofweek' => '*',
-    ],
-    [
         'classname' => 'filter_autotranslate\task\autotranslate_task',
         'blocking' => 0,
-        'minute' => '*',
+        'minute' => '*/15',
         'hour' => '*',
         'day' => '*',
         'month' => '*',
         'dayofweek' => '*',
     ],
     [
-        'classname' => 'filter_autotranslate\task\sync_glossaries_task',
+        'classname' => 'filter_autotranslate\task\fetchtranslation_task',
         'blocking' => 0,
-        'minute' => '*',
+        'minute' => '*/30',
         'hour' => '*',
         'day' => '*',
-        'month' => '*',
         'dayofweek' => '*',
+        'month' => '*',
     ],
 ];
