@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <http://www.gnu.org/licenses>.
 
 /**
  * Auto Translate Filter
@@ -74,7 +74,11 @@ class text_filter extends \core_filters\text_filter {
             $editindicator = '';
             if (has_capability('filter/autotranslate:edit', $this->context, $USER)) {
                 if ($allowhtml) {
-                    $editurl = new \moodle_url('/filter/autotranslate/edit.php', ['hash' => $hash, 'contextid' => $this->context->id]);
+                    $editurl = new \moodle_url('/filter/autotranslate/edit.php', [
+                        'hash' => $hash,
+                        'lang' => $userlang, // Add the user's current language
+                        'contextid' => $this->context->id
+                    ]);
                     $editindicator = \html_writer::link($editurl, ' [Translate]', ['class' => 'autotranslate-edit-link']);
                 } else {
                     $editindicator = ''; // Plain text for sanitized areas
