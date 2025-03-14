@@ -1,6 +1,5 @@
 <?php
 require_once(__DIR__ . '/../../config.php');
-// require_once($CFG->dirroot . '/filter/autotranslate/lib.php');
 
 require_login();
 
@@ -39,6 +38,7 @@ $table->head = [
     get_string('language', 'filter_autotranslate'),
     get_string('translatedtext', 'filter_autotranslate'),
     get_string('humanreviewed', 'filter_autotranslate'),
+    get_string('contextlevel', 'filter_autotranslate'), // Added for display
     get_string('actions', 'filter_autotranslate')
 ];
 $table->data = [];
@@ -50,6 +50,7 @@ foreach ($translations as $translation) {
         $translation->lang,
         format_text($translation->translated_text, FORMAT_PLAIN),
         html_writer::checkbox('human_' . $translation->id, 1, $translation->human, '', ['class' => 'human-checkbox']),
+        $translation->contextlevel, // Display context level
         html_writer::link(new moodle_url('/filter/autotranslate/edit.php', ['hash' => $translation->hash, 'lang' => $translation->lang]), get_string('edit'))
     ];
     $table->data[] = $row;

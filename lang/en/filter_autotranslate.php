@@ -63,8 +63,6 @@ $string['taskfrequency_desc'] = 'How often (in minutes) the autotranslate task s
 $string['enablemanualtrigger'] = 'Enable Manual Trigger';
 $string['enablemanualtrigger_desc'] = 'Allow administrators to manually trigger the autotranslate task.';
 $string['search:translation'] = 'Translations';
-
-// New strings for Step 5 User Interfaces
 $string['edittranslation'] = 'Edit Translation';
 $string['translatedtext'] = 'Translated Text';
 $string['translationsaved'] = 'Translation saved successfully';
@@ -79,3 +77,4 @@ $string['yes'] = 'Yes';
 $string['no'] = 'No';
 $string['translationsupdated'] = 'Translations updated successfully';
 $string['updatetranslations'] = 'Update Translations';
+$string['contextlevel'] = 'Context Level';

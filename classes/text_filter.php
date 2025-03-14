@@ -27,25 +27,27 @@ namespace filter_autotranslate;
 defined('MOODLE_INTERNAL') || die();
 
 class text_filter extends \core_filters\text_filter {
-
-    /**
-     * Apply the filter to the text.
-     *
-     * @param string $text The text to filter
-     * @param array $options Filter options
-     * @return string The filtered text
-     */
     public function filter($text, array $options = []) {
         global $DB, $USER;
 
         if (empty($text) || is_numeric($text)) {
-            return $text; // Skip empty or numeric text
+            return $text;
         }
 
-        // Use regex to find all {translation hash=...}{/translation} tags
+        // Get configured contexts
+        $selectedctx = get_config('filter_autotranslate', 'selectctx');
+        $selectedctx = $selectedctx ? array_map('trim', explode(',', $selectedctx)) : ['40', '50', '70', '80'];
+        $currentcontext = $this->context->contextlevel;
+        debugging("Filtering context: $currentcontext, Allowed contexts: " . implode(', ', $selectedctx), DEBUG_DEVELOPER);
+
+        if (!in_array((string)$currentcontext, $selectedctx)) {
+            return $text;
+        }
+
         $pattern = '/{translation hash=([a-zA-Z0-9]{10})}(.*?){\/translation}/s';
+        $matches = [];
         if (!preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
-            return $text; // No tags found, return original text
+            return $text; // No tags to process
         }
 
         $replacements = [];
@@ -54,46 +56,41 @@ class text_filter extends \core_filters\text_filter {
             $hash = $match[1];
             $source_text = trim($match[2]);
 
-            // Get the user's current language
             $userlang = current_language();
-
-            // Fetch the translation for the user's language
             $translation = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => $userlang], 'translated_text');
-            if ($translation && !empty($translation->translated_text)) {
-                $display_text = $translation->translated_text;
-            } else {
-                // Fall back to the 'other' language (source text)
-                $fallback = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => 'other'], 'translated_text');
-                $display_text = $fallback ? $fallback->translated_text : $source_text;
-            }
+            $display_text = $translation ? $translation->translated_text : $this->get_fallback_text($hash, $source_text);
 
-            // Determine if HTML is allowed (e.g., avoid headings or plain text areas)
             $allowhtml = !empty($options['noclean']) || ($this->context->contextlevel !== CONTEXT_COURSE && $this->context->contextlevel !== CONTEXT_MODULE);
+            $editindicator = $this->get_edit_indicator($hash, $allowhtml);
 
-            // Add edit indicator (HTML link where safe, plain text otherwise)
-            $editindicator = '';
-            if (has_capability('filter/autotranslate:edit', $this->context, $USER)) {
-                if ($allowhtml) {
-                    $editurl = new \moodle_url('/filter/autotranslate/edit.php', [
-                        'hash' => $hash,
-                        'lang' => $userlang, // Add the user's current language
-                        'contextid' => $this->context->id
-                    ]);
-                    $editindicator = \html_writer::link($editurl, ' [Translate]', ['class' => 'autotranslate-edit-link']);
-                } else {
-                    $editindicator = ''; // Plain text for sanitized areas
-                }
-            }
-
-            // Replace the tag with the display text and edit indicator
             $replacements[$fulltag] = $display_text . $editindicator;
         }
 
-        // Replace all matches in the text
         foreach ($replacements as $tag => $replacement) {
             $text = str_replace($tag, $replacement, $text);
         }
 
         return $text;
+    }
+
+    private function get_fallback_text($hash, $source_text) {
+        global $DB;
+        $fallback = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => 'other'], 'translated_text');
+        return $fallback ? $fallback->translated_text : $source_text;
+    }
+
+    private function get_edit_indicator($hash, $allowhtml) {
+        global $USER;
+        $editindicator = '';
+        if (has_capability('filter/autotranslate:edit', $this->context, $USER)) {
+            if ($allowhtml) {
+                $editurl = new \moodle_url('/filter/autotranslate/edit.php', [
+                    'hash' => $hash,
+                    'lang' => current_language(),
+                ]);
+                $editindicator = \html_writer::link($editurl, ' [Translate]', ['class' => 'autotranslate-edit-link']);
+            }
+        }
+        return $editindicator;
     }
 }

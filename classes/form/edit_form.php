@@ -19,8 +19,9 @@ class edit_form extends \moodleform {
         $mform->setType('hash', PARAM_ALPHANUMEXT);
         $mform->addElement('hidden', 'lang', $lang);
         $mform->setType('lang', PARAM_LANG);
-        $mform->addElement('hidden', 'contextid', $translation->contextlevel);
-        $mform->setType('contextid', PARAM_INT);
+        // Removed contextid as it’s no longer relevant without instanceid
+        // $mform->addElement('hidden', 'contextid', $translation->contextlevel);
+        // $mform->setType('contextid', PARAM_INT);
 
         $mform->addElement('textarea', 'translated_text', get_string('translatedtext', 'filter_autotranslate'), 'rows="20" cols="50"');
         $mform->setDefault('translated_text', $translation->translated_text);
