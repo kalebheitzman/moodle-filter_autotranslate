@@ -1,5 +1,7 @@
 # Moodle Autotranslate Filter
 
+[![Latest Release](https://img.shields.io/github/v/release/jamfire/moodle-filter_autotranslate)](https://github.com/jamfire/moodle-filter_autotranslate/releases) [![Moodle Plugin CI](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml/badge.svg)](https://github.com/jamfire/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml)
+
 The `filter_autotranslate` plugin enhances Moodle by enabling automatic and manual translation of text across the platform, making content accessible in multiple languages. This document outlines the database schema, text tagging and display mechanisms, and key considerations for users.
 
 ## Step 1: Database Schema and Translation Management
