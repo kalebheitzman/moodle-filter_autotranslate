@@ -38,6 +38,21 @@ if (!$translation) {
     debugging("Falling back to source text - Hash: $hash, Queried tLang: $queried_tlang", DEBUG_DEVELOPER);
 }
 
+// Fetch source text
+$source_text = $DB->get_field('autotranslate_translations', 'translated_text', ['hash' => $hash, 'lang' => 'other']);
+if (!$source_text) {
+    $source_text = 'N/A'; // Fallback if no source text is found
+}
+
+// Parse source text to determine if it contains HTML
+$use_wysiwyg = false;
+if ($source_text && preg_match('/<[^>]+>/', $source_text)) {
+    $use_wysiwyg = true;
+    debugging("Source text contains HTML, enabling WYSIWYG editor", DEBUG_DEVELOPER);
+} else {
+    debugging("Source text is plain text, using regular textarea", DEBUG_DEVELOPER);
+}
+
 if ($data = data_submitted()) {
     require_sesskey();
 
@@ -55,15 +70,30 @@ $all_langs = $DB->get_fieldset_select('autotranslate_translations', 'DISTINCT la
 // Add language switcher as buttons, mapping 'other' to site language for display
 $lang_buttons = [];
 foreach ($all_langs as $lang) {
-    $display_lang = ($lang === 'other') ? $sitelang : $lang; // Display site language for 'other'
+    $display_lang = ($lang === 'other') ? $sitelang : $lang;
     $url = new moodle_url('/filter/autotranslate/edit.php', ['hash' => $hash, 'tlang' => $lang, 'contextid' => $contextid]);
     $class = ($lang === $queried_tlang) ? 'btn btn-primary' : 'btn btn-secondary';
     $lang_buttons[] = \html_writer::link($url, $display_lang, ['class' => $class . ' mr-1']);
 }
 echo \html_writer::tag('div', 'Switch Language: ' . implode(' ', $lang_buttons), ['class' => 'mb-3']);
 
-// Pass the queried language to the form for display
-$mform = new \filter_autotranslate\form\edit_form(null, ['translation' => $translation, 'tlang' => $queried_tlang]);
+// Start a Bootstrap row for the layout
+echo '<div class="row mb-3">';
+
+// Left column: Form
+echo '<div class="col-md-7">';
+$mform = new \filter_autotranslate\form\edit_form(null, ['translation' => $translation, 'tlang' => $queried_tlang, 'use_wysiwyg' => $use_wysiwyg]);
 $mform->display();
+echo '</div>';
+
+// Right column: Source text
+echo '<div class="col-md-5">';
+echo '<div class="form-group">';
+echo format_text($source_text, FORMAT_HTML);
+echo '</div>';
+echo '</div>';
+
+// End the Bootstrap row
+echo '</div>';
 
 echo $OUTPUT->footer();
