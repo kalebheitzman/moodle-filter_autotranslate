@@ -76,14 +76,35 @@ class autotranslate_task extends scheduled_task {
 
                     do {
                         try {
-                            $sql = "SELECT id AS instanceid, $field AS content
-                                    FROM {" . $table . "}
-                                    WHERE $field IS NOT NULL
-                                    AND $field NOT LIKE '%{translation hash=[a-zA-Z0-9]{10}}%{\/translation}%'";
+                            // Special handling for course_sections to fetch course ID
+                            if ($table === 'course_sections') {
+                                $sql = "SELECT cs.id AS instanceid, cs.$field AS content, cs.course
+                                        FROM {course_sections} cs
+                                        JOIN {course} c ON c.id = cs.course
+                                        WHERE cs.$field IS NOT NULL
+                                        AND cs.$field NOT LIKE '%{translation hash=[a-zA-Z0-9]{10}}%{\/translation}%'";
+                            } else {
+                                $sql = "SELECT id AS instanceid, $field AS content
+                                        FROM {" . $table . "}
+                                        WHERE $field IS NOT NULL
+                                        AND $field NOT LIKE '%{translation hash=[a-zA-Z0-9]{10}}%{\/translation}%'";
+                            }
                             $params = [];
                             $records = $DB->get_records_sql($sql, $params, $offset, $batchsize);
                             $count = count($records);
                             mtrace("Retrieved $count records for $table.$field, context $ctx, offset $offset");
+
+                            if ($count > 0) {
+                                // Use the first record's instanceid to create a context instance
+                                $firstrecord = reset($records);
+                                $context = static::get_context_for_level($ctx, $firstrecord->instanceid, $table, $firstrecord);
+                                if (!$context) {
+                                    mtrace("Could not determine context for $table at level $ctx");
+                                    continue 2; // Skip to the next field
+                                }
+                            } else {
+                                $context = \context_system::instance(); // Fallback for no records
+                            }
 
                             foreach ($records as $record) {
                                 $raw_content = $record->content;
@@ -91,9 +112,9 @@ class autotranslate_task extends scheduled_task {
                                 if (!helper::is_tagged($raw_content) && !empty($raw_content)) {
                                     mtrace("Processing content for instanceid={$record->instanceid}");
 
-                                    $taggedcontent = helper::process_mlang_tags($content, \context_helper::get_context_instance($ctx));
+                                    $taggedcontent = helper::process_mlang_tags($content, $context);
                                     if ($taggedcontent === $content) {
-                                        $taggedcontent = helper::tag_content($content, \context_helper::get_context_instance($ctx));
+                                        $taggedcontent = helper::tag_content($content, $context);
                                     }
 
                                     if ($taggedcontent !== $content) {
@@ -116,5 +137,39 @@ class autotranslate_task extends scheduled_task {
         }
 
         mtrace("Auto Translate task completed");
+    }
+
+    /**
+     * Get the context instance based on context level and instance ID.
+     *
+     * @param int $contextlevel The context level
+     * @param int $instanceid The instance ID
+     * @param string $table The table name
+     * @param \stdClass $record The record being processed
+     * @return \context|null The context instance or null if not found
+     */
+    private static function get_context_for_level($contextlevel, $instanceid, $table, $record) {
+        switch ($contextlevel) {
+            case CONTEXT_SYSTEM:
+                return \context_system::instance();
+            case CONTEXT_USER:
+                return \context_user::instance($instanceid);
+            case CONTEXT_COURSECAT:
+                return \context_coursecat::instance($instanceid);
+            case CONTEXT_COURSE:
+                if ($table === 'course_sections' && isset($record->course)) {
+                    return \context_course::instance($record->course);
+                }
+                return \context_course::instance($instanceid);
+            case CONTEXT_MODULE:
+                // For modules, we need the cmid; instanceid is the module instance ID
+                $cm = \get_coursemodule_from_instance($table, $instanceid);
+                return $cm ? \context_module::instance($cm->id) : null;
+            case CONTEXT_BLOCK:
+                // Block context requires block instance ID
+                return \context_block::instance($instanceid);
+            default:
+                return null;
+        }
     }
 }
