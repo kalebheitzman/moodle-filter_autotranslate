@@ -1,12 +1,12 @@
-# Moodle Autostranslate Filter
+# Moodle Autotranslate Filter
 
-## Step 1: Database Schema and Translation Management for `filter_autotranslate`
+The `filter_autotranslate` plugin enhances Moodle by enabling automatic and manual translation of text across the platform, making content accessible in multiple languages. This document outlines the database schema, text tagging and display mechanisms, and key considerations for users.
 
-The `filter_autotranslate` plugin provides a robust system for managing translations in Moodle, enabling automatic and manual translation of text across the platform. This step outlines the database schema, how translations are stored, tagged, and displayed, and warns users about the potentially destructive nature of these changes.
+## Step 1: Database Schema and Translation Management
 
 ### Database Schema
 
-Translations are stored in a global database table named `mdl_autotranslate_translations`. This table is not tied to specific courses or contexts, allowing translations to be reused site-wide where appropriate.
+Translations are stored in a global table, `mdl_autotranslate_translations`, allowing reuse site-wide where appropriate.
 
 #### Table Structure
 
@@ -17,88 +17,80 @@ CREATE TABLE mdl_autotranslate_translations (
     lang VARCHAR(20) NOT NULL COMMENT 'Language code (e.g., es, ru)',
     translated_text TEXT NOT NULL COMMENT 'Translated content for the specified language',
     contextlevel INT(2) NOT NULL COMMENT 'Moodle context level (e.g., 10 for System, 50 for Course, 70 for Module)',
-    instanceid INT(10) NOT NULL COMMENT 'Instance ID within the context (e.g., page ID, section ID)',
     timecreated INT(10) NOT NULL COMMENT 'Timestamp of creation',
     timemodified INT(10) NOT NULL COMMENT 'Timestamp of last modification',
-    UNIQUE KEY hash_lang (hash, lang),
-    INDEX context_instance (contextlevel, instanceid)
+    human TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Flag indicating if the translation is human-reviewed (1) or auto-translated (0)',
+    UNIQUE KEY hash_lang (hash, lang)
 );
-```
 
-- **hash**: A unique 10-character alphanumeric identifier (e.g., `aBcDeFgHiJ`) embedded in the source text using a tag like `{translation hash=aBcDeFgHiJ}Source Text{translation}`. This links the source text to its translations.
-- **lang**: The language code for the translation (e.g., `es` for Spanish, `fr` for French).
+- **hash**: A unique 10-character alphanumeric identifier (e.g., `aBcDeFgHiJ`) embedded in tags like `{translation hash=aBcDeFgHiJ}Source Text{/translation}` to link source text to translations.
+- **lang**: The language code for the translation (e.g., `es` for Spanish).
 - **translated_text**: The translated content for the specified language.
+- **contextlevel**: Indicates the Moodle context (e.g., 50 for Course, 70 for Module) for organizational purposes.
+- **timecreated/timemodified**: Track when records are created or updated.
+- **human**: A flag (`0` or `1`) where `1` indicates the translation was reviewed or authored by a human, and `0` indicates it was auto-translated (default).
 
-**Purpose**:  
-This table centralizes translations, making them reusable across Moodle. The `hash` acts as a persistent key, ensuring translations remain connected to their source text, even if the text is edited or moved.
+**Purpose**:
+Centralizes translations with a persistent `hash` key, enabling reuse across Moodle while maintaining context awareness and tracking human intervention.
 
 ### Text Tagging and Storage (Scheduled Task)
 
-A **scheduled task** runs periodically (e.g., hourly) to manage text tagging and storage. It performs the following actions:
+The `autotranslate_task` scheduled task runs periodically to manage text tagging:
 
-- Scans Moodle’s database for untagged text fields (e.g., `mdl_page.content`, `mdl_course_sections.summary`).
-- Generates a unique 10-character hash for each untagged piece of text.
-- Wraps the text with a tag, e.g., `{translation hash=aBcDeFgHiJ}Source Text{translation}`, and updates the database field.
-- Stores the source text and its hash in the `mdl_autotranslate_translations` table for later translation.
+- Scans database fields (e.g., `mdl_label.name`, `mdl_url.intro`, `mdl_course_sections.summary`) for untagged text.
+- Checks `mdl_autotranslate_translations` for existing hashes associated with the text (with `lang = 'other'`). If found, applies the existing hash to tag the field; otherwise, generates a new 10-character hash.
+- Tags text with `{translation hash=...}...{/translation}` and updates the database.
+- Stores source text with `human = 1` in `mdl_autotranslate_translations`.
 
 **Why Use a Scheduled Task?**
+- Ensures background processing for performance.
+- Maintains consistency by tagging all eligible content.
+- Triggers reindexing for global search integration.
 
-- **Performance**: Tagging and storing translations in the background keeps page loads fast, as the filter only retrieves and displays translations.
-- **Consistency**: The task ensures all text is systematically tagged, minimizing errors or omissions.
-- **Integration with Global Search**: The task triggers reindexing of affected content in Moodle’s global search engine, ensuring both source text and translations are searchable.
-
-**⚠️ Potentially Destructive Nature**:  
-The scheduled task modifies Moodle’s database by adding `{translation hash=...}` tags to text fields. This is essential for the plugin to work but alters the original content. If the plugin is disabled or uninstalled without removing these tags, users will see raw tags (e.g., `{translation hash=aBcDeFgHiJ}`) in the text, which could break the site’s readability. Additionally, if the hash is manually edited or removed, the link to translations may be lost, requiring manual fixes. Always back up your database before enabling this plugin and test changes in a non-production environment.
+**⚠️ Warning**:
+The task modifies text fields by adding `{translation hash=...}` tags. Disabling or uninstalling the plugin without removing these tags may leave raw tags visible, potentially disrupting readability. Always back up your database and test in a non-production environment.
 
 ### Displaying Translations (Filter)
 
-The `filter_autotranslate` filter processes text on every page load to display translations. It:
-
-- Detects `{translation hash=...}` tags in the text.
-- Queries the `mdl_autotranslate_translations` table using the hash and the user’s current language.
-- Replaces the tagged text with the matching translation, if available.
-- Falls back to the source text if no translation exists or if it’s empty.
+The `filter_autotranslate` filter processes text on page load:
+- Detects `{translation hash=...}` tags.
+- Retrieves translations from `mdl_autotranslate_translations` based on the user’s language.
+- Displays the translation or falls back to the source text if unavailable.
 
 **Example**:
-
-- Tagged text: `{translation hash=aBcDeFgHiJ}Submit{translation}`
+- Tagged text: `{translation hash=aBcDeFgHiJ}Submit{/translation}`
 - Spanish (`es`) translation: “Enviar”
-- If no translation exists: “Submit”
-
-**Why This Matters**:  
-Users always see content, even if translations are incomplete, ensuring a seamless experience.
+- Fallback: “Submit”
 
 ### Handling Missing or Empty Translations
 
-The system is designed to handle missing or empty translations gracefully:
+- If no translation exists for the user’s language or it’s empty, the filter displays the source text.
+- Ensures content visibility, similar to Moodle’s `mlang` filter behavior.
 
-- If a translation for the user’s language isn’t found or is empty, the filter displays the source text within the tag.
-- This fallback mechanism ensures that content is always visible, mirroring Moodle’s existing `mlang` filter behavior where `{mlang other}...{mlang}` acts as the default.
-
-**⚠️ Key Risk**:  
-If the hash is changed or removed (e.g., by a user editing the text), the filter cannot retrieve the translation. The source text will still display, but the connection to existing translations will break. The scheduled task may re-tag untagged text over time, but manual intervention might be needed if hashes are altered.
+**⚠️ Risk**:
+Altering or removing the `hash` (e.g., manual edits) breaks the link to translations. The source text remains, but manual fixes may be needed if hashes are changed.
 
 ### Integration with Global Search
 
-The `filter_autotranslate` plugin integrates with Moodle’s global search to enhance search capabilities across languages:
-
-- **Indexing**: The scheduled task triggers reindexing of content, including both the source text (within `{translation hash=...}` tags) and all translations from `mdl_autotranslate_translations`. This ensures users can search in their preferred language and find results regardless of the original language.
-- **Context Awareness**: Metadata such as `contextlevel`, `instanceid`, and `courseid` are included in the index, allowing search results to be filtered by context and linked back to their original locations.
-- **Display**: Search results are presented in the user’s language, falling back to the source text if no translation matches, providing a seamless multilingual search experience.
-- **Considerations**: Ensure the search engine (e.g., Solr or the database engine) is configured to handle custom fields from `mdl_autotranslate_translations`. Manual reindexing may be required if hashes are altered or the plugin is disabled.
+The plugin enhances Moodle’s global search:
+- **Indexing**: The task triggers reindexing of source text and translations, making them searchable in the user’s language.
+- **Context**: Metadata (`contextlevel`) is included for filtering.
+- **Display**: Results appear in the user’s language with fallback to source text.
+- **Consideration**: Configure the search engine (e.g., Solr) to handle custom fields and reindex if needed.
 
 ### Key Considerations for Users
 
-- **Global Reuse**: Translations are stored globally and linked by hash, allowing reuse across contexts (e.g., courses or system-wide content). Be cautious, as identical text with different meanings in different contexts could lead to confusion.
-- **Contextual Permissions**: The plugin leverages Moodle’s context system, letting teachers edit translations within their courses, while keeping management intuitive.
-- **Risk of Disruption**: Adding tags to text fields makes this system powerful but potentially destructive—mishandling hashes or disabling the plugin without cleanup can disrupt content. Always back up your database and test changes in a safe environment.
-- **Instance ID Limitation**: Currently, `instanceid` for context level 70 (Module) may use invalid IDs from module tables (e.g., `mdl_url.id`), causing context mapping issues in search. A future improvement will refine this to use `course_modules.id` correctly or decouple translations from specific instances, enhancing the context-agnostic design.
+- **Global Reuse**: Identical text shares the same `hash`, enabling reuse but risking confusion if meanings differ by context.
+- **Contextual Permissions**: Teachers can edit translations within their courses.
+- **Risk of Disruption**: Tagging alters content; improper plugin management (e.g., uninstall without cleanup) can break display. Back up your database and test changes.
+- **Upgrade Note**: The `instanceid` field was removed in a recent update to support a context-agnostic design, improving flexibility. Run the upgrade script to apply this change.
 
 ### Summary
 
-- **Database**: The `mdl_autotranslate_translations` table stores translations globally, linked by a unique hash.
-- **Scheduled Task**: Tags text with hashes and stores it in the database, running in the background for efficiency, and integrates with global search.
-- **Filter**: Displays translations based on the user’s language, falling back to source text if needed.
-- **Risks**: Modifying text fields makes this system powerful but potentially destructive—mishandling hashes or disabling the plugin without cleanup can break content.
+- **Database**: `mdl_autotranslate_translations` stores translations globally with unique hashes and a `human` flag.
+- **Scheduled Task**: Tags text and reuses existing hashes, running in the background.
+- **Filter**: Displays translations with fallback to source text.
+- **Risks**: Modifying text fields requires careful management to avoid disruption.
 
-This approach balances flexibility and performance, making translations easy to manage and searchable. However, users must understand the risks of altering tagged text or improperly uninstalling the plugin to avoid disrupting their Moodle site.
+This design balances performance, reusability, and searchability while emphasizing the need for backups and testing.
+```
