@@ -9,24 +9,30 @@ class edit_form extends \moodleform {
     public function definition() {
         $mform = $this->_form;
         $translation = $this->_customdata['translation'];
-        $lang = $this->_customdata['lang'] ?? 'other'; // Default to 'other' if not set
-
-        // Display the language being edited
-        $langlabel = ($lang === 'other') ? 'Source Text (other)' : get_string('language', 'filter_autotranslate') . ': ' . $lang;
-        $mform->addElement('static', 'langdisplay', get_string('edittranslation', 'filter_autotranslate'), $langlabel);
+        $tlang = $this->_customdata['tlang'];
 
         $mform->addElement('hidden', 'hash', $translation->hash);
         $mform->setType('hash', PARAM_ALPHANUMEXT);
-        $mform->addElement('hidden', 'lang', $lang);
-        $mform->setType('lang', PARAM_LANG);
-        // Removed contextid as it’s no longer relevant without instanceid
-        // $mform->addElement('hidden', 'contextid', $translation->contextlevel);
-        // $mform->setType('contextid', PARAM_INT);
 
-        $mform->addElement('textarea', 'translated_text', get_string('translatedtext', 'filter_autotranslate'), 'rows="20" cols="50"');
+        $mform->addElement('hidden', 'tlang', $tlang);
+        $mform->setType('tlang', PARAM_LANG);
+
+        $mform->addElement('textarea', 'translated_text', 'Translation', ['rows' => 10, 'cols' => 60]);
         $mform->setDefault('translated_text', $translation->translated_text);
-        $mform->addRule('translated_text', get_string('required'), 'required', null, 'client');
 
-        $this->add_action_buttons(true, get_string('savechanges', 'filter_autotranslate'));
+        $mform->addElement('checkbox', 'human', 'Human Translated');
+        $mform->setDefault('human', $translation->human);
+
+        $this->add_action_buttons();
+    }
+
+    public function validation($data, $files) {
+        global $DB;
+        $errors = parent::validation($data, $files);
+        if (empty($data['translated_text'])) {
+            $errors['translated_text'] = 'Translation cannot be empty';
+        }
+        // Allow updating the same language or adding a new one
+        return $errors;
     }
 }

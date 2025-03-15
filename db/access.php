@@ -38,6 +38,15 @@ $capabilities = [
     //         'manager' => CAP_ALLOW,
     //     ],
     // ],
+    'filter/autotranslate:manage' => [
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes' => [
+            'manager' => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW,
+        ],
+        'clonepermissionsfrom' => 'moodle/site:manageblocks',
+    ],
     'filter/autotranslate:edit' => [
         'captype' => 'write',
         'contextlevel' => CONTEXT_COURSE,

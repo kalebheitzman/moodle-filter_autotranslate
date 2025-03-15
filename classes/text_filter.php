@@ -86,7 +86,7 @@ class text_filter extends \core_filters\text_filter {
             if ($allowhtml) {
                 $editurl = new \moodle_url('/filter/autotranslate/edit.php', [
                     'hash' => $hash,
-                    'lang' => current_language(),
+                    'tlang' => current_language(),
                 ]);
                 $editindicator = \html_writer::link($editurl, ' [Translate]', ['class' => 'autotranslate-edit-link']);
             }
