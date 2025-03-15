@@ -56,7 +56,7 @@ class fetchtranslation_task extends scheduled_task {
 
             // Fetch untagged translations where at least one target language is missing
             $params = $targetlangs; // Only targetlangs for IN clause
-            $sql = "SELECT t.id, t.hash, t.translated_text AS source_text, t.contextlevel, t.instanceid
+            $sql = "SELECT t.id, t.hash, t.translated_text AS source_text, t.contextlevel
                     FROM {autotranslate_translations} t
                     WHERE t.lang = 'other' 
                     AND EXISTS (
@@ -109,7 +109,7 @@ class fetchtranslation_task extends scheduled_task {
                         $record = $batch[array_search($record_id, array_column($batch, 'id'))];
                         foreach ($lang_translations as $lang => $translated_text) {
                             $translated_text = is_array($translated_text) ? implode(' ', $translated_text) : $translated_text;
-                            $this->store_translation($record->hash, $lang, $translated_text, $record->contextlevel, $record->instanceid);
+                            $this->store_translation($record->hash, $lang, $translated_text, $record->contextlevel);
                             mtrace("Fetched translation: hash={$record->hash}, lang=$lang, text='$translated_text'");
                         }
                     }
@@ -306,9 +306,8 @@ class fetchtranslation_task extends scheduled_task {
      * @param string $lang The language code
      * @param string|array $translated_text The translated text (string or array to handle potential API responses)
      * @param int $contextlevel The context level
-     * @param int $instanceid The instance ID
      */
-    private function store_translation($hash, $lang, $translated_text, $contextlevel, $instanceid) {
+    private function store_translation($hash, $lang, $translated_text, $contextlevel) {
         global $DB;
 
         // Ensure translated_text is a string
@@ -322,7 +321,6 @@ class fetchtranslation_task extends scheduled_task {
             $record->id = $existing->id;
             $record->translated_text = $translated_text;
             $record->contextlevel = $contextlevel;
-            $record->instanceid = $instanceid;
             $record->timemodified = time();
             $record->human = 0; // Machine-generated translation
 
@@ -334,7 +332,6 @@ class fetchtranslation_task extends scheduled_task {
             $record->lang = $lang;
             $record->translated_text = $translated_text;
             $record->contextlevel = $contextlevel;
-            $record->instanceid = $instanceid;
             $record->timecreated = time();
             $record->timemodified = time();
             $record->human = 0; // Machine-generated translation
