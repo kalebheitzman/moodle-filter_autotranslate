@@ -88,7 +88,6 @@ The plugin enhances Moodle’s global search:
 - **Global Reuse**: Identical text shares the same `hash`, enabling reuse but risking confusion if meanings differ by context.
 - **Contextual Permissions**: Teachers can edit translations within their courses.
 - **Risk of Disruption**: Tagging alters content; improper plugin management (e.g., uninstall without cleanup) can break display. Back up your database and test changes.
-- **Upgrade Note**: The `instanceid` field was removed in a recent update to support a context-agnostic design, improving flexibility. Run the upgrade script to apply this change.
 
 ### Summary
 
@@ -98,7 +97,3 @@ The plugin enhances Moodle’s global search:
 - **Risks**: Modifying text fields requires careful management to avoid disruption.
 
 This design balances performance, reusability, and searchability while emphasizing the need for backups and testing.
-
-```
-
-```
