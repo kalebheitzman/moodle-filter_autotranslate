@@ -87,10 +87,13 @@ foreach ($translations as $translation) {
 
     // Show Source Text and Translated Text if a specific language is filtered
     if (!empty($internal_filter_lang) && $internal_filter_lang !== 'all' && $internal_filter_lang !== 'other') {
-        $cells[] = format_text($translation->source_text, FORMAT_PLAIN);
-        $cells[] = format_text($translation->translated_text, FORMAT_PLAIN);
+        $source_text = file_rewrite_pluginfile_urls($translation->source_text, 'pluginfile.php', $context->id, 'filter_autotranslate', 'translations', $translation->id);
+        $translated_text = file_rewrite_pluginfile_urls($translation->translated_text, 'pluginfile.php', $context->id, 'filter_autotranslate', 'translations', $translation->id);
+        $cells[] = format_text($source_text, FORMAT_PLAIN);
+        $cells[] = format_text($translated_text, FORMAT_PLAIN);
     } else {
-        $cells[] = format_text($translation->translated_text, FORMAT_PLAIN);
+        $translated_text = file_rewrite_pluginfile_urls($translation->translated_text, 'pluginfile.php', $context->id, 'filter_autotranslate', 'translations', $translation->id);
+        $cells[] = format_text($translated_text, FORMAT_PLAIN);
     }
 
     $cells = array_merge($cells, [
