@@ -22,6 +22,7 @@ CREATE TABLE mdl_autotranslate_translations (
     human TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'Flag indicating if the translation is human-reviewed (1) or auto-translated (0)',
     UNIQUE KEY hash_lang (hash, lang)
 );
+```
 
 - **hash**: A unique 10-character alphanumeric identifier (e.g., `aBcDeFgHiJ`) embedded in tags like `{translation hash=aBcDeFgHiJ}Source Text{/translation}` to link source text to translations.
 - **lang**: The language code for the translation (e.g., `es` for Spanish).
@@ -43,6 +44,7 @@ The `autotranslate_task` scheduled task runs periodically to manage text tagging
 - Stores source text with `human = 1` in `mdl_autotranslate_translations`.
 
 **Why Use a Scheduled Task?**
+
 - Ensures background processing for performance.
 - Maintains consistency by tagging all eligible content.
 - Triggers reindexing for global search integration.
@@ -53,11 +55,13 @@ The task modifies text fields by adding `{translation hash=...}` tags. Disabling
 ### Displaying Translations (Filter)
 
 The `filter_autotranslate` filter processes text on page load:
+
 - Detects `{translation hash=...}` tags.
 - Retrieves translations from `mdl_autotranslate_translations` based on the user’s language.
 - Displays the translation or falls back to the source text if unavailable.
 
 **Example**:
+
 - Tagged text: `{translation hash=aBcDeFgHiJ}Submit{/translation}`
 - Spanish (`es`) translation: “Enviar”
 - Fallback: “Submit”
@@ -73,6 +77,7 @@ Altering or removing the `hash` (e.g., manual edits) breaks the link to translat
 ### Integration with Global Search
 
 The plugin enhances Moodle’s global search:
+
 - **Indexing**: The task triggers reindexing of source text and translations, making them searchable in the user’s language.
 - **Context**: Metadata (`contextlevel`) is included for filtering.
 - **Display**: Results appear in the user’s language with fallback to source text.
@@ -93,4 +98,7 @@ The plugin enhances Moodle’s global search:
 - **Risks**: Modifying text fields requires careful management to avoid disruption.
 
 This design balances performance, reusability, and searchability while emphasizing the need for backups and testing.
+
+```
+
 ```
