@@ -16,7 +16,7 @@ require_capability('filter/autotranslate:manage', $context);
 $perpage = optional_param('perpage', 20, PARAM_INT);
 $page = optional_param('page', 0, PARAM_INT);
 $filter_lang = optional_param('filter_lang', '', PARAM_RAW);
-$filter_human = optional_param('filter_human', '', PARAM_RAW); // Default to empty string ('All') if not set
+$filter_human = optional_param('filter_human', '', PARAM_RAW);
 $sort = optional_param('sort', 'hash', PARAM_ALPHA);
 $dir = optional_param('dir', 'ASC', PARAM_ALPHA);
 
@@ -37,6 +37,9 @@ if ($data = data_submitted()) {
 
 echo $OUTPUT->header();
 
+$sitelang = get_config('core', 'lang') ?: 'en';
+$internal_filter_lang = ($filter_lang === $sitelang) ? 'other' : $filter_lang;
+
 $result = $manager->get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir);
 $translations = $result['translations'];
 $total = $result['total'];
@@ -44,7 +47,7 @@ $total = $result['total'];
 // Filter form
 $mform = new \filter_autotranslate\form\manage_form(null, [
     'filter_lang' => $filter_lang,
-    'filter_human' => $filter_human, // Pass the URL parameter value
+    'filter_human' => $filter_human,
     'baseurl' => new \moodle_url('/filter/autotranslate/manage.php', ['perpage' => $perpage, 'sort' => $sort, 'dir' => $dir])
 ]);
 $mform->display();
@@ -57,24 +60,46 @@ echo html_writer::input_hidden_params(new moodle_url('/filter/autotranslate/mana
 $table = new html_table();
 $table->head = [
     get_string('hash', 'filter_autotranslate'),
-    get_string('language', 'filter_autotranslate'),
-    get_string('translatedtext', 'filter_autotranslate'),
+    get_string('language', 'filter_autotranslate')
+];
+
+// Dynamically add Source Text and Translated Text columns if a specific language is filtered
+if (!empty($internal_filter_lang) && $internal_filter_lang !== 'all' && $internal_filter_lang !== 'other') {
+    $table->head[] = 'Source Text';
+    $table->head[] = 'Translated Text';
+} else {
+    $table->head[] = get_string('translatedtext', 'filter_autotranslate');
+}
+
+$table->head = array_merge($table->head, [
     get_string('humanreviewed', 'filter_autotranslate'),
     get_string('contextlevel', 'filter_autotranslate'),
     get_string('actions', 'filter_autotranslate')
-];
+]);
 $table->data = [];
 
 foreach ($translations as $translation) {
     $row = new html_table_row();
-    $row->cells = [
+    $cells = [
         $translation->hash,
-        $translation->lang,
-        format_text($translation->translated_text, FORMAT_PLAIN),
+        $translation->lang
+    ];
+
+    // Show Source Text and Translated Text if a specific language is filtered
+    if (!empty($internal_filter_lang) && $internal_filter_lang !== 'all' && $internal_filter_lang !== 'other') {
+        $cells[] = format_text($translation->source_text, FORMAT_PLAIN);
+        $cells[] = format_text($translation->translated_text, FORMAT_PLAIN);
+    } else {
+        $cells[] = format_text($translation->translated_text, FORMAT_PLAIN);
+    }
+
+    $cells = array_merge($cells, [
         html_writer::checkbox('human_' . $translation->id, 1, $translation->human, '', ['class' => 'human-checkbox']),
         $translation->contextlevel,
         html_writer::link(new moodle_url('/filter/autotranslate/edit.php', ['hash' => $translation->hash, 'tlang' => $translation->lang]), get_string('edit'))
-    ];
+    ]);
+
+    $row->cells = $cells;
     $table->data[] = $row;
 }
 
