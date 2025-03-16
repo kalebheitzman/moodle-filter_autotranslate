@@ -1,0 +1,41 @@
+<form method="post" action="{{{form_action}}}">
+    {{{hidden_params}}}
+    <div class="mb-3">
+        {{{filter_form}}}
+    </div>
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    {{#table_headers}}
+                        <th class="text-left">{{.}}</th>
+                    {{/table_headers}}
+                </tr>
+            </thead>
+            <tbody>
+                {{#table_rows}}
+                    <tr>
+                        <td class="text-left">{{hash}}</td>
+                        <td class="text-left">{{lang}}</td>
+                        {{#source_text}}
+                            <td class="col-6 text-left">{{{source_text}}}</td>
+                            <td class="col-6 text-left">{{{translated_text}}}</td>
+                        {{/source_text}}
+                        {{^source_text}}
+                            <td class="col-12 text-left">{{{translated_text}}}</td>
+                        {{/source_text}}
+                        <td class="text-left">{{{human}}}</td>
+                        <td class="text-left">{{contextlevel}}</td>
+                        <td class="text-left">{{{actions}}}</td>
+                    </tr>
+                {{/table_rows}}
+            </tbody>
+        </table>
+    </div>
+    <div class="mb-3">
+        {{{update_button}}}
+    </div>
+    <div class="mb-3">
+        {{{pagination}}}
+    </div>
+</form>

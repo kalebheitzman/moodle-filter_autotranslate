@@ -20,7 +20,7 @@ $PAGE->set_heading(get_string('edittranslation', 'filter_autotranslate'));
 
 echo $OUTPUT->header();
 
-global $DB;
+global $DB, $OUTPUT;
 debugging("Attempting to fetch translation - Hash: $hash, Queried tLang: $queried_tlang, ContextID: $contextid", DEBUG_DEVELOPER);
 $translation = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => $queried_tlang]);
 if (!$translation) {
@@ -53,14 +53,17 @@ $source_text = format_text($source_text, FORMAT_HTML);
 
 // Parse source text to determine if it contains HTML
 $use_wysiwyg = false;
-if ($source_text && preg_match('/<[^>]+>/', strip_tags($source_text, '<p><div><span><strong><em><img>'))) {
+if ($source_text && preg_match('/<[^>]+>/', $source_text)) {
     $use_wysiwyg = true;
     debugging("Source text contains HTML, enabling WYSIWYG editor", DEBUG_DEVELOPER);
 } else {
     debugging("Source text is plain text, using regular textarea", DEBUG_DEVELOPER);
 }
 
-if ($data = data_submitted()) {
+// Initialize the form
+$mform = new \filter_autotranslate\form\edit_form(null, ['translation' => $translation, 'tlang' => $queried_tlang, 'use_wysiwyg' => $use_wysiwyg]);
+
+if ($data = $mform->get_data()) {
     require_sesskey();
 
     $translation->translated_text = is_array($data->translated_text) ? $data->translated_text['text'] : $data->translated_text;
@@ -95,23 +98,11 @@ echo \html_writer::tag('div', 'Switch Language: ' . implode(' ', $lang_buttons),
 
 echo '</div>';
 
-// Start a Bootstrap row for the layout
-echo '<div class="row mb-3">';
-
-// Left column: Form
-echo '<div class="col-md-7">';
-$mform = new \filter_autotranslate\form\edit_form(null, ['translation' => $translation, 'tlang' => $queried_tlang, 'use_wysiwyg' => $use_wysiwyg]);
-$mform->display();
-echo '</div>';
-
-// Right column: Source text
-echo '<div class="col-md-5">';
-echo '<div class="form-group">';
-echo format_text($source_text, FORMAT_HTML);
-echo '</div>';
-echo '</div>';
-
-// End the Bootstrap row
-echo '</div>';
+// Render the template
+$data = [
+    'form' => $mform->render(),
+    'source_text' => $source_text,
+];
+echo $OUTPUT->render_from_template('filter_autotranslate/edit', $data);
 
 echo $OUTPUT->footer();

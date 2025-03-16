@@ -1,6 +1,7 @@
 <?php
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_manager.php');
+require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_repository.php');
 
 require_login();
 $context = context_system::instance();
@@ -20,7 +21,9 @@ $filter_human = optional_param('filter_human', '', PARAM_RAW);
 $sort = optional_param('sort', 'hash', PARAM_ALPHA);
 $dir = optional_param('dir', 'ASC', PARAM_ALPHA);
 
-$manager = new \filter_autotranslate\translation_manager();
+global $DB, $OUTPUT;
+$repository = new \filter_autotranslate\translation_repository($DB);
+$manager = new \filter_autotranslate\translation_manager($repository);
 
 // Handle form submission for human status updates
 if ($data = data_submitted()) {
@@ -50,68 +53,75 @@ $mform = new \filter_autotranslate\form\manage_form(null, [
     'filter_human' => $filter_human,
     'baseurl' => new \moodle_url('/filter/autotranslate/manage.php', ['perpage' => $perpage, 'sort' => $sort, 'dir' => $dir])
 ]);
-$mform->display();
+$filter_form_html = $mform->render();
 
-// Form for human status updates
-echo html_writer::start_tag('form', ['method' => 'post', 'action' => new moodle_url('/filter/autotranslate/manage.php')]);
-echo html_writer::input_hidden_params(new moodle_url('/filter/autotranslate/manage.php'));
+// Prepare table data for Mustache
+$table_rows = [];
+foreach ($translations as $translation) {
+    // Rewrite @@PLUGINFILE@@ placeholders in translated_text and source_text
+    $translated_text = file_rewrite_pluginfile_urls(
+        $translation->translated_text,
+        'pluginfile.php',
+        context_system::instance()->id,
+        'filter_autotranslate',
+        'translations',
+        $translation->id
+    );
+    $source_text = $translation->source_text !== 'N/A' ? file_rewrite_pluginfile_urls(
+        $translation->source_text,
+        'pluginfile.php',
+        context_system::instance()->id,
+        'filter_autotranslate',
+        'translations',
+        $translation->id
+    ) : 'N/A';
 
-// Display translations table
-$table = new html_table();
-$table->head = [
+    $row = [
+        'hash' => $translation->hash,
+        'lang' => $translation->lang,
+        'translated_text' => format_text($translated_text, FORMAT_HTML),
+        'human' => html_writer::checkbox('human_' . $translation->id, 1, $translation->human, '', ['class' => 'human-checkbox']),
+        'contextlevel' => $translation->contextlevel,
+        'actions' => html_writer::link(
+            new moodle_url('/filter/autotranslate/edit.php', ['hash' => $translation->hash, 'tlang' => $translation->lang]),
+            get_string('edit')
+        ),
+    ];
+    if (!empty($internal_filter_lang) && $internal_filter_lang !== 'all' && $internal_filter_lang !== 'other') {
+        $row['source_text'] = format_text($source_text, FORMAT_HTML);
+    }
+    $table_rows[] = $row;
+}
+
+// Prepare table headers
+$table_headers = [
     get_string('hash', 'filter_autotranslate'),
     get_string('language', 'filter_autotranslate')
 ];
-
-// Dynamically add Source Text and Translated Text columns if a specific language is filtered
 if (!empty($internal_filter_lang) && $internal_filter_lang !== 'all' && $internal_filter_lang !== 'other') {
-    $table->head[] = 'Source Text';
-    $table->head[] = 'Translated Text';
+    $table_headers[] = 'Source Text';
+    $table_headers[] = 'Translated Text';
 } else {
-    $table->head[] = get_string('translatedtext', 'filter_autotranslate');
+    $table_headers[] = get_string('translatedtext', 'filter_autotranslate');
 }
+$table_headers[] = get_string('humanreviewed', 'filter_autotranslate');
+$table_headers[] = get_string('contextlevel', 'filter_autotranslate');
+$table_headers[] = get_string('actions', 'filter_autotranslate');
 
-$table->head = array_merge($table->head, [
-    get_string('humanreviewed', 'filter_autotranslate'),
-    get_string('contextlevel', 'filter_autotranslate'),
-    get_string('actions', 'filter_autotranslate')
-]);
-$table->data = [];
-
-foreach ($translations as $translation) {
-    $row = new html_table_row();
-    $cells = [
-        $translation->hash,
-        $translation->lang
-    ];
-
-    // Show Source Text and Translated Text if a specific language is filtered
-    if (!empty($internal_filter_lang) && $internal_filter_lang !== 'all' && $internal_filter_lang !== 'other') {
-        $source_text = file_rewrite_pluginfile_urls($translation->source_text, 'pluginfile.php', $context->id, 'filter_autotranslate', 'translations', $translation->id);
-        $translated_text = file_rewrite_pluginfile_urls($translation->translated_text, 'pluginfile.php', $context->id, 'filter_autotranslate', 'translations', $translation->id);
-        $cells[] = format_text($source_text, FORMAT_PLAIN);
-        $cells[] = format_text($translated_text, FORMAT_PLAIN);
-    } else {
-        $translated_text = file_rewrite_pluginfile_urls($translation->translated_text, 'pluginfile.php', $context->id, 'filter_autotranslate', 'translations', $translation->id);
-        $cells[] = format_text($translated_text, FORMAT_PLAIN);
-    }
-
-    $cells = array_merge($cells, [
-        html_writer::checkbox('human_' . $translation->id, 1, $translation->human, '', ['class' => 'human-checkbox']),
-        $translation->contextlevel,
-        html_writer::link(new moodle_url('/filter/autotranslate/edit.php', ['hash' => $translation->hash, 'tlang' => $translation->lang]), get_string('edit'))
-    ]);
-
-    $row->cells = $cells;
-    $table->data[] = $row;
-}
-
-echo html_writer::table($table);
-echo html_writer::empty_tag('input', ['type' => 'submit', 'value' => get_string('updatetranslations', 'filter_autotranslate'), 'class' => 'btn btn-primary']);
-echo html_writer::end_tag('form');
-
-// Pagination controls
+// Prepare pagination
 $baseurl = new moodle_url($PAGE->url, ['perpage' => $perpage, 'sort' => $sort, 'dir' => $dir, 'filter_lang' => $filter_lang, 'filter_human' => $filter_human]);
-echo $OUTPUT->paging_bar($total, $page, $perpage, $baseurl);
+$pagination_html = $OUTPUT->paging_bar($total, $page, $perpage, $baseurl);
+
+// Render the template
+$data = [
+    'filter_form' => $filter_form_html,
+    'table_headers' => $table_headers,
+    'table_rows' => $table_rows,
+    'update_button' => html_writer::empty_tag('input', ['type' => 'submit', 'value' => get_string('updatetranslations', 'filter_autotranslate'), 'class' => 'btn btn-primary']),
+    'pagination' => $pagination_html,
+    'form_action' => new \moodle_url('/filter/autotranslate/manage.php'),
+    'hidden_params' => html_writer::input_hidden_params(new \moodle_url('/filter/autotranslate/manage.php')),
+];
+echo $OUTPUT->render_from_template('filter_autotranslate/manage', $data);
 
 echo $OUTPUT->footer();
