@@ -4,21 +4,35 @@
         <TABLE NAME="autotranslate_translations" COMMENT="Stores translations for the autotranslate filter">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
-                <FIELD NAME="hash" TYPE="char" LENGTH="10" NOTNULL="true" COMMENT="Unique 10-character hash for the source text"/>
-                <FIELD NAME="lang" TYPE="char" LENGTH="20" NOTNULL="true" COMMENT="Language code (e.g., es, ru)"/>
-                <FIELD NAME="translated_text" TYPE="text" NOTNULL="true" COMMENT="Translated content for the specified language"/>
-                <FIELD NAME="contextlevel" TYPE="int" LENGTH="2" NOTNULL="true" COMMENT="Moodle context level (e.g., 10 for System, 50 for Course, 70 for Module)"/>
-                <FIELD NAME="instanceid" TYPE="int" LENGTH="10" NOTNULL="true" COMMENT="Instance ID within the context (e.g., page ID, section ID)"/>
-                <FIELD NAME="human" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" COMMENT="Flag indicating if the translation was manually edited by a human (0 = automatic, 1 = manual)"/>
-                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" COMMENT="Timestamp of creation"/>
-                <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" COMMENT="Timestamp of last modification"/>
+                <FIELD NAME="hash" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Unique 10-character hash for the source text"/>
+                <FIELD NAME="lang" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="Language code (e.g., es, ru)"/>
+                <FIELD NAME="translated_text" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Translated content for the specified language"/>
+                <FIELD NAME="contextlevel" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false" COMMENT="Moodle context level (e.g., 10 for System, 50 for Course, 70 for Module)"/>
+                <FIELD NAME="human" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Flag indicating if the translation was manually edited by a human (0 = automatic, 1 = manual)"/>
+                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp of creation"/>
+                <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp of last modification"/>
             </FIELDS>
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+                <KEY NAME="hash_lang" TYPE="unique" FIELDS="hash,lang" COMMENT="Ensures one translation per language per hash"/>
             </KEYS>
             <INDEXES>
-                <INDEX NAME="hash_lang" UNIQUE="true" FIELDS="hash, lang" COMMENT="Ensures one translation per language per hash"/>
-                <INDEX NAME="context_instance" UNIQUE="false" FIELDS="contextlevel, instanceid" COMMENT="Index for context-based recovery"/>
+                <INDEX NAME="mdl_autotran_con_ix" UNIQUE="false" FIELDS="contextlevel" COMMENT="Index for context-based recovery"/>
+            </INDEXES>
+        </TABLE>
+        <TABLE NAME="autotranslate_hid_cids" COMMENT="Maps translation hashes to course IDs">
+            <FIELDS>
+                <FIELD NAME="hash" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Hash of the translatable string"/>
+                <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course ID where the string appears"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="hash,courseid"/>
+                <KEY NAME="hashfk" TYPE="foreign" FIELDS="hash" REFTABLE="autotranslate_translations" REFFIELDS="hash"/>
+                <KEY NAME="courseidfk" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="hash" UNIQUE="false" FIELDS="hash"/>
+                <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
             </INDEXES>
         </TABLE>
     </TABLES>

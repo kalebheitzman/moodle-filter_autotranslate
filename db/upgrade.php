@@ -19,34 +19,31 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2025031401, 'filter', 'autotranslate');
     }
 
-    if ($oldversion < 2025031412) {
-        // Define table autotranslate_translations
-        $table = new xmldb_table('autotranslate_translations');
+    if ($oldversion < 2025031508) { // Adjust the version number as needed
+        global $DB;
+        $dbman = $DB->get_manager();
 
-        // Define the index mdl_autotran_conins_ix (contextlevel, instanceid)
-        $index = new xmldb_index('mdl_autotran_conins_ix', XMLDB_INDEX_NOTUNIQUE, ['contextlevel', 'instanceid']);
+        // Define the table
+        $table = new xmldb_table('autotranslate_hid_cids');
 
-        // Conditionally drop the index if it exists
-        if ($dbman->index_exists($table, $index)) {
-            $dbman->drop_index($table, $index);
+        // Add fields
+        $table->add_field('hash', XMLDB_TYPE_CHAR, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('courseid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+
+        // Add keys
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['hash', 'courseid']);
+        $table->add_key('hashfk', XMLDB_KEY_FOREIGN, ['hash'], 'autotranslate_translations', ['hash']);
+        $table->add_key('courseidfk', XMLDB_KEY_FOREIGN, ['courseid'], 'course', ['id']);
+
+        // No need to add explicit indexes on 'hash' or 'courseid'—foreign keys handle it
+
+        // Create the table if it doesn’t exist
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
         }
 
-        // Define the field instanceid to be dropped
-        $field = new xmldb_field('instanceid', XMLDB_TYPE_INTEGER, '10', null, null, null, null);
-
-        // Conditionally drop the field instanceid
-        if ($dbman->field_exists($table, $field)) {
-            $dbman->drop_field($table, $field);
-        }
-
-        // Optionally recreate an index on contextlevel alone if needed
-        $newindex = new xmldb_index('mdl_autotran_con_ix', XMLDB_INDEX_NOTUNIQUE, ['contextlevel']);
-        if (!$dbman->index_exists($table, $newindex)) {
-            $dbman->add_index($table, $newindex);
-        }
-
-        // Save point reached
-        upgrade_plugin_savepoint(true, 2025031412, 'filter', 'autotranslate');
+        // Save the upgrade point
+        upgrade_plugin_savepoint(true, 2025031508, 'filter', 'autotranslate');
     }
 
     return true;
