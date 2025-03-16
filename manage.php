@@ -22,7 +22,7 @@ $PAGE->set_heading(get_string('managetranslations', 'filter_autotranslate'));
 require_capability('filter/autotranslate:manage', $context);
 
 // Get parameters
-$courseid = optional_param('courseid', 0, PARAM_INT); // Optional courseid parameter
+$courseid = optional_param('courseid', 0, PARAM_INT);
 $filter_lang = optional_param('filter_lang', '', PARAM_RAW);
 $filter_human = optional_param('filter_human', '', PARAM_RAW);
 $page = optional_param('page', 0, PARAM_INT);
@@ -33,27 +33,6 @@ $dir = optional_param('dir', 'ASC', PARAM_ALPHA);
 global $DB, $OUTPUT;
 $repository = new \filter_autotranslate\translation_repository($DB);
 $manager = new \filter_autotranslate\translation_manager($repository);
-
-// Handle form submission for human status updates
-if ($data = data_submitted()) {
-    require_sesskey();
-
-    foreach ($data as $key => $value) {
-        if (preg_match('/^human_(\d+)$/', $key, $matches)) {
-            $translationid = $matches[1];
-            $manager->update_human_status($translationid, $value ? 1 : 0);
-        }
-    }
-    redirect(new moodle_url('/filter/autotranslate/manage.php', [
-        'page' => $page,
-        'perpage' => $perpage,
-        'sort' => $sort,
-        'dir' => $dir,
-        'filter_lang' => $filter_lang,
-        'filter_human' => $filter_human,
-        'courseid' => $courseid,
-    ]), get_string('translationsupdated', 'filter_autotranslate'));
-}
 
 echo $OUTPUT->header();
 
@@ -69,6 +48,7 @@ $total = $result['total'];
 $mform = new \filter_autotranslate\form\manage_form(null, [
     'filter_lang' => $filter_lang,
     'filter_human' => $filter_human,
+    'perpage' => $perpage,
     'baseurl' => new \moodle_url('/filter/autotranslate/manage.php', [
         'perpage' => $perpage,
         'sort' => $sort,
@@ -103,7 +83,7 @@ foreach ($translations as $translation) {
         'hash' => $translation->hash,
         'lang' => $translation->lang,
         'translated_text' => format_text($translated_text, FORMAT_HTML),
-        'human' => html_writer::checkbox('human_' . $translation->id, 1, $translation->human, '', ['class' => 'human-checkbox']),
+        'human' => $translation->human ? get_string('yes') : get_string('no'), // Display as text instead of checkbox
         'contextlevel' => $translation->contextlevel,
         'actions' => html_writer::link(
             new moodle_url('/filter/autotranslate/edit.php', ['hash' => $translation->hash, 'tlang' => $translation->lang]),
@@ -147,10 +127,7 @@ $data = [
     'filter_form' => $filter_form_html,
     'table_headers' => $table_headers,
     'table_rows' => $table_rows,
-    'update_button' => html_writer::empty_tag('input', ['type' => 'submit', 'value' => get_string('updatetranslations', 'filter_autotranslate'), 'class' => 'btn btn-primary']),
     'pagination' => $pagination_html,
-    'form_action' => new \moodle_url('/filter/autotranslate/manage.php'),
-    'hidden_params' => html_writer::input_hidden_params(new \moodle_url('/filter/autotranslate/manage.php')),
 ];
 echo $OUTPUT->render_from_template('filter_autotranslate/manage', $data);
 

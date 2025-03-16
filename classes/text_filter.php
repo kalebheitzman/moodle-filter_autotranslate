@@ -61,7 +61,7 @@ class text_filter extends \core_filters\text_filter {
             $display_text = $translation ? $translation->translated_text : $this->get_fallback_text($hash, $source_text);
 
             $allowhtml = !empty($options['noclean']) || ($this->context->contextlevel !== CONTEXT_COURSE && $this->context->contextlevel !== CONTEXT_MODULE);
-            $editindicator = $this->get_edit_indicator($hash, $allowhtml);
+            $editindicator = $this->get_edit_indicator($hash);
 
             $replacements[$fulltag] = $display_text . $editindicator;
         }
@@ -79,17 +79,15 @@ class text_filter extends \core_filters\text_filter {
         return $fallback ? $fallback->translated_text : $source_text;
     }
 
-    private function get_edit_indicator($hash, $allowhtml) {
+    private function get_edit_indicator($hash) {
         global $USER;
         $editindicator = '';
         if (has_capability('filter/autotranslate:edit', $this->context, $USER)) {
-            if ($allowhtml) {
-                $editurl = new \moodle_url('/filter/autotranslate/edit.php', [
-                    'hash' => $hash,
-                    'tlang' => current_language(),
-                ]);
-                $editindicator = \html_writer::link($editurl, ' [Translate]', ['class' => 'autotranslate-edit-link']);
-            }
+            $editurl = new \moodle_url('/filter/autotranslate/edit.php', [
+                'hash' => $hash,
+                'tlang' => current_language(),
+            ]);
+            $editindicator = \html_writer::link($editurl, ' [Translate]', ['class' => 'autotranslate-edit-link']);
         }
         return $editindicator;
     }

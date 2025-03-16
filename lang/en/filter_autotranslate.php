@@ -24,8 +24,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$string['pluginname'] = 'Auto Translate Filter';
-$string['filtername'] = 'Auto Translate Filter';
+$string['pluginname'] = 'Autotranslate Filter';
+$string['filtername'] = 'Autotranslate Filter';
 $string['apiconfig'] = 'API Configuration';
 $string['apiconfig_desc'] = 'Configure the API settings for the translation service.';
 $string['apiendpoint'] = 'API Endpoint (Base URL)';
@@ -80,3 +80,5 @@ $string['no'] = 'No';
 $string['translationsupdated'] = 'Translations updated successfully';
 $string['updatetranslations'] = 'Update Translations';
 $string['contextlevel'] = 'Context Level';
+$string['manageautotranslations'] = 'Manage Autotranslations';
+$string['perpage'] = 'Translations per page';
