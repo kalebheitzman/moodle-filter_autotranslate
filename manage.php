@@ -6,18 +6,27 @@ require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_reposito
 require_login();
 $context = context_system::instance();
 $PAGE->set_context($context);
-$PAGE->set_url('/filter/autotranslate/manage.php');
+$PAGE->set_url('/filter/autotranslate/manage.php', [
+    'courseid' => optional_param('courseid', 0, PARAM_INT),
+    'filter_lang' => optional_param('filter_lang', '', PARAM_RAW),
+    'filter_human' => optional_param('filter_human', '', PARAM_RAW),
+    'perpage' => optional_param('perpage', 20, PARAM_INT),
+    'page' => optional_param('page', 0, PARAM_INT),
+    'sort' => optional_param('sort', 'hash', PARAM_ALPHA),
+    'dir' => optional_param('dir', 'ASC', PARAM_ALPHA),
+]);
 $PAGE->set_title(get_string('managetranslations', 'filter_autotranslate'));
 $PAGE->set_heading(get_string('managetranslations', 'filter_autotranslate'));
 
 // Check capability
 require_capability('filter/autotranslate:manage', $context);
 
-// Get URL parameters
-$perpage = optional_param('perpage', 20, PARAM_INT);
-$page = optional_param('page', 0, PARAM_INT);
+// Get parameters
+$courseid = optional_param('courseid', 0, PARAM_INT); // Optional courseid parameter
 $filter_lang = optional_param('filter_lang', '', PARAM_RAW);
 $filter_human = optional_param('filter_human', '', PARAM_RAW);
+$page = optional_param('page', 0, PARAM_INT);
+$perpage = optional_param('perpage', 20, PARAM_INT);
 $sort = optional_param('sort', 'hash', PARAM_ALPHA);
 $dir = optional_param('dir', 'ASC', PARAM_ALPHA);
 
@@ -35,7 +44,15 @@ if ($data = data_submitted()) {
             $manager->update_human_status($translationid, $value ? 1 : 0);
         }
     }
-    redirect(new moodle_url('/filter/autotranslate/manage.php', ['page' => $page, 'perpage' => $perpage, 'sort' => $sort, 'dir' => $dir, 'filter_lang' => $filter_lang, 'filter_human' => $filter_human]), get_string('translationsupdated', 'filter_autotranslate'));
+    redirect(new moodle_url('/filter/autotranslate/manage.php', [
+        'page' => $page,
+        'perpage' => $perpage,
+        'sort' => $sort,
+        'dir' => $dir,
+        'filter_lang' => $filter_lang,
+        'filter_human' => $filter_human,
+        'courseid' => $courseid,
+    ]), get_string('translationsupdated', 'filter_autotranslate'));
 }
 
 echo $OUTPUT->header();
@@ -43,7 +60,8 @@ echo $OUTPUT->header();
 $sitelang = get_config('core', 'lang') ?: 'en';
 $internal_filter_lang = ($filter_lang === $sitelang) ? 'other' : $filter_lang;
 
-$result = $manager->get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir);
+// Fetch translations with courseid filter
+$result = $manager->get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir, $courseid);
 $translations = $result['translations'];
 $total = $result['total'];
 
@@ -51,7 +69,12 @@ $total = $result['total'];
 $mform = new \filter_autotranslate\form\manage_form(null, [
     'filter_lang' => $filter_lang,
     'filter_human' => $filter_human,
-    'baseurl' => new \moodle_url('/filter/autotranslate/manage.php', ['perpage' => $perpage, 'sort' => $sort, 'dir' => $dir])
+    'baseurl' => new \moodle_url('/filter/autotranslate/manage.php', [
+        'perpage' => $perpage,
+        'sort' => $sort,
+        'dir' => $dir,
+        'courseid' => $courseid,
+    ]),
 ]);
 $filter_form_html = $mform->render();
 
@@ -109,7 +132,14 @@ $table_headers[] = get_string('contextlevel', 'filter_autotranslate');
 $table_headers[] = get_string('actions', 'filter_autotranslate');
 
 // Prepare pagination
-$baseurl = new moodle_url($PAGE->url, ['perpage' => $perpage, 'sort' => $sort, 'dir' => $dir, 'filter_lang' => $filter_lang, 'filter_human' => $filter_human]);
+$baseurl = new moodle_url($PAGE->url, [
+    'perpage' => $perpage,
+    'sort' => $sort,
+    'dir' => $dir,
+    'filter_lang' => $filter_lang,
+    'filter_human' => $filter_human,
+    'courseid' => $courseid,
+]);
 $pagination_html = $OUTPUT->paging_bar($total, $page, $perpage, $baseurl);
 
 // Render the template

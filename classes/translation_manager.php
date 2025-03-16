@@ -10,9 +10,9 @@ class translation_manager {
         $this->repository = $repository;
     }
 
-    public function get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir) {
+    public function get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir, $courseid = 0) {
         $sitelang = get_config('core', 'lang') ?: 'en';
-        $result = $this->repository->get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir, $sitelang);
+        $result = $this->repository->get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir, $sitelang, $courseid);
         $translations = $result['translations'];
         $total = $result['total'];
 

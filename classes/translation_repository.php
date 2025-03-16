@@ -10,6 +10,10 @@ class translation_repository {
         $this->db = $db;
     }
 
+    public function get_db(): \moodle_database {
+        return $this->db;
+    }
+
     public function get_translation(string $hash, string $lang = null) {
         if ($lang) {
             return $this->db->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
@@ -30,9 +34,9 @@ class translation_repository {
         $this->db->update_record('autotranslate_translations', $translation);
     }
 
-    public function get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir, $sitelang) {
+    public function get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir, $sitelang, $courseid = 0) {
         $internal_filter_lang = ($filter_lang === $sitelang) ? 'other' : $filter_lang;
-        debugging("Filter lang: $filter_lang, Internal filter lang: $internal_filter_lang", DEBUG_DEVELOPER);
+        debugging("Filter lang: $filter_lang, Internal filter lang: $internal_filter_lang, Courseid: $courseid", DEBUG_DEVELOPER);
 
         $sql = "SELECT t.*, t2.translated_text AS source_text
                 FROM {autotranslate_translations} t
@@ -49,6 +53,18 @@ class translation_repository {
             $where[] = "t.human = :human";
             $params['human'] = (int)$filter_human;
         }
+        if ($courseid > 0) {
+            $hashes = $this->db->get_fieldset_select('autotranslate_hid_cids', 'hash', 'courseid = :courseid', ['courseid' => $courseid]);
+            if (!empty($hashes)) {
+                list($insql, $inparams) = $this->db->get_in_or_equal($hashes, SQL_PARAMS_NAMED);
+                $where[] = "t.hash $insql";
+                $params = array_merge($params, $inparams);
+                debugging("Applied courseid filter: hash IN (" . implode(',', $hashes) . ")", DEBUG_DEVELOPER);
+            } else {
+                $where[] = '1=0'; // No matches if no hashes for courseid
+                debugging("No hashes found for courseid=$courseid", DEBUG_DEVELOPER);
+            }
+        }
         if (!empty($where)) {
             $sql .= " WHERE " . implode(" AND ", $where);
             debugging("SQL WHERE clause: " . implode(" AND ", $where), DEBUG_DEVELOPER);
@@ -59,7 +75,7 @@ class translation_repository {
         $dir = strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC';
         $sql .= " ORDER BY t.$sort $dir";
 
-        $count_sql = "SELECT COUNT(*) FROM {autotranslate_translations} t" . (empty($params) ? "" : " WHERE " . implode(" AND ", $where));
+        $count_sql = "SELECT COUNT(*) FROM {autotranslate_translations} t" . (empty($where) ? "" : " WHERE " . implode(" AND ", $where));
         debugging("Count SQL: $count_sql with params: " . json_encode($params), DEBUG_DEVELOPER);
         $total = $this->db->count_records_sql($count_sql, $params);
         debugging("Main SQL: $sql with params: " . json_encode($params), DEBUG_DEVELOPER);
