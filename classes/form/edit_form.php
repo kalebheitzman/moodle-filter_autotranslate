@@ -20,7 +20,19 @@ class edit_form extends \moodleform {
 
         // Conditionally add editor or textarea
         if ($use_wysiwyg) {
-            $mform->addElement('editor', 'translated_text', 'Translation', null, ['context' => \context_system::instance(), 'subdirs' => 0, 'maxfiles' => 0, 'enable_filemanagement' => false]);
+            $mform->addElement('editor', 'translated_text', 'Translation', null, [
+                'context' => \context_system::instance(),
+                'subdirs' => 0,
+                'maxfiles' => EDITOR_UNLIMITED_FILES, // Allow file uploads
+                'enable_filemanagement' => true,
+                'filemanager_options' => [
+                    'context' => \context_system::instance(),
+                    'subdirs' => 0,
+                    'maxbytes' => 0,
+                    'maxfiles' => EDITOR_UNLIMITED_FILES,
+                    'accepted_types' => '*',
+                ],
+            ]);
             $mform->setDefault('translated_text', ['text' => $translation->translated_text, 'format' => FORMAT_HTML]);
         } else {
             $mform->addElement('textarea', 'translated_text', 'Translation', ['rows' => 15, 'cols' => 60]);
@@ -39,7 +51,6 @@ class edit_form extends \moodleform {
         if ($data['translated_text'] === null || (is_array($data['translated_text']) && empty($data['translated_text']['text']))) {
             $errors['translated_text'] = 'Translation cannot be empty';
         }
-        // Allow updating the same language or adding a new one
         return $errors;
     }
 }

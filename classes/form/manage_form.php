@@ -23,9 +23,9 @@ class manage_form extends \moodleform {
 
         // Build filter options: "All" plus site language (mapped to 'other') and target languages
         $lang_options = ['all' => 'All'];
-        $lang_options['other'] = $sitelang; // Map 'other' to site language for display
+        $lang_options['other'] = strtoupper($sitelang); // Map 'other' to site language for display
         foreach ($targetlangs as $lang) {
-            $lang_options[$lang] = $lang; // Add target languages
+            $lang_options[$lang] = strtoupper($lang); // Add target languages
         }
 
         // Language filter buttons

@@ -20,10 +20,6 @@ $PAGE->set_heading(get_string('edittranslation', 'filter_autotranslate'));
 
 echo $OUTPUT->header();
 
-// Add a "Manage Translations" link below the heading
-$manageurl = new \moodle_url('/filter/autotranslate/manage.php');
-echo \html_writer::link($manageurl, get_string('managetranslations', 'filter_autotranslate'), ['class' => 'btn btn-secondary mb-3']);
-
 global $DB;
 debugging("Attempting to fetch translation - Hash: $hash, Queried tLang: $queried_tlang, ContextID: $contextid", DEBUG_DEVELOPER);
 $translation = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => $queried_tlang]);
@@ -44,9 +40,20 @@ if (!$source_text) {
     $source_text = 'N/A'; // Fallback if no source text is found
 }
 
+// Rewrite @@PLUGINFILE@@ placeholders in the source text
+$source_text = file_rewrite_pluginfile_urls(
+    $source_text,
+    'pluginfile.php',
+    context_system::instance()->id,
+    'filter_autotranslate',
+    'translations',
+    $translation->id
+);
+$source_text = format_text($source_text, FORMAT_HTML);
+
 // Parse source text to determine if it contains HTML
 $use_wysiwyg = false;
-if ($source_text && preg_match('/<[^>]+>/', $source_text)) {
+if ($source_text && preg_match('/<[^>]+>/', strip_tags($source_text, '<p><div><span><strong><em><img>'))) {
     $use_wysiwyg = true;
     debugging("Source text contains HTML, enabling WYSIWYG editor", DEBUG_DEVELOPER);
 } else {
@@ -56,13 +63,22 @@ if ($source_text && preg_match('/<[^>]+>/', $source_text)) {
 if ($data = data_submitted()) {
     require_sesskey();
 
-    $translation->translated_text = $data->translated_text;
-    $translation->human = 1; // Mark as human-reviewed
+    $translation->translated_text = is_array($data->translated_text) ? $data->translated_text['text'] : $data->translated_text;
+    $translation->human = !empty($data->human) ? 1 : 0; // Handle checkbox submission
     $translation->timemodified = time();
 
     $DB->update_record('autotranslate_translations', $translation);
     redirect(new moodle_url('/filter/autotranslate/manage.php'), get_string('translationsaved', 'filter_autotranslate'));
 }
+
+// Start a Bootstrap row for the layout
+echo '<div class="row mb-3">';
+
+echo '<div class="col-md-6">';
+// Add a "Manage Translations" link below the heading
+$manageurl = new \moodle_url('/filter/autotranslate/manage.php');
+echo \html_writer::link($manageurl, get_string('managetranslations', 'filter_autotranslate'), ['class' => 'btn btn-secondary mb-3']);
+echo '</div>';
 
 // Get all languages for this hash to populate the language switcher
 $all_langs = $DB->get_fieldset_select('autotranslate_translations', 'DISTINCT lang', 'hash = ?', [$hash]);
@@ -73,9 +89,11 @@ foreach ($all_langs as $lang) {
     $display_lang = ($lang === 'other') ? $sitelang : $lang;
     $url = new moodle_url('/filter/autotranslate/edit.php', ['hash' => $hash, 'tlang' => $lang, 'contextid' => $contextid]);
     $class = ($lang === $queried_tlang) ? 'btn btn-primary' : 'btn btn-secondary';
-    $lang_buttons[] = \html_writer::link($url, $display_lang, ['class' => $class . ' mr-1']);
+    $lang_buttons[] = \html_writer::link($url, strtoupper($display_lang), ['class' => $class . ' mr-1']);
 }
-echo \html_writer::tag('div', 'Switch Language: ' . implode(' ', $lang_buttons), ['class' => 'mb-3']);
+echo \html_writer::tag('div', 'Switch Language: ' . implode(' ', $lang_buttons), ['class' => 'mb-3 col-md-6 text-right']);
+
+echo '</div>';
 
 // Start a Bootstrap row for the layout
 echo '<div class="row mb-3">';
