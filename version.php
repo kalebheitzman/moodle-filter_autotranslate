@@ -18,7 +18,7 @@
  * Version details
  *
  * @package    filter_autotranslate
- * @copyright  20245Kaleb Heitzman <kalebheitzman@gmail.com>
+ * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 

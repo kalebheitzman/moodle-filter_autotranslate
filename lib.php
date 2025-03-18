@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Autotranslate filter extended libs
+ * Autotranslate filter libs
  *
  * @package      filter_autotranslate
  * @copyright    2022 Kaleb Heitzman <kaleb@jamfire.io>
