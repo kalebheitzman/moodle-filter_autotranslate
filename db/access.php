@@ -30,14 +30,6 @@ defined('MOODLE_INTERNAL') || die();
 
 // Translator Capabilities.
 $capabilities = [
-    // 'filter/autotranslate:translate' => [
-    //     'captype' => 'write',
-    //     'riskbitmaskt' => 'RISK_CONFIG',
-    //     'contextlevel' => CONTEXT_SYSTEM,
-    //     'archetypes' => [
-    //         'manager' => CAP_ALLOW,
-    //     ],
-    // ],
     'filter/autotranslate:manage' => [
         'captype' => 'write',
         'contextlevel' => CONTEXT_SYSTEM,
