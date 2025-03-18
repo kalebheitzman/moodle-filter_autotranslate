@@ -228,17 +228,14 @@ class autotranslate_task extends scheduled_task {
             return;
         }
 
-        // Check if the (hash, courseid) pair already exists
         $exists = $DB->record_exists('autotranslate_hid_cids', ['hash' => $hash, 'courseid' => $courseid]);
         if (!$exists) {
-            $record = new \stdClass();
-            $record->hash = $hash;
-            $record->courseid = $courseid;
             try {
-                $DB->insert_record('autotranslate_hid_cids', $record);
-                mtrace("Inserted new hash mapping: hash=$hash, courseid=$courseid");
+                $DB->execute("INSERT INTO {autotranslate_hid_cids} (hash, courseid) VALUES (?, ?) 
+                            ON DUPLICATE KEY UPDATE hash = hash", [$hash, $courseid]);
+                mtrace("Inserted or updated hash mapping: hash=$hash, courseid=$courseid");
             } catch (\dml_exception $e) {
-                mtrace("Failed to insert hash mapping: hash=$hash, courseid=$courseid, Error: " . $e->getMessage());
+                mtrace("Failed to insert/update hash mapping: hash=$hash, courseid=$courseid, Error: " . $e->getMessage() . ", Debug: " . $e->debuginfo);
             }
         } else {
             mtrace("Hash mapping already exists: hash=$hash, courseid=$courseid");
