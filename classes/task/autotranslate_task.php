@@ -163,7 +163,7 @@ class autotranslate_task extends scheduled_task {
 
                             $offset += $batchsize;
                         } catch (\dml_exception $e) {
-                            mtrace("Error processing $table for context $ctx: " . $e->getMessage() . " (SQL State: " . $e->getSQLState() . ", Error Code: " . $e->getErrorCode() . ")");
+                            mtrace("Error processing $table for context $ctx: " . $e->getMessage());
                             break;
                         }
                     } while ($count >= $batchsize);
@@ -238,7 +238,7 @@ class autotranslate_task extends scheduled_task {
                 $DB->insert_record('autotranslate_hid_cids', $record);
                 mtrace("Inserted new hash mapping: hash=$hash, courseid=$courseid");
             } catch (\dml_exception $e) {
-                mtrace("Failed to insert hash mapping: hash=$hash, courseid=$courseid, Error: " . $e->getMessage() . " (SQL State: " . $e->getSQLState() . ", Error Code: " . $e->getErrorCode() . ")");
+                mtrace("Failed to insert hash mapping: hash=$hash, courseid=$courseid, Error: " . $e->getMessage());
             }
         } else {
             mtrace("Hash mapping already exists: hash=$hash, courseid=$courseid");
