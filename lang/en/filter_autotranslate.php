@@ -26,6 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $string['pluginname'] = 'Autotranslate Filter';
 $string['filtername'] = 'Autotranslate Filter';
+$string['autotranslated'] = 'Autotranslated';
 $string['apiconfig'] = 'API Configuration';
 $string['apiconfig_desc'] = 'Configure the API settings for the translation service.';
 $string['apiendpoint'] = 'API Endpoint (Base URL)';

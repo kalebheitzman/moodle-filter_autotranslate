@@ -57,13 +57,30 @@ class text_filter extends \core_filters\text_filter {
             $source_text = trim($match[2]);
 
             $userlang = current_language();
-            $translation = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => $userlang], 'translated_text');
+            $translation = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => $userlang], 'translated_text, human');
             $display_text = $translation ? $translation->translated_text : $this->get_fallback_text($hash, $source_text);
 
-            $allowhtml = !empty($options['noclean']) || ($this->context->contextlevel !== CONTEXT_COURSE && $this->context->contextlevel !== CONTEXT_MODULE);
-            $editindicator = $this->get_edit_indicator($hash, $allowhtml);
+            // Check if the translation is auto-translated (human = 0)
+            $is_autotranslated = $translation ? $translation->human === 0 : false; // Default to auto if no record
+            $autotranslated_indicator = $is_autotranslated ? $this->get_autotranslate_indicator() : '';
 
-            $replacements[$fulltag] = $display_text . $editindicator;
+            $allowhtml = !empty($options['noclean']) || ($this->context->contextlevel !== CONTEXT_COURSE && $this->context->contextlevel !== CONTEXT_MODULE);
+
+            // Rewrite @@PLUGINFILE@@ URLs in the translated text
+            $fileparams = $this->get_file_params();
+            if ($fileparams) {
+                list($component, $filearea, $itemid) = $fileparams;
+                $display_text = file_rewrite_pluginfile_urls(
+                    $display_text,
+                    $filearea,
+                    $this->context->id,
+                    $component,
+                    $itemid,
+                    null
+                );
+            }
+            
+            $replacements[$fulltag] = $display_text . ($allowhtml ? $autotranslated_indicator : "");
         }
 
         foreach ($replacements as $tag => $replacement) {
@@ -79,18 +96,41 @@ class text_filter extends \core_filters\text_filter {
         return $fallback ? $fallback->translated_text : $source_text;
     }
 
-    private function get_edit_indicator($hash, $allowhtml) {
-        global $USER;
-        $editindicator = '';
-        if (has_capability('filter/autotranslate:edit', $this->context, $USER)) {
-            if ($allowhtml) {
-                $editurl = new \moodle_url('/filter/autotranslate/edit.php', [
-                    'hash' => $hash,
-                    'tlang' => current_language(),
-                ]);
-                $editindicator = \html_writer::link($editurl, ' [Translate]', ['class' => 'autotranslate-edit-link']);
-            }
-        }
-        return $editindicator;
+    private function get_autotranslate_indicator() {
+        global $OUTPUT;
+        // Use Font Awesome globe icon with solid style
+        $label = '<span class="text-secondary font-italic small mr-1">' . get_string('autotranslated', 'filter_autotranslate') . '</span>';
+        $icon = '<span class="text-secondary">' . $OUTPUT->pix_icon('i/siteevent', 'Autotranslated', 'moodle') . '</span>';
+        return  '<div class="text-right">' . $label . $icon . '</div>';
     }
+
+    /**
+ * Determine the component, file area, and item ID based on the current context.
+ * @return array|null [component, filearea, itemid] or null if not applicable
+ */
+private function get_file_params() {
+    $context = $this->context;
+
+    if ($context->contextlevel == CONTEXT_COURSE) {
+        // Course context (e.g., course summary)
+        $component = 'course';
+        $filearea = 'summary';
+        $itemid = $context->instanceid;
+    } elseif ($context->contextlevel == CONTEXT_MODULE) {
+        // Module context (e.g., module intro)
+        $cm = get_coursemodule_from_id('', $context->instanceid);
+        if ($cm) {
+            $component = 'mod_' . $cm->modname; // e.g., 'mod_forum'
+            $filearea = 'intro';
+            $itemid = $cm->instance; // Module instance ID, not course module ID
+        } else {
+            return null; // Couldn’t fetch course module
+        }
+    } else {
+        // Other contexts (e.g., blocks, categories) not handled yet
+        return null;
+    }
+
+    return [$component, $filearea, $itemid];
+}
 }
