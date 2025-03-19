@@ -13,7 +13,6 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses>.
-
 /**
  * Autotranslate Settings
  *
@@ -26,6 +25,8 @@ defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig) {
     if ($ADMIN->fulltree) {
+        require_once($CFG->dirroot . '/filter/autotranslate/classes/tagging_config.php');
+
         // Section: API Configuration
         $settings->add(
             new admin_setting_heading(
@@ -211,6 +212,39 @@ if ($hassiteconfig) {
                 get_string('enablemanualtrigger', 'filter_autotranslate'),
                 get_string('enablemanualtrigger_desc', 'filter_autotranslate'),
                 0
+            )
+        );
+
+        // Section: Tagging Configuration
+        $settings->add(
+            new admin_setting_heading(
+                'filter_autotranslate_taggingconfig',
+                get_string('taggingconfig', 'filter_autotranslate'),
+                get_string('taggingconfig_desc', 'filter_autotranslate')
+            )
+        );
+
+        // Build the form elements for selecting tables and fields
+        $default_tables = \filter_autotranslate\tagging_config::get_default_tables();
+        $tagging_options = [];
+        foreach ($default_tables as $contextlevel => $tables) {
+            $context_name = get_string("ctx_{$contextlevel}", 'filter_autotranslate');
+            foreach ($tables as $table => $fields) {
+                foreach ($fields as $field) {
+                    $key = "ctx{$contextlevel}_{$table}_{$field}";
+                    $label = "$context_name: $table.$field";
+                    $tagging_options[$key] = $label;
+                }
+            }
+        }
+
+        $settings->add(
+            new admin_setting_configmulticheckbox(
+                'filter_autotranslate/tagging_config',
+                get_string('taggingconfig_options', 'filter_autotranslate'),
+                get_string('taggingconfig_options_desc', 'filter_autotranslate'),
+                array_fill_keys(array_keys($tagging_options), 1), // Default to all checked
+                $tagging_options
             )
         );
     }

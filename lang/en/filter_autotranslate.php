@@ -52,6 +52,7 @@ $string['translationsettings'] = 'Translation Settings';
 $string['translationsettings_desc'] = 'Configure how translations are performed.';
 $string['targetlangs'] = 'Target Languages for Translation';
 $string['targetlangs_desc'] = 'Select the languages to translate content into. These languages are sourced from the enabled language packs on this Moodle site (excluding the site language) and will be applied globally to all contexts.';
+$string['targetlangs_warning'] = 'No additional language packs are installed. Please install language packs to enable translation.';
 $string['systeminstructions'] = 'System Instructions';
 $string['systeminstructions_desc'] = 'Instructions for the translation model, including glossary and style, applied to all target languages (e.g., "Use the following glossary: \'Submit\' => \'Enviar\' (Spanish), \'Soumettre\' (French), \'Einreichen\' (German). Translate with a formal tone.").';
 $string['batchsize'] = 'Batch Size for Translation';
@@ -73,6 +74,10 @@ $string['taskfrequency'] = 'Task Frequency';
 $string['taskfrequency_desc'] = 'How often (in minutes) the autotranslate task should run.';
 $string['enablemanualtrigger'] = 'Enable Manual Trigger';
 $string['enablemanualtrigger_desc'] = 'Allow administrators to manually trigger the autotranslate task.';
+$string['taggingconfig'] = 'Tagging Configuration';
+$string['taggingconfig_desc'] = 'Configure which tables and fields should be tagged for translation by the Autotranslate filter.';
+$string['taggingconfig_options'] = 'Tagging Options';
+$string['taggingconfig_options_desc'] = 'Select the tables and fields to be tagged for translation. Uncheck any fields you do not want to be processed by the Autotranslate filter.';
 
 /**
  * Context Selection
@@ -81,11 +86,17 @@ $string['enablemanualtrigger_desc'] = 'Allow administrators to manually trigger 
 $string['selectctx'] = 'Select Contexts for Autotranslation';
 $string['selectctx_desc'] = 'Choose the context levels where text should be automatically translated.';
 $string['ctx_system'] = 'System';
+$string['ctx_10'] = 'System'; // Added for context level 10
 $string['ctx_user'] = 'User';
+$string['ctx_30'] = 'User'; // Added for context level 30
 $string['ctx_coursecat'] = 'Course Category';
+$string['ctx_40'] = 'Course Category'; // Added for context level 40
 $string['ctx_course'] = 'Course';
+$string['ctx_50'] = 'Course'; // Added for context level 50
 $string['ctx_module'] = 'Module';
+$string['ctx_70'] = 'Module'; // Added for context level 70
 $string['ctx_block'] = 'Block';
+$string['ctx_80'] = 'Block'; // Added for context level 80
 
 /**
  * Translation Management

@@ -13,7 +13,6 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses>.
-
 /**
  * Autotranslate Observers
  *
@@ -25,6 +24,8 @@
 namespace filter_autotranslate;
 
 defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->dirroot . '/filter/autotranslate/classes/tagging_config.php');
 
 class observer {
     private static function log($message) {
@@ -69,7 +70,7 @@ class observer {
 
             $context = \context_module::instance($cmid);
             static::log("Context level: {$context->contextlevel}");
-            static::tag_fields($modulename, $module, $fields, $context);
+            static::tag_fields('mod_' . $modulename, $module, $fields, $context);
         } catch (\Exception $e) {
             static::log("Error in course_module_created: " . $e->getMessage());
         }
@@ -110,7 +111,7 @@ class observer {
 
             $context = \context_module::instance($cmid);
             static::log("Context level: {$context->contextlevel}");
-            $updated = static::tag_fields($modulename, $module, $fields, $context);
+            $updated = static::tag_fields('mod_' . $modulename, $module, $fields, $context);
 
             // If the fields were updated, mark existing translations as needing revision
             if ($updated) {
@@ -220,8 +221,46 @@ class observer {
             return false;
         }
 
-        $updated = false;
+        // Get the configured tables and fields
+        $tables = \filter_autotranslate\tagging_config::get_default_tables();
+        $tagging_options_raw = get_config('filter_autotranslate', 'tagging_config');
+
+        // Convert the tagging options to an array of selected options
+        $tagging_options = [];
+        if ($tagging_options_raw !== false && $tagging_options_raw !== null && $tagging_options_raw !== '') {
+            if (is_string($tagging_options_raw)) {
+                // If it's a comma-separated string, explode it into an array
+                $tagging_options = array_map('trim', explode(',', $tagging_options_raw));
+            } elseif (is_array($tagging_options_raw)) {
+                // If it's already an array (e.g., Moodle decoded the JSON), use it directly
+                $tagging_options = $tagging_options_raw;
+            }
+        }
+
+        // Convert the array of selected options into a key-value map for easier lookup
+        $tagging_options_map = [];
+        foreach ($tagging_options as $option) {
+            $tagging_options_map[$option] = true;
+        }
+
+        // Filter the fields based on the tagging configuration
+        $filtered_fields = [];
         foreach ($fields as $field) {
+            $key = "ctx{$context->contextlevel}_{$table}_{$field}";
+            if (isset($tagging_options_map[$key])) {
+                $filtered_fields[] = $field;
+            } else {
+                static::log("Field $field in table $table (context level {$context->contextlevel}) is disabled in tagging configuration, skipping.");
+            }
+        }
+
+        if (empty($filtered_fields)) {
+            static::log("No fields to tag for table $table after applying tagging configuration.");
+            return false;
+        }
+
+        $updated = false;
+        foreach ($filtered_fields as $field) {
             if (empty($record->$field)) {
                 static::log("Field $field is empty for $table record");
                 continue;

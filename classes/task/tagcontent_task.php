@@ -26,6 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 use core\task\scheduled_task;
 use filter_autotranslate\helper;
+use filter_autotranslate\tagging_config;
 
 class tagcontent_task extends scheduled_task {
 
@@ -52,50 +53,56 @@ class tagcontent_task extends scheduled_task {
         $batchsize = $managelimit;
         $total_entries_checked = 0; // Counter for total entries checked
 
-        $tables = [
-            10 => ['message' => ['fullmessage'], 'block_instances' => ['configdata']],
-            30 => ['user_info_data' => ['data']],
-            40 => ['course_categories' => ['description']],
-            50 => [
-                'course' => ['summary'], // Added course table for course summary
-                'course_sections' => ['name', 'summary'],
-            ],
-            70 => [
-                'assign' => ['name', 'intro'],
-                'book' => ['name', 'intro'],
-                'chat' => ['name', 'intro'],
-                'choice' => ['name', 'intro'],
-                'data' => ['name', 'intro'],
-                'feedback' => ['name', 'intro'],
-                'folder' => ['name', 'intro'],
-                'forum' => ['name', 'intro'],
-                'glossary' => ['name', 'intro'],
-                'h5pactivity' => ['name', 'intro'],
-                'imscp' => ['name', 'intro'],
-                'label' => ['intro', 'name'],
-                'lesson' => ['name', 'intro'],
-                'lti' => ['name', 'intro'],
-                'page' => ['name', 'intro', 'content'],
-                'quiz' => ['name', 'intro'],
-                'resource' => ['name', 'intro'],
-                'scorm' => ['name', 'intro'],
-                'survey' => ['name', 'intro'],
-                'url' => ['name', 'intro'],
-                'wiki' => ['name', 'intro'],
-                'workshop' => ['name', 'intro'],
-            ],
-            80 => ['block_instances' => ['configdata']],
-        ];
+        // Get the configured tables and fields
+        $tables = \filter_autotranslate\tagging_config::get_default_tables();
 
-        mtrace("Starting Auto Translate task with contexts: " . implode(', ', $selectedctx));
+        // Filter the tables based on the selected contexts and admin configuration
+        $configured_tables = [];
+        $tagging_options_raw = get_config('filter_autotranslate', 'tagging_config');
 
-        foreach ($selectedctx as $ctx) {
-            if (!isset($tables[$ctx])) {
-                mtrace("Skipping invalid context level: $ctx");
+        // Convert the tagging options to an array of selected options
+        $tagging_options = [];
+        if ($tagging_options_raw !== false && $tagging_options_raw !== null && $tagging_options_raw !== '') {
+            if (is_string($tagging_options_raw)) {
+                // If it's a comma-separated string, explode it into an array
+                $tagging_options = array_map('trim', explode(',', $tagging_options_raw));
+            } elseif (is_array($tagging_options_raw)) {
+                // If it's already an array (e.g., Moodle decoded the JSON), use it directly
+                $tagging_options = $tagging_options_raw;
+            }
+        }
+
+        // Convert the array of selected options into a key-value map for easier lookup
+        $tagging_options_map = [];
+        foreach ($tagging_options as $option) {
+            $tagging_options_map[$option] = true;
+        }
+
+        foreach ($tables as $contextlevel => $table_list) {
+            if (!in_array($contextlevel, $selectedctx)) {
                 continue;
             }
 
-            foreach ($tables[$ctx] as $table => $fields) {
+            $configured_tables[$contextlevel] = [];
+            foreach ($table_list as $table => $fields) {
+                $configured_fields = [];
+                foreach ($fields as $field) {
+                    $key = "ctx{$contextlevel}_{$table}_{$field}";
+                    // A field is enabled if it's present in the tagging options (checked)
+                    if (isset($tagging_options_map[$key])) {
+                        $configured_fields[] = $field;
+                    }
+                }
+                if (!empty($configured_fields)) {
+                    $configured_tables[$contextlevel][$table] = $configured_fields;
+                }
+            }
+        }
+
+        mtrace("Starting Auto Translate task with contexts: " . implode(', ', $selectedctx));
+
+        foreach ($configured_tables as $ctx => $tables) {
+            foreach ($tables as $table => $fields) {
                 foreach ($fields as $field) {
                     $offset = 0;
 
@@ -241,7 +248,7 @@ class tagcontent_task extends scheduled_task {
         $exists = $DB->record_exists('autotranslate_hid_cids', ['hash' => $hash, 'courseid' => $courseid]);
         if (!$exists) {
             try {
-                $DB->execute("INSERT INTO {autotranslate_hid_cids} (hash, courseid) VALUES (?, ?) 
+                $DB->execute("INSERT INTO {autotranslate_hid_cids} (hash, courtagging_configseid) VALUES (?, ?) 
                             ON DUPLICATE KEY UPDATE hash = hash", [$hash, $courseid]);
             } catch (\dml_exception $e) {
                 mtrace("Failed to insert/update hash mapping: hash=$hash, courseid=$courseid, Error: " . $e->getMessage());
