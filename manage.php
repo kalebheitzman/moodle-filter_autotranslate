@@ -13,7 +13,6 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses>.
-
 /**
  * Autotranslate Manage Page
  *
@@ -105,14 +104,23 @@ foreach ($translations as $translation) {
         $translation->id
     ) : 'N/A';
 
-    // Determine if the translation needs review
+    // Determine if the translation needs review based on the target language record
     $needs_review = $translation->timereviewed < $translation->timemodified;
     $review_status = $needs_review ? $OUTPUT->pix_icon('i/warning', get_string('needsreview', 'filter_autotranslate'), 'moodle', ['class' => 'text-danger align-middle']) : '';
+
+    // Format the dates as small text to append below the translated text
+    $dates_html = '<small class="text-muted">' .
+                  get_string('last_modified', 'filter_autotranslate') . ': ' . userdate($translation->timemodified) . '<br>' .
+                  get_string('last_reviewed', 'filter_autotranslate') . ': ' . userdate($translation->timereviewed) .
+                  '</small>';
+
+    // Append the dates below the translated text
+    $translated_text_with_dates = format_text($translated_text, FORMAT_HTML) . '<br>' . $dates_html;
 
     $row = [
         'hash' => $translation->hash,
         'lang' => $translation->lang,
-        'translated_text' => format_text($translated_text, FORMAT_HTML),
+        'translated_text' => $translated_text_with_dates,
         'human' => $translation->human ? get_string('yes') : get_string('no'),
         'contextlevel' => $translation->contextlevel,
         'review_status' => $review_status,

@@ -59,7 +59,7 @@ class translation_repository {
 
     public function get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir, $sitelang, $courseid = 0, $filter_needsreview = '') {
         $internal_filter_lang = ($filter_lang === $sitelang) ? 'other' : $filter_lang;
-        debugging("Filter lang: $filter_lang, Internal filter lang: $internal_filter_lang, Courseid: $courseid, Filter needsreview: $filter_needsreview", DEBUG_DEVELOPER);
+        // debugging("Filter lang: $filter_lang, Internal filter lang: $internal_filter_lang, Courseid: $courseid, Filter needsreview: $filter_needsreview", DEBUG_DEVELOPER);
 
         $sql = "SELECT t.*, t2.translated_text AS source_text
                 FROM {autotranslate_translations} t
@@ -70,7 +70,7 @@ class translation_repository {
         if (!empty($internal_filter_lang) && $internal_filter_lang !== 'all') {
             $where[] = "t.lang = :lang";
             $params['lang'] = $internal_filter_lang;
-            debugging("Applied filter: lang = $internal_filter_lang", DEBUG_DEVELOPER);
+            // debugging("Applied filter: lang = $internal_filter_lang", DEBUG_DEVELOPER);
         }
         if ($filter_human !== '') {
             $where[] = "t.human = :human";
@@ -82,25 +82,25 @@ class translation_repository {
                 list($insql, $inparams) = $this->db->get_in_or_equal($hashes, SQL_PARAMS_NAMED);
                 $where[] = "t.hash $insql";
                 $params = array_merge($params, $inparams);
-                debugging("Applied courseid filter: hash IN (" . implode(',', $hashes) . ")", DEBUG_DEVELOPER);
+                // debugging("Applied courseid filter: hash IN (" . implode(',', $hashes) . ")", DEBUG_DEVELOPER);
             } else {
                 $where[] = '1=0'; // No matches if no hashes for courseid
-                debugging("No hashes found for courseid=$courseid", DEBUG_DEVELOPER);
+                // debugging("No hashes found for courseid=$courseid", DEBUG_DEVELOPER);
             }
         }
         if ($filter_needsreview !== '') {
             if ($filter_needsreview == '1') {
                 $where[] = "t.timereviewed < t.timemodified";
-                debugging("Applied filter: timereviewed < timemodified", DEBUG_DEVELOPER);
+                // debugging("Applied filter: timereviewed < timemodified", DEBUG_DEVELOPER);
             } elseif ($filter_needsreview == '0') {
                 $where[] = "t.timereviewed >= t.timemodified";
-                debugging("Applied filter: timereviewed >= timemodified", DEBUG_DEVELOPER);
+                // debugging("Applied filter: timereviewed >= timemodified", DEBUG_DEVELOPER);
             }
         }
 
         if (!empty($where)) {
             $sql .= " WHERE " . implode(" AND ", $where);
-            debugging("SQL WHERE clause: " . implode(" AND ", $where), DEBUG_DEVELOPER);
+            // debugging("SQL WHERE clause: " . implode(" AND ", $where), DEBUG_DEVELOPER);
         }
 
         $valid_sorts = ['hash', 'lang', 'translated_text', 'human', 'contextlevel', 'timereviewed', 'timemodified'];
@@ -109,9 +109,9 @@ class translation_repository {
         $sql .= " ORDER BY t.$sort $dir";
 
         $count_sql = "SELECT COUNT(*) FROM {autotranslate_translations} t" . (empty($where) ? "" : " WHERE " . implode(" AND ", $where));
-        debugging("Count SQL: $count_sql with params: " . json_encode($params), DEBUG_DEVELOPER);
+        // debugging("Count SQL: $count_sql with params: " . json_encode($params), DEBUG_DEVELOPER);
         $total = $this->db->count_records_sql($count_sql, $params);
-        debugging("Main SQL: $sql with params: " . json_encode($params), DEBUG_DEVELOPER);
+        // debugging("Main SQL: $sql with params: " . json_encode($params), DEBUG_DEVELOPER);
         $translations = $this->db->get_records_sql($sql, $params, $page * $perpage, $perpage);
 
         return ['translations' => $translations, 'total' => $total];

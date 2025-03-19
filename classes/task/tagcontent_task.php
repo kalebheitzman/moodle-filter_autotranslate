@@ -28,7 +28,7 @@ defined('MOODLE_INTERNAL') || die();
 use core\task\scheduled_task;
 use filter_autotranslate\helper;
 
-class autotranslate_task extends scheduled_task {
+class tagcontent_task extends scheduled_task {
 
     /**
      * Returns the name of the scheduled task.

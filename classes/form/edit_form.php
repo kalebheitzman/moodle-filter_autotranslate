@@ -48,13 +48,18 @@ class edit_form extends \moodleform {
         if ($this->_customdata['use_wysiwyg']) {
             $mform->addElement('editor', 'translated_text', get_string('translatedtext', 'filter_autotranslate'), ['rows' => 10]);
             $mform->setType('translated_text', PARAM_RAW);
+            // Set default value as an array for the editor
+            $mform->setDefault('translated_text', [
+                'text' => $this->_customdata['translation']->translated_text,
+                'format' => FORMAT_HTML
+            ]);
         } else {
             $mform->addElement('textarea', 'translated_text', get_string('translatedtext', 'filter_autotranslate'), 'wrap="virtual" rows="10" cols="50"');
             $mform->setType('translated_text', PARAM_RAW);
+            $mform->setDefault('translated_text', $this->_customdata['translation']->translated_text);
         }
         $mform->addRule('translated_text', get_string('required'), 'required', null, 'client');
         $mform->addHelpButton('translated_text', 'translation', 'filter_autotranslate');
-        $mform->setDefault('translated_text', $this->_customdata['translation']->translated_text);
 
         // Human translated checkbox
         $mform->addElement('checkbox', 'human', get_string('humantranslated', 'filter_autotranslate'));

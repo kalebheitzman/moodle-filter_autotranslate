@@ -38,7 +38,7 @@ class text_filter extends \core_filters\text_filter {
         $selectedctx = get_config('filter_autotranslate', 'selectctx');
         $selectedctx = $selectedctx ? array_map('trim', explode(',', $selectedctx)) : ['40', '50', '70', '80'];
         $currentcontext = $this->context->contextlevel;
-        debugging("Filtering context: $currentcontext, Allowed contexts: " . implode(', ', $selectedctx), DEBUG_DEVELOPER);
+        // debugging("Filtering context: $currentcontext, Allowed contexts: " . implode(', ', $selectedctx), DEBUG_DEVELOPER);
 
         if (!in_array((string)$currentcontext, $selectedctx)) {
             return $text;
