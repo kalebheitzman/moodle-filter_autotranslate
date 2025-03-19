@@ -13,7 +13,6 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses>.
-
 /**
  * Autotranslate Tag Content Task
  *
@@ -51,6 +50,7 @@ class tagcontent_task extends scheduled_task {
         $sitelang = get_config('core', 'lang') ?: 'en';
 
         $batchsize = $managelimit;
+        $total_entries_checked = 0; // Counter for total entries checked
 
         $tables = [
             10 => ['message' => ['fullmessage'], 'block_instances' => ['configdata']],
@@ -113,7 +113,7 @@ class tagcontent_task extends scheduled_task {
                             $params = ['modulename' => $table];
                             $records = $DB->get_records_sql($sql, $params, $offset, $batchsize);
                             $count = count($records);
-                            mtrace("Retrieved $count records for $table.$field, context $ctx, offset $offset");
+                            $total_entries_checked += $count; // Increment the counter
 
                             if ($count > 0) {
                                 $firstrecord = reset($records);
@@ -132,14 +132,11 @@ class tagcontent_task extends scheduled_task {
                                 $old_hash = $this->extract_hash($raw_content);
 
                                 if (!helper::is_tagged($raw_content) && !empty($content)) {
-                                    mtrace("Processing untagged content for instanceid={$record->instanceid}, raw_content=" . substr($raw_content, 0, 50));
-
-                                    // Tag the content
+                                    // Process both old-style <span> and new-style {mlang} tags
                                     $taggedcontent = helper::process_mlang_tags($content, $context);
-                                    mtrace("After process_mlang_tags: taggedcontent=" . substr($taggedcontent, 0, 50));
+
                                     if ($taggedcontent === $content) {
                                         $taggedcontent = helper::tag_content($content, $context);
-                                        mtrace("After tag_content: taggedcontent=" . substr($taggedcontent, 0, 50));
                                     }
 
                                     if ($taggedcontent !== $content) {
@@ -157,28 +154,12 @@ class tagcontent_task extends scheduled_task {
                                             $this->update_hash_course_mapping($new_hash, $courseid);
                                             try {
                                                 $DB->set_field($table, $field, $taggedcontent, ['id' => $record->instanceid]);
-                                                $old_hash_display = $old_hash ?? 'none';
-                                                mtrace("Tagged and stored: field=$field, instanceid={$record->instanceid}, old_hash=$old_hash_display, new_hash=$new_hash, courseid=$courseid");
                                             } catch (\dml_exception $e) {
                                                 mtrace("Failed to update content: table=$table, field=$field, instanceid={$record->instanceid}, Error: " . $e->getMessage());
                                             }
                                         } else {
                                             mtrace("Could not determine courseid for instanceid={$record->instanceid}, table=$table");
                                         }
-                                    } else {
-                                        mtrace("Tagging failed for instanceid={$record->instanceid}");
-                                    }
-                                } elseif (!empty($content)) {
-                                    // Content is already tagged; update mapping if needed
-                                    $hash = $this->extract_hash($raw_content);
-                                    if ($hash) {
-                                        $courseid = $this->get_courseid($ctx, $table, $record);
-                                        if ($courseid) {
-                                            $this->update_hash_course_mapping($hash, $courseid);
-                                            mtrace("Updated hash mapping for existing content: instanceid={$record->instanceid}, hash=$hash, courseid=$courseid");
-                                        }
-                                    } else {
-                                        mtrace("Skipping content with invalid tag for instanceid={$record->instanceid}");
                                     }
                                 }
                             }
@@ -193,7 +174,7 @@ class tagcontent_task extends scheduled_task {
             }
         }
 
-        mtrace("Auto Translate task completed");
+        mtrace("Auto Translate task completed. Total entries checked: $total_entries_checked");
     }
 
     /**
@@ -255,12 +236,9 @@ class tagcontent_task extends scheduled_task {
             try {
                 $DB->execute("INSERT INTO {autotranslate_hid_cids} (hash, courseid) VALUES (?, ?) 
                             ON DUPLICATE KEY UPDATE hash = hash", [$hash, $courseid]);
-                mtrace("Inserted or updated hash mapping: hash=$hash, courseid=$courseid");
             } catch (\dml_exception $e) {
-                mtrace("Failed to insert/update hash mapping: hash=$hash, courseid=$courseid, Error: " . $e->getMessage() . ", Debug: " . $e->debuginfo);
+                mtrace("Failed to insert/update hash mapping: hash=$hash, courseid=$courseid, Error: " . $e->getMessage());
             }
-        } else {
-            mtrace("Hash mapping already exists: hash=$hash, courseid=$courseid");
         }
     }
 
@@ -275,7 +253,6 @@ class tagcontent_task extends scheduled_task {
 
         if ($hash && $courseid) {
             $DB->delete_records('autotranslate_hid_cids', ['hash' => $hash, 'courseid' => $courseid]);
-            mtrace("Removed old hash mapping: hash=$hash, courseid=$courseid");
         }
     }
 

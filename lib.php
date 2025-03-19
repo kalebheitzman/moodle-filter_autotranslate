@@ -40,7 +40,7 @@ function filter_autotranslate_extend_navigation_course($navigation, $course, $co
     }
 
     // Debugging to confirm the function is called
-    debugging('filter_autotranslate_extend_navigation_course called for course ' . $course->id, DEBUG_DEVELOPER);
+    // debugging('filter_autotranslate_extend_navigation_course called for course ' . $course->id, DEBUG_DEVELOPER);
 
     // Get the site language and current language
     $sitelang = get_config('core', 'lang') ?: 'en';
