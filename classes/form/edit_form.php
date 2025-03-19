@@ -13,9 +13,10 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses>.
-
 /**
- * Autotranslate Edit Form
+ * Edit Translation Form
+ *
+ * Form for editing a translation in the Autotranslate filter.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -29,47 +30,42 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/formslib.php');
 
 class edit_form extends \moodleform {
-    public function definition() {
+    protected function definition() {
         $mform = $this->_form;
-        $translation = $this->_customdata['translation'];
-        $tlang = $this->_customdata['tlang'];
-        $use_wysiwyg = $this->_customdata['use_wysiwyg'] ?? false;
 
-        $mform->addElement('hidden', 'hash', $translation->hash);
+        // Hidden fields for hash and lang
+        $mform->addElement('hidden', 'hash', $this->_customdata['translation']->hash);
         $mform->setType('hash', PARAM_ALPHANUMEXT);
 
-        $mform->addElement('hidden', 'tlang', $tlang);
-        $mform->setType('tlang', PARAM_LANG);
+        $mform->addElement('hidden', 'lang', $this->_customdata['tlang']);
+        $mform->setType('lang', PARAM_ALPHANUM);
 
-        // Translation textarea/editor with label above
-        $mform->addElement('html', '<div class="form-group">');
-        $mform->addElement('html', '<label class="col-form-label">Translation</label>');
-        if ($use_wysiwyg) {
-            $mform->addElement('editor', 'translated_text', '', null, [
-                'context' => \context_system::instance(),
-                'subdirs' => 0,
-                'maxfiles' => 0,
-                'enable_filemanagement' => false,
-            ]);
-            $mform->setDefault('translated_text', ['text' => $translation->translated_text, 'format' => FORMAT_HTML]);
+        // Display hash and language as static elements (read-only)
+        $mform->addElement('static', 'hash_display', get_string('hash', 'filter_autotranslate'), $this->_customdata['translation']->hash);
+        $mform->addElement('static', 'lang_display', get_string('language', 'filter_autotranslate'), $this->_customdata['tlang']);
+
+        // Translated text field
+        if ($this->_customdata['use_wysiwyg']) {
+            $mform->addElement('editor', 'translated_text', get_string('translatedtext', 'filter_autotranslate'), ['rows' => 10]);
+            $mform->setType('translated_text', PARAM_RAW);
         } else {
-            $mform->addElement('textarea', 'translated_text', '', ['rows' => 15, 'cols' => 60, 'class' => 'form-control']);
-            $mform->setDefault('translated_text', $translation->translated_text);
+            $mform->addElement('textarea', 'translated_text', get_string('translatedtext', 'filter_autotranslate'), 'wrap="virtual" rows="10" cols="50"');
+            $mform->setType('translated_text', PARAM_RAW);
         }
-        $mform->addElement('html', '</div>');
+        $mform->addRule('translated_text', get_string('required'), 'required', null, 'client');
+        $mform->addHelpButton('translated_text', 'translation', 'filter_autotranslate');
+        $mform->setDefault('translated_text', $this->_customdata['translation']->translated_text);
 
-        $mform->addElement('checkbox', 'human', 'Human Translated');
-        $mform->setDefault('human', $translation->human);
+        // Human translated checkbox
+        $mform->addElement('checkbox', 'human', get_string('humantranslated', 'filter_autotranslate'));
+        $mform->setDefault('human', $this->_customdata['translation']->human);
 
-        $this->add_action_buttons();
+        // Action buttons
+        $this->add_action_buttons(true, get_string('savechanges', 'filter_autotranslate'));
     }
 
     public function validation($data, $files) {
-        global $DB;
         $errors = parent::validation($data, $files);
-        if ($data['translated_text'] === null || (is_array($data['translated_text']) && empty($data['translated_text']['text']))) {
-            $errors['translated_text'] = 'Translation cannot be empty';
-        }
         return $errors;
     }
 }

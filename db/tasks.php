@@ -26,7 +26,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $tasks = [
     [
-        'classname' => 'filter_autotranslate\task\autotranslate_task',
+        'classname' => 'filter_autotranslate\task\tagcontent_task',
         'blocking' => 0,
         'minute' => '*/15',
         'hour' => '*',

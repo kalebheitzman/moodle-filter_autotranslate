@@ -1,10 +1,20 @@
 <div class="row mb-3">
     <div class="col-md-7">
-        {{{form}}}
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">{{#str}}translation, filter_autotranslate{{/str}}</h5>
+                {{{form}}}
+            </div>
+        </div>
     </div>
     <div class="col-md-5">
-        <div class="form-group">
-            {{{source_text}}}
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">{{source_text_label}}</h5>
+                <div class="card-text">
+                    {{{source_text}}}
+                </div>
+            </div>
         </div>
     </div>
 </div>

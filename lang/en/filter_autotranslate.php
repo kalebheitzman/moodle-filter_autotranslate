@@ -13,7 +13,6 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses>.
-
 /**
  * Language strings for filter_autotranslate
  *
@@ -103,6 +102,7 @@ $string['managetranslations'] = 'Manage Translations';
 $string['hash'] = 'Hash';
 $string['language'] = 'Language';
 $string['humanreviewed'] = 'Human Reviewed';
+$string['humantranslated'] = 'Human Translated';
 $string['actions'] = 'Actions';
 $string['edit'] = 'Edit';
 $string['yes'] = 'Yes';
@@ -124,3 +124,7 @@ $string['course'] = 'Course';
 $string['last_reviewed'] = 'Last Reviewed';
 $string['last_modified'] = 'Last Modified';
 $string['unknown_course'] = 'Unknown Course';
+$string['notranslationfound'] = 'No translation found for the specified hash.';
+$string['switchlanguage'] = 'Switch Language';
+$string['cannoteditother'] = 'The site language (other) cannot be edited through this interface. Please update the source content directly.';
+$string['sourcetext'] = 'Source Text';
