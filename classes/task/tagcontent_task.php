@@ -56,7 +56,10 @@ class tagcontent_task extends scheduled_task {
             10 => ['message' => ['fullmessage'], 'block_instances' => ['configdata']],
             30 => ['user_info_data' => ['data']],
             40 => ['course_categories' => ['description']],
-            50 => ['course_sections' => ['name', 'summary']],
+            50 => [
+                'course' => ['summary'], // Added course table for course summary
+                'course_sections' => ['name', 'summary'],
+            ],
             70 => [
                 'assign' => ['name', 'intro'],
                 'book' => ['name', 'intro'],
@@ -98,8 +101,12 @@ class tagcontent_task extends scheduled_task {
 
                     do {
                         try {
-                            // Special handling for course_sections to fetch course ID
-                            if ($table === 'course_sections') {
+                            // Special handling for course and course_sections to fetch course ID
+                            if ($table === 'course') {
+                                $sql = "SELECT c.id AS instanceid, c.$field AS content, c.id AS course
+                                        FROM {course} c
+                                        WHERE c.$field IS NOT NULL";
+                            } elseif ($table === 'course_sections') {
                                 $sql = "SELECT cs.id AS instanceid, cs.$field AS content, cs.course
                                         FROM {course_sections} cs
                                         JOIN {course} c ON c.id = cs.course
@@ -110,7 +117,7 @@ class tagcontent_task extends scheduled_task {
                                         JOIN {course_modules} cm ON cm.instance = m.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                                         WHERE m.$field IS NOT NULL";
                             }
-                            $params = ['modulename' => $table];
+                            $params = ($table === 'course' || $table === 'course_sections') ? [] : ['modulename' => $table];
                             $records = $DB->get_records_sql($sql, $params, $offset, $batchsize);
                             $count = count($records);
                             $total_entries_checked += $count; // Increment the counter
@@ -201,7 +208,7 @@ class tagcontent_task extends scheduled_task {
     private function get_courseid($contextlevel, $table, $record) {
         global $DB;
 
-        if ($table === 'course_sections') {
+        if ($table === 'course' || $table === 'course_sections') {
             return isset($record->course) ? (int)$record->course : null;
         } elseif ($contextlevel == CONTEXT_COURSE) {
             return (int)$record->instanceid; // instanceid is the courseid in CONTEXT_COURSE
@@ -276,7 +283,7 @@ class tagcontent_task extends scheduled_task {
             case CONTEXT_COURSECAT:
                 return \context_coursecat::instance($instanceid);
             case CONTEXT_COURSE:
-                if ($table === 'course_sections' && isset($record->course)) {
+                if ($table === 'course' || $table === 'course_sections') {
                     return \context_course::instance($record->course);
                 }
                 return \context_course::instance($instanceid);
