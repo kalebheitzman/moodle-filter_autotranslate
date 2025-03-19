@@ -57,9 +57,9 @@ class translation_repository {
         $this->db->update_record('autotranslate_translations', $translation);
     }
 
-    public function get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir, $sitelang, $courseid = 0) {
+    public function get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir, $sitelang, $courseid = 0, $filter_needsreview = '') {
         $internal_filter_lang = ($filter_lang === $sitelang) ? 'other' : $filter_lang;
-        debugging("Filter lang: $filter_lang, Internal filter lang: $internal_filter_lang, Courseid: $courseid", DEBUG_DEVELOPER);
+        debugging("Filter lang: $filter_lang, Internal filter lang: $internal_filter_lang, Courseid: $courseid, Filter needsreview: $filter_needsreview", DEBUG_DEVELOPER);
 
         $sql = "SELECT t.*, t2.translated_text AS source_text
                 FROM {autotranslate_translations} t
@@ -88,12 +88,22 @@ class translation_repository {
                 debugging("No hashes found for courseid=$courseid", DEBUG_DEVELOPER);
             }
         }
+        if ($filter_needsreview !== '') {
+            if ($filter_needsreview == '1') {
+                $where[] = "t.timereviewed < t.timemodified";
+                debugging("Applied filter: timereviewed < timemodified", DEBUG_DEVELOPER);
+            } elseif ($filter_needsreview == '0') {
+                $where[] = "t.timereviewed >= t.timemodified";
+                debugging("Applied filter: timereviewed >= timemodified", DEBUG_DEVELOPER);
+            }
+        }
+
         if (!empty($where)) {
             $sql .= " WHERE " . implode(" AND ", $where);
             debugging("SQL WHERE clause: " . implode(" AND ", $where), DEBUG_DEVELOPER);
         }
 
-        $valid_sorts = ['hash', 'lang', 'translated_text', 'human', 'contextlevel'];
+        $valid_sorts = ['hash', 'lang', 'translated_text', 'human', 'contextlevel', 'timereviewed', 'timemodified'];
         $sort = in_array($sort, $valid_sorts) ? $sort : 'hash';
         $dir = strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC';
         $sql .= " ORDER BY t.$sort $dir";

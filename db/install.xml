@@ -11,14 +11,14 @@
                 <FIELD NAME="human" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Flag indicating if the translation was manually edited by a human (0 = automatic, 1 = manual)"/>
                 <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp of creation"/>
                 <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp of last modification"/>
-            </FIELDS>
+                <FIELD NAME="timereviewed" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Timestamp when the translation was last reviewed"/>            </FIELDS>
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
                 <KEY NAME="hash_lang" TYPE="unique" FIELDS="hash,lang" COMMENT="Ensures one translation per language per hash"/>
             </KEYS>
             <INDEXES>
                 <INDEX NAME="mdl_autotran_con_ix" UNIQUE="false" FIELDS="contextlevel" COMMENT="Index for context-based recovery"/>
-            </INDEXES>
+                <INDEX NAME="mdl_autotran_timereviewed_ix" UNIQUE="false" FIELDS="timereviewed" COMMENT="Index for review tracking"/>            </INDEXES>
         </TABLE>
         <TABLE NAME="autotranslate_hid_cids" COMMENT="Maps translation hashes to course IDs">
             <FIELDS>

@@ -110,7 +110,12 @@ class observer {
 
             $context = \context_module::instance($cmid);
             static::log("Context level: {$context->contextlevel}");
-            static::tag_fields($modulename, $module, $fields, $context);
+            $updated = static::tag_fields($modulename, $module, $fields, $context);
+
+            // If the fields were updated, mark existing translations as needing revision
+            if ($updated) {
+                static::mark_translations_for_revision($modulename, $instanceid, $fields, $context);
+            }
         } catch (\Exception $e) {
             static::log("Error in course_module_updated: " . $e->getMessage());
         }
@@ -139,7 +144,12 @@ class observer {
             $fields = ['summary'];
             $context = \context_course::instance($courseid);
             static::log("Context level: {$context->contextlevel}");
-            static::tag_fields('course', $course, $fields, $context);
+            $updated = static::tag_fields('course', $course, $fields, $context);
+
+            // If the fields were updated, mark existing translations as needing revision
+            if ($updated) {
+                static::mark_translations_for_revision('course', $courseid, $fields, $context);
+            }
         } catch (\Exception $e) {
             static::log("Error in course_updated: " . $e->getMessage());
         }
@@ -171,7 +181,12 @@ class observer {
             $fields = ['name', 'summary'];
             $context = \context_course::instance($section->course);
             static::log("Context level: {$context->contextlevel}");
-            static::tag_fields('course_sections', $section, $fields, $context);
+            $updated = static::tag_fields('course_sections', $section, $fields, $context);
+
+            // If the fields were updated, mark existing translations as needing revision
+            if ($updated) {
+                static::mark_translations_for_revision('course_sections', $sectionid, $fields, $context);
+            }
         } catch (\Exception $e) {
             static::log("Error in course_section_updated: " . $e->getMessage());
         }
@@ -231,6 +246,7 @@ class observer {
         }
 
         if ($updated) {
+            $record->timemodified = time(); // Update timemodified when content is tagged
             $DB->update_record($table, $record);
             static::log("Updated $table record with tagged content");
 
@@ -242,5 +258,54 @@ class observer {
         }
 
         return $updated;
+    }
+
+    /**
+     * Mark translations as needing revision by updating timemodified.
+     *
+     * @param string $table Table name (e.g., 'course', 'course_sections', 'mod_*')
+     * @param int $instanceid Instance ID (e.g., course ID, section ID, module instance ID)
+     * @param array $fields Fields that were updated (e.g., ['name', 'intro'])
+     * @param \context $context Context object
+     */
+    private static function mark_translations_for_revision($table, $instanceid, $fields, $context) {
+        global $DB;
+
+        static::log("Marking translations for revision: table=$table, instanceid=$instanceid, fields=" . implode(',', $fields) . ", contextlevel={$context->contextlevel}");
+
+        // Find all hashes associated with the updated fields
+        $hashes = [];
+        foreach ($fields as $field) {
+            $record = $DB->get_record($table, ['id' => $instanceid], $field);
+            if (!$record || empty($record->$field)) {
+                static::log("No content found for field $field in $table with instanceid $instanceid");
+                continue;
+            }
+
+            $content = $record->$field;
+            if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $match)) {
+                $hash = $match[1];
+                $hashes[$hash] = true; // Use array to avoid duplicates
+                static::log("Found hash $hash for field $field in $table with instanceid $instanceid");
+            } else {
+                static::log("No hash found in field $field content for $table with instanceid $instanceid");
+            }
+        }
+
+        if (empty($hashes)) {
+            static::log("No hashes found to mark for revision");
+            return;
+        }
+
+        // Update timemodified for all translations with these hashes
+        $placeholders = implode(',', array_fill(0, count($hashes), '?'));
+        $sql = "UPDATE {autotranslate_translations}
+                SET timemodified = ?
+                WHERE hash IN ($placeholders)
+                AND contextlevel = ?";
+        $params = array_merge([time()], array_keys($hashes), [$context->contextlevel]);
+        $affected = $DB->execute($sql, $params);
+
+        static::log("Updated timemodified for $affected translations with hashes: " . implode(',', array_keys($hashes)) . " in context {$context->contextlevel}");
     }
 }

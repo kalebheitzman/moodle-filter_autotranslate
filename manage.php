@@ -33,6 +33,7 @@ $PAGE->set_url('/filter/autotranslate/manage.php', [
     'courseid' => optional_param('courseid', 0, PARAM_INT),
     'filter_lang' => optional_param('filter_lang', '', PARAM_RAW),
     'filter_human' => optional_param('filter_human', '', PARAM_RAW),
+    'filter_needsreview' => optional_param('filter_needsreview', '', PARAM_RAW),
     'perpage' => optional_param('perpage', 20, PARAM_INT),
     'page' => optional_param('page', 0, PARAM_INT),
     'sort' => optional_param('sort', 'hash', PARAM_ALPHA),
@@ -48,6 +49,7 @@ require_capability('filter/autotranslate:manage', $context);
 $courseid = optional_param('courseid', 0, PARAM_INT);
 $filter_lang = optional_param('filter_lang', '', PARAM_RAW);
 $filter_human = optional_param('filter_human', '', PARAM_RAW);
+$filter_needsreview = optional_param('filter_needsreview', '', PARAM_RAW);
 $page = optional_param('page', 0, PARAM_INT);
 $perpage = optional_param('perpage', 20, PARAM_INT);
 $sort = optional_param('sort', 'hash', PARAM_ALPHA);
@@ -63,7 +65,7 @@ $sitelang = get_config('core', 'lang') ?: 'en';
 $internal_filter_lang = ($filter_lang === $sitelang) ? 'other' : $filter_lang;
 
 // Fetch translations with courseid filter
-$result = $manager->get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir, $courseid);
+$result = $manager->get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir, $courseid, $filter_needsreview);
 $translations = $result['translations'];
 $total = $result['total'];
 
@@ -71,6 +73,7 @@ $total = $result['total'];
 $mform = new \filter_autotranslate\form\manage_form(null, [
     'filter_lang' => $filter_lang,
     'filter_human' => $filter_human,
+    'filter_needsreview' => $filter_needsreview,
     'perpage' => $perpage,
     'baseurl' => new \moodle_url('/filter/autotranslate/manage.php', [
         'perpage' => $perpage,
@@ -102,12 +105,17 @@ foreach ($translations as $translation) {
         $translation->id
     ) : 'N/A';
 
+    // Determine if the translation needs review
+    $needs_review = $translation->timereviewed < $translation->timemodified;
+    $review_status = $needs_review ? $OUTPUT->pix_icon('i/warning', get_string('needsreview', 'filter_autotranslate'), 'moodle', ['class' => 'text-danger align-middle']) : '';
+
     $row = [
         'hash' => $translation->hash,
         'lang' => $translation->lang,
         'translated_text' => format_text($translated_text, FORMAT_HTML),
-        'human' => $translation->human ? get_string('yes') : get_string('no'), // Display as text instead of checkbox
+        'human' => $translation->human ? get_string('yes') : get_string('no'),
         'contextlevel' => $translation->contextlevel,
+        'review_status' => $review_status,
         'actions' => html_writer::link(
             new moodle_url('/filter/autotranslate/edit.php', ['hash' => $translation->hash, 'tlang' => $translation->lang]),
             get_string('edit')
@@ -132,6 +140,7 @@ if (!empty($internal_filter_lang) && $internal_filter_lang !== 'all' && $interna
 }
 $table_headers[] = get_string('humanreviewed', 'filter_autotranslate');
 $table_headers[] = get_string('contextlevel', 'filter_autotranslate');
+$table_headers[] = get_string('reviewstatus', 'filter_autotranslate');
 $table_headers[] = get_string('actions', 'filter_autotranslate');
 
 // Prepare pagination
@@ -141,6 +150,7 @@ $baseurl = new moodle_url($PAGE->url, [
     'dir' => $dir,
     'filter_lang' => $filter_lang,
     'filter_human' => $filter_human,
+    'filter_needsreview' => $filter_needsreview,
     'courseid' => $courseid,
 ]);
 $pagination_html = $OUTPUT->paging_bar($total, $page, $perpage, $baseurl);

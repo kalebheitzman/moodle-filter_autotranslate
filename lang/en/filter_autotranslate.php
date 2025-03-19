@@ -24,9 +24,18 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * General Plugin Information
+ * Strings related to the plugin's name and basic functionality.
+ */
 $string['pluginname'] = 'Autotranslate Filter';
 $string['filtername'] = 'Autotranslate Filter';
 $string['autotranslated'] = 'Autotranslated';
+
+/**
+ * API Configuration Settings
+ * Strings for configuring the API connection to the translation service.
+ */
 $string['apiconfig'] = 'API Configuration';
 $string['apiconfig_desc'] = 'Configure the API settings for the translation service.';
 $string['apiendpoint'] = 'API Endpoint (Base URL)';
@@ -35,6 +44,11 @@ $string['apikey'] = 'API Key';
 $string['apikey_desc'] = 'The API key for authenticating with the translation service. Leave blank if not required (e.g., for local setups).';
 $string['apimodel'] = 'API Model';
 $string['apimodel_desc'] = 'The name of the model to use for translations (e.g., mistral, llama3).';
+
+/**
+ * Translation Settings
+ * Strings for configuring how translations are performed.
+ */
 $string['translationsettings'] = 'Translation Settings';
 $string['translationsettings_desc'] = 'Configure how translations are performed.';
 $string['targetlangs'] = 'Target Languages for Translation';
@@ -43,6 +57,11 @@ $string['systeminstructions'] = 'System Instructions';
 $string['systeminstructions_desc'] = 'Instructions for the translation model, including glossary and style, applied to all target languages (e.g., "Use the following glossary: \'Submit\' => \'Enviar\' (Spanish), \'Soumettre\' (French), \'Einreichen\' (German). Translate with a formal tone.").';
 $string['batchsize'] = 'Batch Size for Translation';
 $string['batchsize_desc'] = 'The number of texts to translate in a single API call (e.g., 10). Adjust based on model token limits.';
+
+/**
+ * Task Configuration
+ * Strings for configuring the autotranslate task execution.
+ */
 $string['taskconfig'] = 'Task Configuration';
 $string['taskconfig_desc'] = 'Configure how translation tasks are executed.';
 $string['fetchlimit'] = 'Fetch Translation Task Limit';
@@ -51,6 +70,15 @@ $string['maxattempts'] = 'Maximum Retry Attempts';
 $string['maxattempts_desc'] = 'The maximum number of retry attempts for API calls in case of temporary failures (e.g., network issues or rate limiting).';
 $string['ratelimitthreshold'] = 'Rate Limit Threshold';
 $string['ratelimitthreshold_desc'] = 'The number of API requests allowed per minute before pausing to avoid rate limiting (e.g., 50 requests/minute).';
+$string['taskfrequency'] = 'Task Frequency';
+$string['taskfrequency_desc'] = 'How often (in minutes) the autotranslate task should run.';
+$string['enablemanualtrigger'] = 'Enable Manual Trigger';
+$string['enablemanualtrigger_desc'] = 'Allow administrators to manually trigger the autotranslate task.';
+
+/**
+ * Context Selection
+ * Strings for selecting contexts where autotranslation should be applied.
+ */
 $string['selectctx'] = 'Select Contexts for Autotranslation';
 $string['selectctx_desc'] = 'Choose the context levels where text should be automatically translated.';
 $string['ctx_system'] = 'System';
@@ -59,10 +87,11 @@ $string['ctx_coursecat'] = 'Course Category';
 $string['ctx_course'] = 'Course';
 $string['ctx_module'] = 'Module';
 $string['ctx_block'] = 'Block';
-$string['taskfrequency'] = 'Task Frequency';
-$string['taskfrequency_desc'] = 'How often (in minutes) the autotranslate task should run.';
-$string['enablemanualtrigger'] = 'Enable Manual Trigger';
-$string['enablemanualtrigger_desc'] = 'Allow administrators to manually trigger the autotranslate task.';
+
+/**
+ * Translation Management
+ * Strings for managing translations, including the manage interface and edit forms.
+ */
 $string['search:translation'] = 'Translations';
 $string['edittranslation'] = 'Edit Translation';
 $string['translatedtext'] = 'Translated Text';
@@ -83,3 +112,15 @@ $string['updatetranslations'] = 'Update Translations';
 $string['contextlevel'] = 'Context Level';
 $string['manageautotranslations'] = 'Manage Autotranslations';
 $string['perpage'] = 'Translations per page';
+$string['all'] = 'All';
+$string['needsreview'] = 'Needs Review';
+$string['reviewstatus'] = 'Review Status';
+$string['filterbylanguage'] = 'Filter by Language';
+$string['filterbyhumanreviewed'] = 'Filter by Human Reviewed';
+$string['filterbyneedsreview'] = 'Filter by Needs Review';
+$string['no_translations_to_review'] = 'No translations need review at this time.';
+$string['translations_needing_review'] = 'Translations Needing Review';
+$string['course'] = 'Course';
+$string['last_reviewed'] = 'Last Reviewed';
+$string['last_modified'] = 'Last Modified';
+$string['unknown_course'] = 'Unknown Course';
