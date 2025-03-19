@@ -176,6 +176,17 @@ if ($hassiteconfig) {
             )
         );
 
+        // Records per run for tagcontent_task
+        $settings->add(
+            new admin_setting_configtext(
+                'filter_autotranslate/recordsperrun',
+                get_string('recordsperrun', 'filter_autotranslate'),
+                get_string('recordsperrun_desc', 'filter_autotranslate'),
+                1000, // Default to 1000 records per table per run
+                PARAM_INT
+            )
+        );
+
         // Select context levels for autotranslation
         $settings->add(
             new admin_setting_configmulticheckbox(

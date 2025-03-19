@@ -28,13 +28,6 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/filter/autotranslate/classes/tagging_config.php');
 
 class observer {
-    private static function log($message) {
-        // global $CFG;
-        // $logfile = $CFG->dataroot . '/temp/filter_autotranslate_observer.log';
-        // $message = "Observer: " . $message . " at " . date('Y-m-d H:i:s') . "\n";
-        // file_put_contents($logfile, $message, FILE_APPEND);
-    }
-
     /**
      * Handle course module created event.
      *
@@ -44,13 +37,13 @@ class observer {
         global $DB;
 
         try {
-            static::log("course_module_created triggered for cmid={$event->contextinstanceid}");
+            mtrace("course_module_created triggered for cmid={$event->contextinstanceid}");
 
             $data = $event->get_data();
             $cmid = $data['contextinstanceid'];
             $modulename = $data['other']['modulename'];
 
-            static::log("Processing module type: $modulename, cmid: $cmid");
+            mtrace("Processing module type: $modulename, cmid: $cmid");
 
             // Fetch the course module to get the instanceid
             $cm = $DB->get_record('course_modules', ['id' => $cmid], '*', MUST_EXIST);
@@ -59,7 +52,7 @@ class observer {
             // Fetch the module record using the instanceid
             $module = $DB->get_record($modulename, ['id' => $instanceid]);
             if (!$module) {
-                static::log("Module not found for instanceid: $instanceid in table: $modulename");
+                mtrace("Module not found for instanceid: $instanceid in table: $modulename");
                 return;
             }
 
@@ -69,10 +62,10 @@ class observer {
             }
 
             $context = \context_module::instance($cmid);
-            static::log("Context level: {$context->contextlevel}");
+            mtrace("Context level: {$context->contextlevel}");
             static::tag_fields('mod_' . $modulename, $module, $fields, $context);
         } catch (\Exception $e) {
-            static::log("Error in course_module_created: " . $e->getMessage());
+            mtrace("Error in course_module_created: " . $e->getMessage());
         }
     }
 
@@ -85,13 +78,13 @@ class observer {
         global $DB;
 
         try {
-            static::log("course_module_updated triggered for cmid={$event->contextinstanceid}");
+            mtrace("course_module_updated triggered for cmid={$event->contextinstanceid}");
 
             $data = $event->get_data();
             $cmid = $data['contextinstanceid'];
             $modulename = $data['other']['modulename'];
 
-            static::log("Processing module type: $modulename, cmid: $cmid");
+            mtrace("Processing module type: $modulename, cmid: $cmid");
 
             // Fetch the course module to get the instanceid
             $cm = $DB->get_record('course_modules', ['id' => $cmid], '*', MUST_EXIST);
@@ -100,7 +93,7 @@ class observer {
             // Fetch the module record using the instanceid
             $module = $DB->get_record($modulename, ['id' => $instanceid]);
             if (!$module) {
-                static::log("Module not found for instanceid: $instanceid in table: $modulename");
+                mtrace("Module not found for instanceid: $instanceid in table: $modulename");
                 return;
             }
 
@@ -110,7 +103,7 @@ class observer {
             }
 
             $context = \context_module::instance($cmid);
-            static::log("Context level: {$context->contextlevel}");
+            mtrace("Context level: {$context->contextlevel}");
             $updated = static::tag_fields('mod_' . $modulename, $module, $fields, $context);
 
             // If the fields were updated, mark existing translations as needing revision
@@ -118,7 +111,7 @@ class observer {
                 static::mark_translations_for_revision($modulename, $instanceid, $fields, $context);
             }
         } catch (\Exception $e) {
-            static::log("Error in course_module_updated: " . $e->getMessage());
+            mtrace("Error in course_module_updated: " . $e->getMessage());
         }
     }
 
@@ -131,20 +124,20 @@ class observer {
         global $DB;
 
         try {
-            static::log("course_updated triggered for courseid={$event->courseid}");
+            mtrace("course_updated triggered for courseid={$event->courseid}");
 
             $data = $event->get_data();
             $courseid = $data['courseid'];
 
             $course = $DB->get_record('course', ['id' => $courseid]);
             if (!$course) {
-                static::log("Course not found for courseid: $courseid");
+                mtrace("Course not found for courseid: $courseid");
                 return;
             }
 
             $fields = ['summary'];
             $context = \context_course::instance($courseid);
-            static::log("Context level: {$context->contextlevel}");
+            mtrace("Context level: {$context->contextlevel}");
             $updated = static::tag_fields('course', $course, $fields, $context);
 
             // If the fields were updated, mark existing translations as needing revision
@@ -152,7 +145,7 @@ class observer {
                 static::mark_translations_for_revision('course', $courseid, $fields, $context);
             }
         } catch (\Exception $e) {
-            static::log("Error in course_updated: " . $e->getMessage());
+            mtrace("Error in course_updated: " . $e->getMessage());
         }
     }
 
@@ -165,23 +158,23 @@ class observer {
         global $DB;
 
         try {
-            static::log("course_section_updated triggered for sectionid={$event->objectid}");
+            mtrace("course_section_updated triggered for sectionid={$event->objectid}");
 
             $sectionid = $event->objectid;
             if ($sectionid === null) {
-                static::log("No sectionid found in event data");
+                mtrace("No sectionid found in event data");
                 return;
             }
 
             $section = $DB->get_record('course_sections', ['id' => $sectionid]);
             if (!$section) {
-                static::log("Section not found for sectionid: $sectionid");
+                mtrace("Section not found for sectionid: $sectionid");
                 return;
             }
 
             $fields = ['name', 'summary'];
             $context = \context_course::instance($section->course);
-            static::log("Context level: {$context->contextlevel}");
+            mtrace("Context level: {$context->contextlevel}");
             $updated = static::tag_fields('course_sections', $section, $fields, $context);
 
             // If the fields were updated, mark existing translations as needing revision
@@ -189,7 +182,7 @@ class observer {
                 static::mark_translations_for_revision('course_sections', $sectionid, $fields, $context);
             }
         } catch (\Exception $e) {
-            static::log("Error in course_section_updated: " . $e->getMessage());
+            mtrace("Error in course_section_updated: " . $e->getMessage());
         }
     }
 
@@ -199,7 +192,7 @@ class observer {
      * @param \core\event\base $event
      */
     public static function catch_all(\core\event\base $event) {
-        static::log("Catch-all triggered in observer.php for event: " . $event->eventname);
+        mtrace("Catch-all triggered in observer.php for event: " . $event->eventname);
     }
 
     /**
@@ -217,7 +210,7 @@ class observer {
         $selectedctx = get_config('filter_autotranslate', 'selectctx');
         $selectedctx = $selectedctx ? array_map('trim', explode(',', $selectedctx)) : ['40', '50', '70', '80'];
         if (!in_array((string)$context->contextlevel, $selectedctx)) {
-            static::log("Skipping due to context level not in selected contexts: {$context->contextlevel}");
+            mtrace("Skipping due to context level not in selected contexts: {$context->contextlevel}");
             return false;
         }
 
@@ -250,25 +243,25 @@ class observer {
             if (isset($tagging_options_map[$key])) {
                 $filtered_fields[] = $field;
             } else {
-                static::log("Field $field in table $table (context level {$context->contextlevel}) is disabled in tagging configuration, skipping.");
+                mtrace("Field $field in table $table (context level {$context->contextlevel}) is disabled in tagging configuration, skipping.");
             }
         }
 
         if (empty($filtered_fields)) {
-            static::log("No fields to tag for table $table after applying tagging configuration.");
+            mtrace("No fields to tag for table $table after applying tagging configuration.");
             return false;
         }
 
         $updated = false;
         foreach ($filtered_fields as $field) {
             if (empty($record->$field)) {
-                static::log("Field $field is empty for $table record");
+                mtrace("Field $field is empty for $table record");
                 continue;
             }
 
             $content = $record->$field;
             if (helper::is_tagged($content)) {
-                static::log("Field $field already tagged in $table record");
+                mtrace("Field $field already tagged in $table record");
                 continue;
             }
 
@@ -280,20 +273,20 @@ class observer {
             if ($taggedcontent !== $content) {
                 $record->$field = $taggedcontent;
                 $updated = true;
-                static::log("Tagged field $field in $table record");
+                mtrace("Tagged field $field in $table record");
             }
         }
 
         if ($updated) {
             $record->timemodified = time(); // Update timemodified when content is tagged
             $DB->update_record($table, $record);
-            static::log("Updated $table record with tagged content");
+            mtrace("Updated $table record with tagged content");
 
-            // Purge all caches to reflect changes immediately
-            \cache_helper::purge_all();
-            static::log("Purged all caches after tagging");
+            // Purge caches for the specific context
+            $context->purge();
+            mtrace("Purged caches for context ID {$context->id} (level {$context->contextlevel})");
         } else {
-            static::log("No updates needed for $table record");
+            mtrace("No updates needed for $table record");
         }
 
         return $updated;
@@ -310,14 +303,14 @@ class observer {
     private static function mark_translations_for_revision($table, $instanceid, $fields, $context) {
         global $DB;
 
-        static::log("Marking translations for revision: table=$table, instanceid=$instanceid, fields=" . implode(',', $fields) . ", contextlevel={$context->contextlevel}");
+        mtrace("Marking translations for revision: table=$table, instanceid=$instanceid, fields=" . implode(',', $fields) . ", contextlevel={$context->contextlevel}");
 
         // Find all hashes associated with the updated fields
         $hashes = [];
         foreach ($fields as $field) {
             $record = $DB->get_record($table, ['id' => $instanceid], $field);
             if (!$record || empty($record->$field)) {
-                static::log("No content found for field $field in $table with instanceid $instanceid");
+                mtrace("No content found for field $field in $table with instanceid $instanceid");
                 continue;
             }
 
@@ -325,14 +318,14 @@ class observer {
             if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $match)) {
                 $hash = $match[1];
                 $hashes[$hash] = true; // Use array to avoid duplicates
-                static::log("Found hash $hash for field $field in $table with instanceid $instanceid");
+                mtrace("Found hash $hash for field $field in $table with instanceid $instanceid");
             } else {
-                static::log("No hash found in field $field content for $table with instanceid $instanceid");
+                mtrace("No hash found in field $field content for $table with instanceid $instanceid");
             }
         }
 
         if (empty($hashes)) {
-            static::log("No hashes found to mark for revision");
+            mtrace("No hashes found to mark for revision");
             return;
         }
 
@@ -345,6 +338,6 @@ class observer {
         $params = array_merge([time()], array_keys($hashes), [$context->contextlevel]);
         $affected = $DB->execute($sql, $params);
 
-        static::log("Updated timemodified for $affected translations with hashes: " . implode(',', array_keys($hashes)) . " in context {$context->contextlevel}");
+        mtrace("Updated timemodified for $affected translations with hashes: " . implode(',', array_keys($hashes)) . " in context {$context->contextlevel}");
     }
 }
