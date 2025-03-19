@@ -1,5 +1,15 @@
 # Testing Plan for `filter_autotranslate` Plugin
 
+## Testing Plan
+
+The testing plan for the `filter_autotranslate` plugin is documented in [docs/testing-plan.md](docs/testing-plan.md). Testing progress is tracked in the following issues:
+- [Manage Interface Testing](https://github.com/kalebheitzman/moodle-filter_autotranslate/issues/8)
+- [Edit Interface Testing](https://github.com/kalebheitzman/moodle-filter_autotranslate/issues/9)
+- [Event Observers Testing](https://github.com/kalebheitzman/moodle-filter_autotranslate/issues/10)
+- [Tasks Testing](https://github.com/kalebheitzman/moodle-filter_autotranslate/issues/11)
+- [Translation Workflow Testing](https://github.com/kalebheitzman/moodle-filter_autotranslate/issues/12)
+- [Edge Cases Testing](https://github.com/kalebheitzman/moodle-filter_autotranslate/issues/13)
+
 ## Table of Contents
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
@@ -555,6 +565,3 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
 - **Document Issues**: If you encounter any issues during testing, document them with details (e.g., steps to reproduce, expected vs. actual outcome, screenshots, task logs) in the corresponding GitHub issue for that section.
 - **Iterate**: Based on the test results, address any issues or add new features as needed (e.g., improving error handling in tasks, adding more logging).
 - **User Feedback**: If possible, get feedback from other users (e.g., translators) to ensure the plugin meets their needs, especially for the translation fetch and tagging processes.
-
-## Test Results
-(To be filled in as testing progresses)
