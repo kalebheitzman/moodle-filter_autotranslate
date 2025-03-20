@@ -13,7 +13,6 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses>.
-
 /**
  * Autotranslate Event Observers
  *
@@ -33,8 +32,16 @@ $observers = [
         'callback' => 'filter_autotranslate\observer::course_module_updated',
     ],
     [
+        'eventname' => '\core\event\course_created',
+        'callback' => 'filter_autotranslate\observer::course_created',
+    ],
+    [
         'eventname' => '\core\event\course_updated',
         'callback' => 'filter_autotranslate\observer::course_updated',
+    ],
+    [
+        'eventname' => '\core\event\course_section_created',
+        'callback' => 'filter_autotranslate\observer::course_section_created',
     ],
     [
         'eventname' => '\core\event\course_section_updated',
