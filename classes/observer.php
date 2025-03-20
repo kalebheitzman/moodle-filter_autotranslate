@@ -57,7 +57,22 @@ class observer {
             }
 
             $context = \context_module::instance($cmid);
-            static::tag_fields($modulename, $module, $fields, $context);
+            $updated = static::tag_fields($modulename, $module, $fields, $context);
+
+            // If the fields were updated, store the hash-to-course ID mapping and create/update translation records
+            if ($updated) {
+                foreach ($fields as $field) {
+                    if (empty($module->$field)) {
+                        continue;
+                    }
+                    $content = $module->$field;
+                    if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $match)) {
+                        $hash = $match[1];
+                        static::update_hash_course_mapping($hash, $cm->course);
+                        static::create_or_update_source_translation($hash, $module->$field, $context->contextlevel);
+                    }
+                }
+            }
         } catch (\Exception $e) {
             // Silently handle the error for now
         }
@@ -94,9 +109,20 @@ class observer {
             $context = \context_module::instance($cmid);
             $updated = static::tag_fields($modulename, $module, $fields, $context);
 
-            // If the fields were updated, mark existing translations as needing revision
+            // If the fields were updated, store the hash-to-course ID mapping and create/update translation records
             if ($updated) {
-                static::mark_translations_for_revision($modulename, $instanceid, $fields, $context);
+                foreach ($fields as $field) {
+                    if (empty($module->$field)) {
+                        continue;
+                    }
+                    $content = $module->$field;
+                    if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $match)) {
+                        $hash = $match[1];
+                        static::update_hash_course_mapping($hash, $cm->course);
+                        static::create_or_update_source_translation($hash, $module->$field, $context->contextlevel);
+                    }
+                }
+                static::mark_translations_for_revision('course_module', $instanceid, $fields, $context);
             }
         } catch (\Exception $e) {
             // Silently handle the error for now
@@ -124,9 +150,19 @@ class observer {
             $context = \context_course::instance($courseid);
             $updated = static::tag_fields('course', $course, $fields, $context);
 
-            // If the fields were updated, mark existing translations as needing revision
+            // If the fields were updated, store the hash-to-course ID mapping and create/update translation records
             if ($updated) {
-                static::mark_translations_for_revision('course', $courseid, $fields, $context);
+                foreach ($fields as $field) {
+                    if (empty($course->$field)) {
+                        continue;
+                    }
+                    $content = $course->$field;
+                    if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $match)) {
+                        $hash = $match[1];
+                        static::update_hash_course_mapping($hash, $courseid);
+                        static::create_or_update_source_translation($hash, $course->$field, $context->contextlevel);
+                    }
+                }
             }
         } catch (\Exception $e) {
             // Silently handle the error for now
@@ -154,8 +190,19 @@ class observer {
             $context = \context_course::instance($courseid);
             $updated = static::tag_fields('course', $course, $fields, $context);
 
-            // If the fields were updated, mark existing translations as needing revision
+            // If the fields were updated, store the hash-to-course ID mapping and create/update translation records
             if ($updated) {
+                foreach ($fields as $field) {
+                    if (empty($course->$field)) {
+                        continue;
+                    }
+                    $content = $course->$field;
+                    if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $match)) {
+                        $hash = $match[1];
+                        static::update_hash_course_mapping($hash, $courseid);
+                        static::create_or_update_source_translation($hash, $course->$field, $context->contextlevel);
+                    }
+                }
                 static::mark_translations_for_revision('course', $courseid, $fields, $context);
             }
         } catch (\Exception $e) {
@@ -186,9 +233,19 @@ class observer {
             $context = \context_course::instance($section->course);
             $updated = static::tag_fields('course_sections', $section, $fields, $context);
 
-            // If the fields were updated, mark existing translations as needing revision
+            // If the fields were updated, store the hash-to-course ID mapping and create/update translation records
             if ($updated) {
-                static::mark_translations_for_revision('course_sections', $sectionid, $fields, $context);
+                foreach ($fields as $field) {
+                    if (empty($section->$field)) {
+                        continue;
+                    }
+                    $content = $section->$field;
+                    if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $match)) {
+                        $hash = $match[1];
+                        static::update_hash_course_mapping($hash, $section->course);
+                        static::create_or_update_source_translation($hash, $section->$field, $context->contextlevel);
+                    }
+                }
             }
         } catch (\Exception $e) {
             // Silently handle the error for now
@@ -218,8 +275,19 @@ class observer {
             $context = \context_course::instance($section->course);
             $updated = static::tag_fields('course_sections', $section, $fields, $context);
 
-            // If the fields were updated, mark existing translations as needing revision
+            // If the fields were updated, store the hash-to-course ID mapping and create/update translation records
             if ($updated) {
+                foreach ($fields as $field) {
+                    if (empty($section->$field)) {
+                        continue;
+                    }
+                    $content = $section->$field;
+                    if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $match)) {
+                        $hash = $match[1];
+                        static::update_hash_course_mapping($hash, $section->course);
+                        static::create_or_update_source_translation($hash, $section->$field, $context->contextlevel);
+                    }
+                }
                 static::mark_translations_for_revision('course_sections', $sectionid, $fields, $context);
             }
         } catch (\Exception $e) {
@@ -323,7 +391,48 @@ class observer {
     }
 
     /**
-     * Mark translations as needing revision by updating timemodified.
+     * Create or update the source translation record in mdl_autotranslate_translations.
+     *
+     * @param string $hash The translation hash
+     * @param string $content The tagged content
+     * @param int $contextlevel The context level
+     */
+    private static function create_or_update_source_translation($hash, $content, $contextlevel) {
+        global $DB;
+
+        // Extract the source text by removing the {translation} tags
+        $source_text = preg_replace('/{translation[^}]*}/', '', $content);
+        $source_text = preg_replace('/{\/translation}/', '', $source_text);
+
+        // Check if a source translation record already exists
+        $existing = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => 'other']);
+        $current_time = time();
+
+        if ($existing) {
+            // Update the existing record
+            $existing->translated_text = $source_text;
+            $existing->contextlevel = $contextlevel;
+            $existing->timemodified = $current_time;
+            $existing->timereviewed = $existing->timereviewed == 0 ? $current_time : $existing->timereviewed;
+            $existing->human = 1; // Human Reviewed
+            $DB->update_record('autotranslate_translations', $existing);
+        } else {
+            // Create a new record
+            $record = new \stdClass();
+            $record->hash = $hash;
+            $record->lang = 'other';
+            $record->translated_text = $source_text;
+            $record->contextlevel = $contextlevel;
+            $record->timecreated = $current_time;
+            $record->timemodified = $current_time;
+            $record->timereviewed = $current_time;
+            $record->human = 1; // Human Reviewed
+            $DB->insert_record('autotranslate_translations', $record);
+        }
+    }
+
+    /**
+     * Mark translations as needing revision by updating timemodified and timereviewed.
      *
      * @param string $table Table name (e.g., 'course', 'course_sections', 'mod_*')
      * @param int $instanceid Instance ID (e.g., course ID, section ID, module instance ID)
@@ -352,13 +461,39 @@ class observer {
             return;
         }
 
-        // Update timemodified for all translations with these hashes
+        // Update timemodified and timereviewed for all translations with these hashes
         $placeholders = implode(',', array_fill(0, count($hashes), '?'));
         $sql = "UPDATE {autotranslate_translations}
-                SET timemodified = ?
+                SET timemodified = ?,
+                    timereviewed = CASE WHEN timereviewed = 0 THEN ? ELSE timereviewed END
                 WHERE hash IN ($placeholders)
-                AND contextlevel = ?";
-        $params = array_merge([time()], array_keys($hashes), [$context->contextlevel]);
+                AND contextlevel = ?
+                AND lang != 'other'";
+        $params = array_merge([time(), time()], array_keys($hashes), [$context->contextlevel]);
         $DB->execute($sql, $params);
+    }
+
+    /**
+     * Updates the autotranslate_hid_cids table with the hash and courseid mapping.
+     *
+     * @param string $hash The hash to map
+     * @param int $courseid The courseid to map
+     */
+    private static function update_hash_course_mapping($hash, $courseid) {
+        global $DB;
+
+        if (!$hash || !$courseid) {
+            return;
+        }
+
+        $exists = $DB->record_exists('autotranslate_hid_cids', ['hash' => $hash, 'courseid' => $courseid]);
+        if (!$exists) {
+            try {
+                $DB->execute("INSERT INTO {autotranslate_hid_cids} (hash, courseid) VALUES (?, ?) 
+                            ON DUPLICATE KEY UPDATE hash = hash", [$hash, $courseid]);
+            } catch (\dml_exception $e) {
+                // Silently handle the error for now
+            }
+        }
     }
 }
