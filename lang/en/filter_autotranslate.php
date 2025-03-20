@@ -64,6 +64,8 @@ $string['batchsize_desc'] = 'The number of texts to translate in a single API ca
  */
 $string['taskconfig'] = 'Task Configuration';
 $string['taskconfig_desc'] = 'Configure how translation tasks are executed.';
+$string['enableautofetch'] = 'Enable Automatic Fetching of Translations';
+$string['enableautofetch_desc'] = 'If enabled, the fetchtranslation_task will automatically fetch translations from the API for untagged content. If disabled, the task will skip fetching translations, allowing manual translation or other processes to handle translation.';
 $string['fetchlimit'] = 'Fetch Translation Task Limit';
 $string['fetchlimit_desc'] = 'The maximum number of translations to fetch in a single task run.';
 $string['maxattempts'] = 'Maximum Retry Attempts';

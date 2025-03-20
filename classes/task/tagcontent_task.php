@@ -99,7 +99,7 @@ class tagcontent_task extends scheduled_task {
             }
         }
 
-        // mtrace("Starting Auto Translate task with contexts: " . implode(', ', $selectedctx));
+        mtrace("Starting Auto Translate task with contexts: " . implode(', ', $selectedctx));
 
         foreach ($configured_tables as $ctx => $tables) {
             foreach ($tables as $table => $fields) {
@@ -133,7 +133,6 @@ class tagcontent_task extends scheduled_task {
                                 $firstrecord = reset($records);
                                 $context = $this->get_context_for_level($ctx, $firstrecord->instanceid, $table, $firstrecord);
                                 if (!$context) {
-                                    // mtrace("Could not determine context for $table at level $ctx");
                                     continue 2; // Skip to the next field
                                 }
                             } else {
@@ -156,7 +155,6 @@ class tagcontent_task extends scheduled_task {
                                     if ($taggedcontent !== $content) {
                                         $new_hash = $this->extract_hash($taggedcontent);
                                         if (!$new_hash) {
-                                            // mtrace("Failed to extract new hash for instanceid={$record->instanceid}");
                                             continue;
                                         }
 
@@ -169,10 +167,8 @@ class tagcontent_task extends scheduled_task {
                                             try {
                                                 $DB->set_field($table, $field, $taggedcontent, ['id' => $record->instanceid]);
                                             } catch (\dml_exception $e) {
-                                                // mtrace("Failed to update content: table=$table, field=$field, instanceid={$record->instanceid}, Error: " . $e->getMessage());
+                                                // Error handling is silent as per your preference
                                             }
-                                        } else {
-                                            // mtrace("Could not determine courseid for instanceid={$record->instanceid}, table=$table");
                                         }
                                     }
                                 }
@@ -180,7 +176,6 @@ class tagcontent_task extends scheduled_task {
 
                             $offset += $batchsize;
                         } catch (\dml_exception $e) {
-                            // mtrace("Error processing $table for context $ctx: " . $e->getMessage());
                             break;
                         }
                     } while ($count >= $batchsize);
@@ -188,7 +183,7 @@ class tagcontent_task extends scheduled_task {
             }
         }
 
-        // mtrace("Auto Translate task completed. Total entries checked: $total_entries_checked");
+        mtrace("Auto Translate task completed. Total entries checked: $total_entries_checked");
     }
 
     /**
@@ -241,7 +236,6 @@ class tagcontent_task extends scheduled_task {
         global $DB;
 
         if (!$hash || !$courseid) {
-            // mtrace("Invalid hash or courseid: hash=$hash, courseid=$courseid");
             return;
         }
 
@@ -251,7 +245,7 @@ class tagcontent_task extends scheduled_task {
                 $DB->execute("INSERT INTO {autotranslate_hid_cids} (hash, courseid) VALUES (?, ?) 
                             ON DUPLICATE KEY UPDATE hash = hash", [$hash, $courseid]);
             } catch (\dml_exception $e) {
-                // mtrace("Failed to insert/update hash mapping: hash=$hash, courseid=$courseid, Error: " . $e->getMessage());
+                // Error handling is silent as per your preference
             }
         }
     }

@@ -69,6 +69,9 @@ class helper {
         $installed_langs = array_keys(get_string_manager()->get_list_of_translations());
         $valid_langs = array_merge($installed_langs, ['other']); // Include 'other' as a valid language code
 
+        // Normalize valid language codes to lowercase
+        $valid_langs = array_map('strtolower', $valid_langs);
+
         $translations = [];
         $source_text = '';
         $outside_text = '';
@@ -81,7 +84,7 @@ class helper {
         if (preg_match_all('/{mlang\s+([\w]+)}(.+?)(?:{mlang}|$)/s', $text, $matches, PREG_SET_ORDER)) {
             $last_pos = 0;
             foreach ($matches as $match) {
-                $lang = $match[1];
+                $lang = trim($match[1]);
                 $content = trim($match[2]);
                 $start_pos = strpos($text, $match[0], $last_pos);
                 $outside = trim(substr($text, $last_pos, $start_pos - $last_pos));
@@ -90,16 +93,12 @@ class helper {
                 }
                 $last_pos = $start_pos + strlen($match[0]);
 
+                // Normalize language code to lowercase
+                $lang = strtolower($lang);
+
                 // Validate the language code
                 if (!in_array($lang, $valid_langs)) {
-                    // Check for common misspelling of 'other'
-                    if (strtolower($lang) === 'oher') {
-                        mtrace("Warning: Misspelled language code 'oher' in {mlang} tag. Treating as 'other'.");
-                        $lang = 'other';
-                    } else {
-                        mtrace("Warning: Invalid language code '$lang' in {mlang} tag. Skipping this language variant.");
-                        continue;
-                    }
+                    continue;
                 }
 
                 if ($first_content === null) {
@@ -129,7 +128,6 @@ class helper {
             $source_text = trim($source_text);
         } elseif ($first_content !== null) {
             // Fallback to the first language content if site language or 'other' is not found
-            mtrace("Warning: Site language or 'other' not found in content. Using first language variant as source text.");
             $source_text = trim($first_content);
         }
 
@@ -200,9 +198,11 @@ class helper {
                 }
                 $last_pos = $start_pos + strlen($match[0]);
 
+                // Normalize language code to lowercase
+                $lang = strtolower($lang);
+
                 // Validate the language code
                 if (!in_array($lang, $valid_langs)) {
-                    mtrace("Warning: Invalid language code '$lang' in <span> multilang tag. Skipping this language variant.");
                     continue;
                 }
 

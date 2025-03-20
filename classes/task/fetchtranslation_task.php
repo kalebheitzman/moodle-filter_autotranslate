@@ -13,7 +13,6 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses>.
-
 /**
  * Autotranslate Fetch Translations Task
  *
@@ -30,6 +29,13 @@ use core\task\scheduled_task;
 class fetchtranslation_task extends scheduled_task {
 
     /**
+     * Flag to indicate if the task should exit due to a signal.
+     *
+     * @var bool
+     */
+    private $should_exit = false;
+
+    /**
      * Returns the name of the scheduled task.
      *
      * @return string
@@ -39,18 +45,43 @@ class fetchtranslation_task extends scheduled_task {
     }
 
     /**
+     * Signal handler to catch termination signals and set the exit flag.
+     *
+     * @param int $signo The signal number
+     */
+    private function signal_handler($signo) {
+        mtrace("Received signal $signo. Preparing to exit gracefully...");
+        $this->should_exit = true;
+    }
+
+    /**
      * Executes the scheduled task to fetch translations using Google Generative AI API (OpenAI-compatible endpoint).
      */
     public function execute() {
         global $DB;
 
+        // Set up signal handling if the pcntl extension is available
+        if (extension_loaded('pcntl')) {
+            pcntl_signal(SIGTERM, [$this, 'signal_handler']);
+            pcntl_signal(SIGINT, [$this, 'signal_handler']);
+        } else {
+            mtrace("Warning: pcntl extension not available. Signal handling for graceful shutdown is disabled.");
+        }
+
         try {
+            // Check if automatic fetching is enabled
+            $enableautofetch = get_config('filter_autotranslate', 'enableautofetch');
+            if (!$enableautofetch) {
+                mtrace("Automatic fetching of translations is disabled. Skipping fetchtranslation_task.");
+                return;
+            }
+
             // Get settings
             $apiendpoint = get_config('filter_autotranslate', 'apiendpoint') ?: 'https://generativelanguage.googleapis.com/v1beta/openai';
             $apikey = get_config('filter_autotranslate', 'apikey');
             $apimodel = get_config('filter_autotranslate', 'apimodel') ?: 'gemini-1.5-pro-latest';
             $fetchlimit = get_config('filter_autotranslate', 'fetchlimit') ?: '';
-            $batchsize = get_config('filter_autotranslate', 'batchsize') ?: 10;
+            $batchsize = get_config('filter_autotranslate', 'batchsize') ?: 10; // Use as maximum batch size
             $targetlangs = get_config('filter_autotranslate', 'targetlangs') ?: '';
             $systeminstructions = get_config('filter_autotranslate', 'systeminstructions') ?: 'Translate with a formal tone.';
             $maxattempts = get_config('filter_autotranslate', 'maxattempts') ?: 3;
@@ -72,9 +103,6 @@ class fetchtranslation_task extends scheduled_task {
                 mtrace("No target languages configured. Skipping fetch.");
                 return;
             }
-
-            // Cast fetchlimit to integer for use with $limitnum
-            $fetchlimit = (int)$fetchlimit ?: 200; // Default to 200 if empty or invalid
 
             // Fetch untagged translations where at least one target language is missing
             $params = $targetlangs; // Only targetlangs for IN clause
@@ -98,57 +126,175 @@ class fetchtranslation_task extends scheduled_task {
 
             mtrace("Starting Fetch Translation task. Processing " . count($records) . " records for languages: " . implode(', ', $targetlangs));
 
-            // Process records in batches
-            $batches = array_chunk($records, $batchsize);
+            // Dynamically batch records based on string length, with batchsize as the maximum
+            $batches = [];
+            $current_batch = [];
+            $current_batch_chars = 0;
+            $max_batch_chars = 2000; // Maximum total characters per batch
+
+            foreach ($records as $record) {
+                $text = $record->source_text;
+                $char_count = strlen($text);
+
+                // Determine batch size based on character count, capped by the configured batchsize
+                if ($char_count < 200) {
+                    $max_batch_size = min(10, $batchsize); // Cap at configured batchsize
+                    $max_batch_chars = 2000;
+                } elseif ($char_count < 400) {
+                    $max_batch_size = min(5, $batchsize);
+                    $max_batch_chars = 1500;
+                } elseif ($char_count < 600) {
+                    $max_batch_size = min(3, $batchsize);
+                    $max_batch_chars = 1200;
+                } else {
+                    $max_batch_size = 1; // Always 1 for long texts, regardless of batchsize setting
+                    $max_batch_chars = 600;
+                }
+
+                // Add to current batch if it fits
+                if (count($current_batch) < $max_batch_size && ($current_batch_chars + $char_count) <= $max_batch_chars) {
+                    $current_batch[] = $record;
+                    $current_batch_chars += $char_count;
+                } else {
+                    // Batch is full, add to batches and start a new batch
+                    if (!empty($current_batch)) {
+                        $batches[] = $current_batch;
+                    }
+                    $current_batch = [$record];
+                    $current_batch_chars = $char_count;
+                }
+            }
+
+            // Add the last batch if not empty
+            if (!empty($current_batch)) {
+                $batches[] = $current_batch;
+            }
+
             $requests = 0;
+            $start_time = time();
+            $max_runtime = 180; // 3 minutes, slightly less than the default 4-minute limit
+            $batch_count = 0;
+            $total_response_time = 0;
+            $transaction = null;
 
             foreach ($batches as $batch) {
+                $batch_count++;
+                // Check runtime to avoid exceeding the maximum runtime
+                if (time() - $start_time > $max_runtime) {
+                    mtrace("Task runtime approaching limit. Exiting to allow re-run.");
+                    break;
+                }
+
+                // Check if the task should exit due to a signal
+                if ($this->should_exit) {
+                    mtrace("Task interrupted by signal. Rolling back transaction and exiting.");
+                    if ($transaction) {
+                        $transaction->rollback(new \Exception("Task interrupted by signal"));
+                    }
+                    break;
+                }
+
+                // Start a database transaction for this batch
+                $transaction = $DB->start_delegated_transaction();
+
                 try {
                     // Rate limiting
                     if ($requests >= $ratelimitthreshold) {
                         mtrace("Approaching rate limit ($ratelimitthreshold requests). Sleeping for 60 seconds.");
-                        sleep(60); // Sleep for 1 minute
+                        sleep(60); // Sleep for 1 minute, keep the lock
                         $requests = 0;
                     }
 
-                    // Build batch prompt
+                    // Process signals after sleep to catch interruptions
+                    if (extension_loaded('pcntl')) {
+                        pcntl_signal_dispatch();
+                    }
+
+                    // Check again after sleep
+                    if ($this->should_exit) {
+                        mtrace("Task interrupted by signal after rate limit sleep. Rolling back transaction and exiting.");
+                        $transaction->rollback(new \Exception("Task interrupted by signal"));
+                        break;
+                    }
+
+                    // Build batch prompt and log batch info
                     $texts = [];
                     $hashes = [];
                     $record_ids = []; // Map numeric indices to record IDs
                     $text_count = 0;
+                    $total_chars = 0;
                     foreach ($batch as $record) {
                         $text_count++;
                         $texts[$text_count] = $record->source_text;
                         $hashes[$text_count] = $record->hash;
                         $record_ids[$text_count] = $record->id;
+                        $total_chars += strlen($record->source_text);
                     }
 
-                    mtrace("Sent texts: " . json_encode($texts));
+                    mtrace("Batch $batch_count: $text_count texts, $total_chars chars total");
 
                     $translations = $this->fetch_translations($texts, $hashes, $record_ids, $apiendpoint, $apikey, $apimodel, $targetlangs, $systeminstructions, $maxattempts);
+                    
+                    // Log response time and API usage
+                    $response_time = $this->last_response_time ?? 0;
+                    $total_response_time += $response_time;
+                    mtrace("  Response time: " . number_format($response_time, 2) . " seconds");
+                    if ($this->last_api_usage) {
+                        mtrace("  API Usage: prompt_tokens=" . $this->last_api_usage['prompt_tokens'] . ", completion_tokens=" . $this->last_api_usage['completion_tokens'] . ", total_tokens=" . $this->last_api_usage['total_tokens']);
+                    }
+
+                    // Store translations and log summary
+                    $translation_count = 0;
+                    $translation_summary = [];
                     foreach ($translations as $recordid => $lang_translations) {
                         $record_id = $record_ids[$recordid];
                         $record = $batch[array_search($record_id, array_column($batch, 'id'))];
+                        $langs_translated = count($lang_translations);
+                        $translation_count += $langs_translated;
+                        $translation_summary[] = "hash=" . $record->hash . ": $langs_translated langs";
                         foreach ($lang_translations as $lang => $translated_text) {
                             $translated_text = is_array($translated_text) ? implode(' ', $translated_text) : $translated_text;
                             $this->store_translation($record->hash, $lang, $translated_text, $record->contextlevel);
-                            mtrace("Fetched translation: hash={$record->hash}, lang=$lang, text='$translated_text'");
                         }
                     }
 
+                    mtrace("  Translations stored: $text_count records, $translation_count translations (" . implode(', ', $translation_summary) . ")");
+
                     $requests++;
+                    // Commit the transaction for this batch
+                    $transaction->allow_commit();
+                    $transaction = null; // Clear the transaction reference
                 } catch (\Exception $e) {
-                    mtrace("Error fetching translations for batch: " . $e->getMessage());
+                    // Roll back the transaction on error
+                    $transaction->rollback($e);
+                    $transaction = null;
+                    mtrace("Error fetching translations for batch $batch_count: " . $e->getMessage());
                     continue; // Move to next batch on error
                 }
             }
 
+            $total_runtime = time() - $start_time;
+            $avg_response_time = $batch_count > 0 ? $total_response_time / $batch_count : 0;
             mtrace("Fetch Translation task completed.");
+            mtrace("Summary: Processed " . count($records) . " records in $batch_count batches, total runtime: $total_runtime seconds (~" . round($total_runtime / 60, 1) . " minutes), average response time per batch: " . number_format($avg_response_time, 1) . " seconds");
         } catch (\Exception $e) {
             mtrace("Task failed due to: " . $e->getMessage());
             throw $e; // Re-throw to ensure proper failure handling
+        } finally {
+            // Ensure any open transaction is rolled back on exit
+            if ($transaction) {
+                try {
+                    $transaction->rollback(new \Exception("Task exited with an open transaction"));
+                } catch (\Exception $rollback_e) {
+                    mtrace("Error rolling back transaction on exit: " . $rollback_e->getMessage());
+                }
+            }
         }
     }
+
+    // Store the last response time and API usage for logging
+    private $last_response_time = 0;
+    private $last_api_usage = null;
 
     /**
      * Fetches translations using Google Generative AI API (OpenAI-compatible endpoint).
@@ -167,22 +313,18 @@ class fetchtranslation_task extends scheduled_task {
     private function fetch_translations($texts, $hashes, $record_ids, $apiendpoint, $apikey, $apimodel, $targetlangs, $systeminstructions, $maxattempts) {
         global $DB;
 
-        // Build the prompt with dynamic example based on target languages
+        // Build the prompt with a simplified example (using only one language)
         $text_count = count($texts);
         $text_list = '';
         foreach ($texts as $index => $text) {
             $text_list .= "$index. " . addslashes($text) . "\n";
         }
 
-        // Create a dynamic example using the current target languages
-        $example = '[';
-        $example_parts = [];
-        foreach ($targetlangs as $lang) {
-            $example_parts[] = "\"$lang\": \"Example translation in $lang\"";
-        }
-        $example .= '{' . implode(', ', $example_parts) . '}, {' . implode(', ', $example_parts) . '}]';
+        // Use only the first language for the example to simplify the prompt
+        $example_lang = $targetlangs[0]; // e.g., "cs"
+        $example = "[{\"$example_lang\": \"Example translation in $example_lang\"}]";
 
-        $prompt = "Translate the following $text_count texts into the following languages: " . implode(', ', $targetlangs) . ". Return the result as a JSON array where each element is a dictionary mapping language codes to the translated text as a string. The array must contain exactly $text_count elements, one for each text, in the same order as the input list. For each text, you MUST provide translations for ALL languages listed in " . json_encode($targetlangs) . ". If any language is missing for any text, the response will be considered invalid. Do not nest the translations under additional keys like 'translation'. Here is an example for 2 texts translated into " . implode(' and ', $targetlangs) . ":\n" .
+        $prompt = "Translate the following $text_count texts into the following languages: " . implode(', ', $targetlangs) . ". Return the result as a JSON array where each element is a dictionary mapping language codes to the translated text as a string. The array must contain exactly $text_count elements, one for each text, in the same order as the input list. For each text, you MUST provide translations for ALL languages listed in " . json_encode($targetlangs) . ". If any language is missing for any text, the response will be considered invalid. Do not nest the translations under additional keys like 'translation'. Here is an example for 1 text translated into $example_lang:\n" .
                   $example . "\n" .
                   "Now translate the following texts:\n" . $text_list;
 
@@ -222,103 +364,98 @@ class fetchtranslation_task extends scheduled_task {
         ];
 
         $ch = curl_init();
-        $url = rtrim($apiendpoint, '/') . '/chat/completions';
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        try {
+            $url = rtrim($apiendpoint, '/') . '/chat/completions';
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+            // Add timeout options
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); // 10 seconds to connect
+            curl_setopt($ch, CURLOPT_TIMEOUT, 120); // 120 seconds total timeout
 
-        $attempts = 0;
-        while ($attempts < $maxattempts) {
-            $response = curl_exec($ch);
-            $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $attempts = 0;
+            while ($attempts < $maxattempts) {
+                $response = curl_exec($ch);
+                $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curl_info = curl_getinfo($ch);
 
-            if ($response === false) {
-                mtrace("cURL error (attempt " . ($attempts + 1) . "): " . curl_error($ch));
-                $attempts++;
-                sleep(2); // Wait before retrying
-                continue;
-            }
-
-            mtrace("API Response HTTP Code: $httpcode");
-            if ($httpcode == 404) {
-                mtrace("API endpoint not found: " . $url . ". Please verify the API endpoint and configuration.");
-                $attempts++;
-                sleep(2); // Wait before retrying
-                continue;
-            }
-
-            if ($httpcode == 429) {
-                mtrace("Rate limit reached (attempt " . ($attempts + 1) . "). Sleeping for 60 seconds.");
-                sleep(60); // Wait for rate limit reset
-                $attempts++;
-                continue;
-            }
-
-            $data = json_decode($response, true);
-            if ($httpcode == 200 && isset($data['choices'][0]['message']['content'])) {
-                mtrace("Full API response: " . $data['choices'][0]['message']['content']);
-
-                $translations = json_decode($data['choices'][0]['message']['content'], true);
-                if (!is_array($translations)) {
-                    mtrace("Invalid JSON content in response: " . $data['choices'][0]['message']['content']);
-                    throw new \Exception("Invalid JSON response from API: " . $data['choices'][0]['message']['content']);
+                if ($response === false) {
+                    $error = curl_error($ch);
+                    $errno = curl_errno($ch);
+                    mtrace("cURL error (attempt " . ($attempts + 1) . "): $error (errno: $errno)");
+                    $attempts++;
+                    sleep(2); // Wait before retrying
+                    continue;
                 }
 
-                // Validate the response structure (array of translation objects)
-                $processed_translations = [];
-                foreach ($translations as $index => $lang_translations) {
-                    $recordid = (string)($index + 1); // Map array index (0-based) to recordid (1-based)
-                    if (!is_array($lang_translations)) {
-                        mtrace("Invalid translation structure for record $recordid: " . json_encode($lang_translations));
-                        continue;
+                if ($httpcode == 404) {
+                    mtrace("API endpoint not found: " . $url . ". Please verify the API endpoint and configuration.");
+                    $attempts++;
+                    sleep(2); // Wait before retrying
+                    continue;
+                }
+
+                if ($httpcode == 429) {
+                    mtrace("Rate limit reached (attempt " . ($attempts + 1) . "). Sleeping for 60 seconds.");
+                    sleep(60); // Wait for rate limit reset
+                    $attempts++;
+                    continue;
+                }
+
+                if ($httpcode != 200) {
+                    mtrace("API error: HTTP $httpcode");
+                    throw new \Exception("API error: HTTP $httpcode, Response: " . $response);
+                }
+
+                $data = json_decode($response, true);
+                if ($httpcode == 200 && isset($data['choices'][0]['message']['content'])) {
+                    // Store response time and API usage for logging
+                    $this->last_response_time = $curl_info['total_time'];
+                    $this->last_api_usage = $data['usage'] ?? null;
+
+                    $translations = json_decode($data['choices'][0]['message']['content'], true);
+                    if (!is_array($translations)) {
+                        throw new \Exception("Invalid JSON response from API: " . $data['choices'][0]['message']['content']);
                     }
 
-                    $hash = $hashes[$recordid];
-                    $existing_translations = $DB->get_records('autotranslate_translations', ['hash' => $hash], '', 'lang, translated_text');
-                    $existing_langs = array_keys($existing_translations);
-                    $missing_langs = array_diff($targetlangs, $existing_langs);
+                    // Validate the response structure (array of translation objects)
+                    $processed_translations = [];
+                    foreach ($translations as $index => $lang_translations) {
+                        $recordid = (string)($index + 1); // Map array index (0-based) to recordid (1-based)
+                        if (!is_array($lang_translations)) {
+                            continue;
+                        }
 
-                    mtrace("Record $recordid (hash: $hash) - Existing languages: " . implode(', ', $existing_langs) . "; Missing languages: " . implode(', ', $missing_langs));
+                        $hash = $hashes[$recordid];
+                        $existing_translations = $DB->get_records('autotranslate_translations', ['hash' => $hash], '', 'lang, translated_text');
+                        $existing_langs = array_keys($existing_translations);
+                        $missing_langs = array_diff($targetlangs, $existing_langs);
 
-                    $processed_translations[$recordid] = [];
-                    $provided_langs = [];
-                    foreach ($missing_langs as $lang) {
-                        if (isset($lang_translations[$lang])) {
-                            $translation = $lang_translations[$lang];
-                            if (!is_string($translation)) {
-                                mtrace("Invalid translation for language $lang in record $recordid (hash: $hash): " . json_encode($translation));
-                                continue;
+                        $processed_translations[$recordid] = [];
+                        foreach ($missing_langs as $lang) {
+                            if (isset($lang_translations[$lang]) && is_string($lang_translations[$lang])) {
+                                $processed_translations[$recordid][$lang] = $lang_translations[$lang];
                             }
-                            $processed_translations[$recordid][$lang] = $translation;
-                            $provided_langs[] = $lang;
-                        } else {
-                            mtrace("No translation provided for missing language $lang in record $recordid (hash: $hash): " . json_encode($lang_translations));
                         }
                     }
 
-                    if (!empty($provided_langs)) {
-                        mtrace("Record $recordid (hash: $hash) - Provided languages: " . implode(', ', $provided_langs));
-                    } else {
-                        mtrace("No translations provided for any missing languages in record $recordid (hash: $hash)");
+                    if (empty($processed_translations)) {
+                        throw new \Exception("No valid translations found in response");
                     }
-                }
 
-                if (empty($processed_translations)) {
-                    throw new \Exception("No valid translations found in response");
+                    return $processed_translations;
+                } else {
+                    throw new \Exception("Unexpected API response format: " . json_encode($data));
                 }
-
-                curl_close($ch);
-                return $processed_translations;
-            } else {
-                mtrace("API response data: " . json_encode($data));
-                throw new \Exception("API error: HTTP $httpcode, Response: " . json_encode($data));
             }
-        }
 
-        curl_close($ch);
-        throw new \Exception("Failed to fetch translations after $maxattempts attempts");
+            throw new \Exception("Failed to fetch translations after $maxattempts attempts");
+        } finally {
+            // Ensure the cURL handle is always closed
+            curl_close($ch);
+        }
     }
 
     /**

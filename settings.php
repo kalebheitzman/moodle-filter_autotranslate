@@ -36,6 +36,16 @@ if ($hassiteconfig) {
             )
         );
 
+        // Enable Automatic Fetching of Translations
+        $settings->add(
+            new admin_setting_configcheckbox(
+                'filter_autotranslate/enableautofetch',
+                get_string('enableautofetch', 'filter_autotranslate'),
+                get_string('enableautofetch_desc', 'filter_autotranslate'),
+                0 // Default to off
+            )
+        );
+
         // API Endpoint (Base URL)
         $settings->add(
             new admin_setting_configtext(
