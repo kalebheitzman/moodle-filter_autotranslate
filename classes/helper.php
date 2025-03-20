@@ -146,6 +146,7 @@ class helper {
                 $record->contextlevel = $context->contextlevel;
                 $record->timecreated = time();
                 $record->timemodified = time();
+                $record->timereviewed = time();
                 $record->human = 1;
 
                 $DB->insert_record('autotranslate_translations', $record);
@@ -158,6 +159,7 @@ class helper {
                     $trans_record->contextlevel = $context->contextlevel;
                     $trans_record->timecreated = time();
                     $trans_record->timemodified = time();
+                    $trans_record->timereviewed = time();
                     $trans_record->human = 1;
                     $DB->insert_record('autotranslate_translations', $trans_record);
                 }
@@ -249,6 +251,7 @@ class helper {
             $record->contextlevel = $context->contextlevel;
             $record->timecreated = time();
             $record->timemodified = time();
+            $record->timereviewed = time();
             $record->human = 1;
 
             $DB->insert_record('autotranslate_translations', $record);
