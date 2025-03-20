@@ -39,7 +39,7 @@ class tagging_config {
             'course_sections' => ['name', 'summary'],
         ],
         70 => [
-            'assign' => ['name', 'intro'],
+            'assign' => ['name', 'intro', 'activity'],
             'book' => ['name', 'intro'],
             'chat' => ['name', 'intro'],
             'choice' => ['name', 'intro'],

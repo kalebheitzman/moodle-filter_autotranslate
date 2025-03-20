@@ -44,6 +44,9 @@ class observer {
             // Fetch the course module to get the instanceid
             $cm = $DB->get_record('course_modules', ['id' => $cmid], '*', MUST_EXIST);
             $instanceid = $cm->instance;
+            if (!$cm->course) {
+                return;
+            }
 
             // Fetch the module record using the instanceid
             $module = $DB->get_record($modulename, ['id' => $instanceid]);
@@ -51,26 +54,22 @@ class observer {
                 return;
             }
 
-            $fields = ['name', 'intro'];
-            if ($modulename === 'page') {
-                $fields[] = 'content';
-            }
-
+            // Get the fields to tag from the tagging configuration
             $context = \context_module::instance($cmid);
+            $fields = static::get_fields_to_tag($modulename, $context->contextlevel);
+
             $updated = static::tag_fields($modulename, $module, $fields, $context);
 
-            // If the fields were updated, store the hash-to-course ID mapping and create/update translation records
-            if ($updated) {
-                foreach ($fields as $field) {
-                    if (empty($module->$field)) {
-                        continue;
-                    }
-                    $content = $module->$field;
-                    if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $match)) {
-                        $hash = $match[1];
-                        static::update_hash_course_mapping($hash, $cm->course);
-                        static::create_or_update_source_translation($hash, $module->$field, $context->contextlevel);
-                    }
+            // Process all fields to ensure hid_cids mapping and source translation exist
+            foreach ($fields as $field) {
+                if (empty($module->$field)) {
+                    continue;
+                }
+                $content = $module->$field;
+                if (preg_match('/{translation hash=([a-zA-Z0-9]+)}/', $content, $match)) {
+                    $hash = $match[1];
+                    static::update_hash_course_mapping($hash, $cm->course);
+                    static::create_or_update_source_translation($hash, $module->$field, $context->contextlevel);
                 }
             }
         } catch (\Exception $e) {
@@ -94,6 +93,9 @@ class observer {
             // Fetch the course module to get the instanceid
             $cm = $DB->get_record('course_modules', ['id' => $cmid], '*', MUST_EXIST);
             $instanceid = $cm->instance;
+            if (!$cm->course) {
+                return;
+            }
 
             // Fetch the module record using the instanceid
             $module = $DB->get_record($modulename, ['id' => $instanceid]);
@@ -101,27 +103,26 @@ class observer {
                 return;
             }
 
-            $fields = ['name', 'intro'];
-            if ($modulename === 'page') {
-                $fields[] = 'content';
-            }
-
+            // Get the fields to tag from the tagging configuration
             $context = \context_module::instance($cmid);
+            $fields = static::get_fields_to_tag($modulename, $context->contextlevel);
+
             $updated = static::tag_fields($modulename, $module, $fields, $context);
 
-            // If the fields were updated, store the hash-to-course ID mapping and create/update translation records
-            if ($updated) {
-                foreach ($fields as $field) {
-                    if (empty($module->$field)) {
-                        continue;
-                    }
-                    $content = $module->$field;
-                    if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $match)) {
-                        $hash = $match[1];
-                        static::update_hash_course_mapping($hash, $cm->course);
-                        static::create_or_update_source_translation($hash, $module->$field, $context->contextlevel);
-                    }
+            // Process all fields to ensure hid_cids mapping and source translation exist
+            foreach ($fields as $field) {
+                if (empty($module->$field)) {
+                    continue;
                 }
+                $content = $module->$field;
+                if (preg_match('/{translation hash=([a-zA-Z0-9]+)}/', $content, $match)) {
+                    $hash = $match[1];
+                    static::update_hash_course_mapping($hash, $cm->course);
+                    static::create_or_update_source_translation($hash, $module->$field, $context->contextlevel);
+                }
+            }
+
+            if ($updated) {
                 static::mark_translations_for_revision('course_module', $instanceid, $fields, $context);
             }
         } catch (\Exception $e) {
@@ -140,28 +141,31 @@ class observer {
         try {
             $data = $event->get_data();
             $courseid = $data['courseid'];
+            if (!$courseid) {
+                return;
+            }
 
             $course = $DB->get_record('course', ['id' => $courseid]);
             if (!$course) {
                 return;
             }
 
-            $fields = ['summary'];
+            // Get the fields to tag from the tagging configuration
             $context = \context_course::instance($courseid);
+            $fields = static::get_fields_to_tag('course', $context->contextlevel);
+
             $updated = static::tag_fields('course', $course, $fields, $context);
 
-            // If the fields were updated, store the hash-to-course ID mapping and create/update translation records
-            if ($updated) {
-                foreach ($fields as $field) {
-                    if (empty($course->$field)) {
-                        continue;
-                    }
-                    $content = $course->$field;
-                    if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $match)) {
-                        $hash = $match[1];
-                        static::update_hash_course_mapping($hash, $courseid);
-                        static::create_or_update_source_translation($hash, $course->$field, $context->contextlevel);
-                    }
+            // Process all fields to ensure hid_cids mapping and source translation exist
+            foreach ($fields as $field) {
+                if (empty($course->$field)) {
+                    continue;
+                }
+                $content = $course->$field;
+                if (preg_match('/{translation hash=([a-zA-Z0-9]+)}/', $content, $match)) {
+                    $hash = $match[1];
+                    static::update_hash_course_mapping($hash, $courseid);
+                    static::create_or_update_source_translation($hash, $course->$field, $context->contextlevel);
                 }
             }
         } catch (\Exception $e) {
@@ -180,29 +184,35 @@ class observer {
         try {
             $data = $event->get_data();
             $courseid = $data['courseid'];
+            if (!$courseid) {
+                return;
+            }
 
             $course = $DB->get_record('course', ['id' => $courseid]);
             if (!$course) {
                 return;
             }
 
-            $fields = ['summary'];
+            // Get the fields to tag from the tagging configuration
             $context = \context_course::instance($courseid);
+            $fields = static::get_fields_to_tag('course', $context->contextlevel);
+
             $updated = static::tag_fields('course', $course, $fields, $context);
 
-            // If the fields were updated, store the hash-to-course ID mapping and create/update translation records
-            if ($updated) {
-                foreach ($fields as $field) {
-                    if (empty($course->$field)) {
-                        continue;
-                    }
-                    $content = $course->$field;
-                    if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $match)) {
-                        $hash = $match[1];
-                        static::update_hash_course_mapping($hash, $courseid);
-                        static::create_or_update_source_translation($hash, $course->$field, $context->contextlevel);
-                    }
+            // Process all fields to ensure hid_cids mapping and source translation exist
+            foreach ($fields as $field) {
+                if (empty($course->$field)) {
+                    continue;
                 }
+                $content = $course->$field;
+                if (preg_match('/{translation hash=([a-zA-Z0-9]+)}/', $content, $match)) {
+                    $hash = $match[1];
+                    static::update_hash_course_mapping($hash, $courseid);
+                    static::create_or_update_source_translation($hash, $course->$field, $context->contextlevel);
+                }
+            }
+
+            if ($updated) {
                 static::mark_translations_for_revision('course', $courseid, $fields, $context);
             }
         } catch (\Exception $e) {
@@ -225,26 +235,26 @@ class observer {
             }
 
             $section = $DB->get_record('course_sections', ['id' => $sectionid]);
-            if (!$section) {
+            if (!$section || !$section->course) {
                 return;
             }
 
-            $fields = ['name', 'summary'];
+            // Get the fields to tag from the tagging configuration
             $context = \context_course::instance($section->course);
+            $fields = static::get_fields_to_tag('course_sections', $context->contextlevel);
+
             $updated = static::tag_fields('course_sections', $section, $fields, $context);
 
-            // If the fields were updated, store the hash-to-course ID mapping and create/update translation records
-            if ($updated) {
-                foreach ($fields as $field) {
-                    if (empty($section->$field)) {
-                        continue;
-                    }
-                    $content = $section->$field;
-                    if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $match)) {
-                        $hash = $match[1];
-                        static::update_hash_course_mapping($hash, $section->course);
-                        static::create_or_update_source_translation($hash, $section->$field, $context->contextlevel);
-                    }
+            // Process all fields to ensure hid_cids mapping and source translation exist
+            foreach ($fields as $field) {
+                if (empty($section->$field)) {
+                    continue;
+                }
+                $content = $section->$field;
+                if (preg_match('/{translation hash=([a-zA-Z0-9]+)}/', $content, $match)) {
+                    $hash = $match[1];
+                    static::update_hash_course_mapping($hash, $section->course);
+                    static::create_or_update_source_translation($hash, $section->$field, $context->contextlevel);
                 }
             }
         } catch (\Exception $e) {
@@ -267,27 +277,30 @@ class observer {
             }
 
             $section = $DB->get_record('course_sections', ['id' => $sectionid]);
-            if (!$section) {
+            if (!$section || !$section->course) {
                 return;
             }
 
-            $fields = ['name', 'summary'];
+            // Get the fields to tag from the tagging configuration
             $context = \context_course::instance($section->course);
+            $fields = static::get_fields_to_tag('course_sections', $context->contextlevel);
+
             $updated = static::tag_fields('course_sections', $section, $fields, $context);
 
-            // If the fields were updated, store the hash-to-course ID mapping and create/update translation records
-            if ($updated) {
-                foreach ($fields as $field) {
-                    if (empty($section->$field)) {
-                        continue;
-                    }
-                    $content = $section->$field;
-                    if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $match)) {
-                        $hash = $match[1];
-                        static::update_hash_course_mapping($hash, $section->course);
-                        static::create_or_update_source_translation($hash, $section->$field, $context->contextlevel);
-                    }
+            // Process all fields to ensure hid_cids mapping and source translation exist
+            foreach ($fields as $field) {
+                if (empty($section->$field)) {
+                    continue;
                 }
+                $content = $section->$field;
+                if (preg_match('/{translation hash=([a-zA-Z0-9]+)}/', $content, $match)) {
+                    $hash = $match[1];
+                    static::update_hash_course_mapping($hash, $section->course);
+                    static::create_or_update_source_translation($hash, $section->$field, $context->contextlevel);
+                }
+            }
+
+            if ($updated) {
                 static::mark_translations_for_revision('course_sections', $sectionid, $fields, $context);
             }
         } catch (\Exception $e) {
@@ -302,6 +315,25 @@ class observer {
      */
     public static function catch_all(\core\event\base $event) {
         // Silently handle for now
+    }
+
+    /**
+     * Get the fields to tag for a given table and context level from the tagging configuration.
+     *
+     * @param string $tablename The name of the table (e.g., 'course', 'course_sections', 'assign')
+     * @param int $contextlevel The context level (e.g., 50 for courses, 70 for course modules)
+     * @return array The list of fields to tag
+     */
+    private static function get_fields_to_tag($tablename, $contextlevel) {
+        $default_tables = \filter_autotranslate\tagging_config::get_default_tables();
+        
+        // Check if the context level and table exist in the default tables
+        if (isset($default_tables[$contextlevel]) && isset($default_tables[$contextlevel][$tablename])) {
+            return $default_tables[$contextlevel][$tablename];
+        }
+
+        // Fallback to an empty array if the table or context level is not configured
+        return [];
     }
 
     /**
@@ -414,7 +446,7 @@ class observer {
             $existing->contextlevel = $contextlevel;
             $existing->timemodified = $current_time;
             $existing->timereviewed = $existing->timereviewed == 0 ? $current_time : $existing->timereviewed;
-            $existing->human = 1; // Human Reviewed
+            $existing->human = 1; // Human-edited, as per observer requirement
             $DB->update_record('autotranslate_translations', $existing);
         } else {
             // Create a new record
@@ -426,7 +458,7 @@ class observer {
             $record->timecreated = $current_time;
             $record->timemodified = $current_time;
             $record->timereviewed = $current_time;
-            $record->human = 1; // Human Reviewed
+            $record->human = 1; // Human-edited, as per observer requirement
             $DB->insert_record('autotranslate_translations', $record);
         }
     }
@@ -439,7 +471,7 @@ class observer {
      * @param array $fields Fields that were updated (e.g., ['name', 'intro'])
      * @param \context $context Context object
      */
-    private static function mark_translations_for_revision($table, $instanceid, $fields, $context) {
+    public static function mark_translations_for_revision($table, $instanceid, $fields, $context) {
         global $DB;
 
         // Find all hashes associated with the updated fields
@@ -451,7 +483,7 @@ class observer {
             }
 
             $content = $record->$field;
-            if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $match)) {
+            if (preg_match('/{translation hash=([a-zA-Z0-9]+)}/', $content, $match)) {
                 $hash = $match[1];
                 $hashes[$hash] = true; // Use array to avoid duplicates
             }
