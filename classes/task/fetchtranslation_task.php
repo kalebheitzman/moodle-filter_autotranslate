@@ -55,10 +55,41 @@ class fetchtranslation_task extends scheduled_task {
     }
 
     /**
+     * Extracts a user-friendly error message from the API response.
+     *
+     * @param string $response The API response body
+     * @return string The extracted error message
+     */
+    private function extract_error_message($response) {
+        $data = json_decode($response, true);
+        if ($data && isset($data['error']['message'])) {
+            return $data['error']['message'];
+        }
+        return "Unknown error occurred.";
+    }
+
+    /**
+     * Extracts the HTTP status code from the exception message.
+     *
+     * @param string $message The exception message
+     * @return string The HTTP status code or 'Unknown'
+     */
+    private function extract_http_code($message) {
+        if (str_contains($message, 'HTTP')) {
+            $parts = explode('HTTP', $message);
+            return trim(explode(' ', $parts[1])[0]);
+        }
+        return 'Unknown';
+    }
+
+    /**
      * Executes the scheduled task to fetch translations using Google Generative AI API (OpenAI-compatible endpoint).
      */
     public function execute() {
         global $DB;
+
+        // Initialize $transaction to null to avoid undefined variable warnings
+        $transaction = null;
 
         // Set up signal handling if the pcntl extension is available
         if (extension_loaded('pcntl')) {
@@ -93,14 +124,14 @@ class fetchtranslation_task extends scheduled_task {
             }
 
             if (empty($apikey)) {
-                mtrace("API key not configured. Google Generative AI API (OpenAI-compatible) requires an API key. Please set it in the plugin settings.");
+                mtrace("API key not configured. Google Generative AI API (OpenAI-compatible) requires an API key. Please set it in the plugin settings under Site administration > Plugins > Filters > Autotranslate.");
                 return;
             }
 
             // Parse target languages (stored as a CSV list in Moodle 4.5)
             $targetlangs = !empty($targetlangs) ? array_filter(array_map('trim', explode(',', $targetlangs))) : [];
             if (empty($targetlangs)) {
-                mtrace("No target languages configured. Skipping fetch.");
+                mtrace("No target languages configured. Please configure target languages in the plugin settings under Site administration > Plugins > Filters > Autotranslate to enable translation fetching.");
                 return;
             }
 
@@ -175,7 +206,6 @@ class fetchtranslation_task extends scheduled_task {
             $max_runtime = 180; // 3 minutes, slightly less than the default 4-minute limit
             $batch_count = 0;
             $total_response_time = 0;
-            $transaction = null;
 
             foreach ($batches as $batch) {
                 $batch_count++;
@@ -268,8 +298,14 @@ class fetchtranslation_task extends scheduled_task {
                     // Roll back the transaction on error
                     $transaction->rollback($e);
                     $transaction = null;
-                    mtrace("Error fetching translations for batch $batch_count: " . $e->getMessage());
-                    continue; // Move to next batch on error
+
+                    // Extract a user-friendly error message and HTTP code
+                    $error_message = $this->extract_error_message($e->getMessage());
+                    $http_code = $this->extract_http_code($e->getMessage());
+                    $user_message = "API error: HTTP $http_code - $error_message. Please verify the API key in the plugin settings under Site administration > Plugins > Filters > Autotranslate and ensure it’s valid for the Google Generative AI API.";
+                    $final_message = "$error_message. Please verify the API key in the plugin settings under Site administration > Plugins > Filters > Autotranslate and ensure it’s valid for the Google Generative AI API.";
+                    mtrace($user_message);
+                    throw new \Exception($final_message);
                 }
             }
 
@@ -278,7 +314,7 @@ class fetchtranslation_task extends scheduled_task {
             mtrace("Fetch Translation task completed.");
             mtrace("Summary: Processed " . count($records) . " records in $batch_count batches, total runtime: $total_runtime seconds (~" . round($total_runtime / 60, 1) . " minutes), average response time per batch: " . number_format($avg_response_time, 1) . " seconds");
         } catch (\Exception $e) {
-            mtrace("Task failed due to: " . $e->getMessage());
+            mtrace("Fetch Translation task failed: " . $e->getMessage());
             throw $e; // Re-throw to ensure proper failure handling
         } finally {
             // Ensure any open transaction is rolled back on exit
@@ -405,8 +441,8 @@ class fetchtranslation_task extends scheduled_task {
                 }
 
                 if ($httpcode != 200) {
-                    mtrace("API error: HTTP $httpcode");
-                    throw new \Exception("API error: HTTP $httpcode, Response: " . $response);
+                    $error_message = $this->extract_error_message($response);
+                    throw new \Exception("API error: HTTP $httpcode, Response: $error_message");
                 }
 
                 $data = json_decode($response, true);
