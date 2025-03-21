@@ -1,17 +1,17 @@
 # Moodle Autotranslate Filter
 
-[![Latest Release](https://img.shields.io/github/v/release/kalebheitzman/moodle-filter_autotranslate)](https://github.com/kalebheitzman/moodle-filter_autotranslate/releases) [![Moodle Plugin CI](https://github.com/kalebheitzman/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml/badge.svg)](https://github.com/kalebheitzman/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml)
+![Latest Release](https://img.shields.io/github/v/release/kalebheitzman/moodle-filter_autotranslate) ![Moodle Plugin CI](https://github.com/kalebheitzman/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml/badge.svg)
 
 ## Introduction
 
-The **Moodle Autotranslate Filter** enhances your Moodle site by automatically translating content into multiple languages using any OpenAI-compatible translation service. This plugin makes courses, resources, and pages accessible to a global audience while supporting human-reviewed translations and integrating with Moodle’s global search. Whether you're a site administrator, teacher, or developer, this plugin offers flexibility and power to create a multilingual experience.
+The **Moodle Autotranslate Filter** plugin automatically translates content across your Moodle site into multiple languages using any OpenAI-compatible translation service. It’s designed to make your courses, resources, and pages accessible to a global audience, while also supporting human-reviewed translations and integrating with Moodle’s global search. Whether you’re an administrator, teacher, or developer, this plugin provides the tools you need to create a seamless multilingual experience.
 
 ## Key Features
 
 - **Automatic Translation**: Translates content using your chosen OpenAI-compatible service.
 - **Human Translation Support**: Allows manual review or correction of translations.
 - **Global Reuse**: Identical text shares translations site-wide for efficiency.
-- **Search Integration**: Indexes translations for multilingual search results.
+- [ ] **Search Integration**: Indexes translations for multilingual search results (work in progress).
 - **Customizable**: Works with any translation service following the OpenAI API specification.
 - **Context Awareness**: Organizes translations by Moodle context (e.g., course, module).
 
@@ -62,7 +62,6 @@ Teachers can also edit translations within their course contexts for greater con
 In Moodle, capabilities define what actions users can perform based on their roles. The Autotranslate Filter plugin introduces two capabilities to control access to its features:
 
 - **filter/autotranslate:manage**
-
   - **Purpose**: Allows users to manage translations at the system level. This includes configuring plugin settings and overseeing the translation process across the entire Moodle site.
   - **Default roles**: Manager, Editing Teacher
   - **Context**: System-wide
@@ -85,44 +84,36 @@ The plugin manages translations through a database, text tagging, and a filter m
 Translations are stored in the `mdl_autotranslate_translations` table for site-wide reuse. The table includes the following columns:
 
 - **`id`**:
-
   - Type: `BIGINT(10)`
   - Auto-incrementing primary key.
 
 - **`hash`**:
-
   - Type: `VARCHAR(10)`
   - A unique 10-character hash for the source text (e.g., `aBcDeFgHiJ`).
   - Used to link source text to translations via tags like `{translation hash=aBcDeFgHiJ}Source Text{/translation}`.
 
 - **`lang`**:
-
   - Type: `VARCHAR(20)`
   - Language code for the translation (e.g., `es` for Spanish).
 
 - **`human`**:
-
   - Type: `TINYINT(1)`
   - Default: `0`
   - Indicates if the translation is human-reviewed (`1`) or auto-translated (`0`).
 
 - **`translated_text`**:
-
   - Type: `TEXT`
   - Stores the translated content for the specified language.
 
 - **`contextlevel`**:
-
   - Type: `INT(2)`
   - Represents the Moodle context level (e.g., `10` for System, `50` for Course, `70` for Module).
 
 - **`timecreated`**:
-
   - Type: `INT(10)`
   - Timestamp when the record was created.
 
 - **`timemodified`**:
-
   - Type: `INT(10)`
   - Timestamp when the record was last modified.
 
@@ -153,7 +144,6 @@ The filter processes text on page load:
 Two tasks handle translation management:
 
 1. **`autotranslate_task`** (runs **every 15 minutes**):
-
    - Scans fields (e.g., course summaries, activity intros) for untagged text.
    - Assigns a unique hash and tags the content with `{translation hash=...}CONTENT{/translation}`.
    - Stores the source text in the database with `human = 1`.
@@ -171,6 +161,8 @@ The plugin enhances Moodle’s global search:
 - **Indexing**: Source text and translations are indexed for multilingual searches.
 - **Display**: Results appear in the user’s language, falling back to source text if needed.
 - **Setup**: Ensure your search engine (e.g., Solr) supports custom fields and reindex after installation.
+
+- [ ] **Note**: This feature is still a work in progress.
 
 ## Important Considerations and Risks
 
