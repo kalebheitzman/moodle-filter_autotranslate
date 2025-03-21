@@ -1,0 +1,53 @@
+/* Manage Translations page styles */
+.table-responsive td img {
+    max-width: 100%;
+    width: auto;
+    height: auto;
+}
+
+/* Ensure RTL styling for lists within the Translated Text column */
+.table-responsive td[dir="rtl"] ul,
+.table-responsive td[dir="rtl"] ol {
+    text-align: right;
+    padding-right: 20px; /* Adjust padding to position bullets on the right */
+    padding-left: 0;
+}
+
+.table-responsive td[dir="rtl"] ul li,
+.table-responsive td[dir="rtl"] ol li {
+    text-align: right;
+}
+
+/* Fix table width issues for Source Text column */
+.table-responsive td.col-6 {
+    /* Ensure the column respects the col-6 width */
+    max-width: 50%; /* Enforce the 50% width for col-6 */
+    overflow-wrap: break-word; /* Ensure long text wraps */
+    word-wrap: break-word; /* Fallback for older browsers */
+    word-break: break-word; /* Break long words if necessary */
+}
+
+/* Fix <hr> elements to fit within the column */
+.table-responsive td.col-6 hr {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* Ensure nested lists fit within the column */
+.table-responsive td.col-6 ul,
+.table-responsive td.col-6 ol {
+    padding-left: 20px; /* Adjust padding for LTR lists */
+    margin-left: 0;
+    margin-right: 0;
+    width: 100%;
+    box-sizing: border-box; /* Ensure padding is included in width */
+}
+
+/* Ensure list items wrap properly */
+.table-responsive td.col-6 ul li,
+.table-responsive td.col-6 ol li {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
+}

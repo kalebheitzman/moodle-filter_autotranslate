@@ -19,15 +19,19 @@
                         <td class="text-left">{{lang}}</td>
                         {{#source_text}}
                             <td class="col-6 text-left">{{{source_text}}}</td>
-                            <td class="col-6 text-left">{{{translated_text}}}</td>
+                            <td class="col-6" {{#is_rtl}}dir="rtl" style="text-align: right;"{{/is_rtl}}>{{{translated_text}}}</td>
                         {{/source_text}}
                         {{^source_text}}
-                            <td class="col-12 text-left" style="word-wrap: break-word; max-width: 600px;">{{{translated_text}}}</td>
+                            <td class="col-12" {{#is_rtl}}dir="rtl" style="text-align: right;"{{/is_rtl}}>{{{translated_text}}}</td>
                         {{/source_text}}
                         <td class="text-left">{{{human}}}</td>
                         <td class="text-left">{{contextlevel}}</td>
                         <td class="text-left">{{{review_status}}}</td>
-                        <td class="text-left">{{{actions}}}</td>
+                        <td class="text-left">
+                            {{#show_edit_link}}
+                                <a href="{{edit_url}}">{{edit_label}}</a>
+                            {{/show_edit_link}}
+                        </td>
                     </tr>
                 {{/table_rows}}
             </tbody>

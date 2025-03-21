@@ -41,6 +41,9 @@ $PAGE->set_url('/filter/autotranslate/manage.php', [
 $PAGE->set_title(get_string('managetranslations', 'filter_autotranslate'));
 $PAGE->set_heading(get_string('managetranslations', 'filter_autotranslate'));
 
+// Include page-specific CSS
+$PAGE->requires->css('/filter/autotranslate/css/manage.css');
+
 // Check capability
 require_capability('filter/autotranslate:manage', $context);
 
@@ -53,6 +56,27 @@ $page = optional_param('page', 0, PARAM_INT);
 $perpage = optional_param('perpage', 20, PARAM_INT);
 $sort = optional_param('sort', 'hash', PARAM_ALPHA);
 $dir = optional_param('dir', 'ASC', PARAM_ALPHA);
+
+/**
+ * Check if a language is right-to-left (RTL).
+ *
+ * @param string $lang The language code (e.g., 'en', 'ar', 'he').
+ * @return bool True if the language is RTL, false otherwise.
+ */
+function is_rtl_language($lang) {
+    // List of known RTL languages in Moodle
+    $rtl_languages = ['ar', 'he', 'fa', 'ur']; // Arabic, Hebrew, Persian, Urdu
+
+    // Check if the language is in the RTL list
+    if (in_array($lang, $rtl_languages)) {
+        return true;
+    }
+
+    // Optionally, check the language pack's configuration (if available)
+    // This requires access to the language pack's langconfig.php, which is not directly accessible
+    // For now, rely on the predefined list above
+    return false;
+}
 
 global $DB, $OUTPUT;
 $repository = new \filter_autotranslate\translation_repository($DB);
@@ -109,13 +133,19 @@ foreach ($translations as $translation) {
     $review_status = $needs_review ? $OUTPUT->pix_icon('i/warning', get_string('needsreview', 'filter_autotranslate'), 'moodle', ['class' => 'text-danger align-middle']) : '';
 
     // Format the dates as small text to append below the translated text
-    $dates_html = '<small class="text-muted">' .
+    $dates_html = '<small class="text-muted" dir="ltr">' .
                   get_string('last_modified', 'filter_autotranslate') . ': ' . userdate($translation->timemodified) . '<br>' .
                   get_string('last_reviewed', 'filter_autotranslate') . ': ' . userdate($translation->timereviewed) .
                   '</small>';
 
     // Append the dates below the translated text
     $translated_text_with_dates = format_text($translated_text, FORMAT_HTML) . '<br>' . $dates_html;
+
+    // Determine if the "Edit" link should be shown
+    $show_edit_link = ($translation->lang !== 'other' && $internal_filter_lang !== 'other');
+
+    // Determine if the language is RTL
+    $is_rtl = is_rtl_language($translation->lang);
 
     $row = [
         'hash' => $translation->hash,
@@ -124,10 +154,10 @@ foreach ($translations as $translation) {
         'human' => $translation->human ? get_string('yes') : get_string('no'),
         'contextlevel' => $translation->contextlevel,
         'review_status' => $review_status,
-        'actions' => html_writer::link(
-            new moodle_url('/filter/autotranslate/edit.php', ['hash' => $translation->hash, 'tlang' => $translation->lang]),
-            get_string('edit')
-        ),
+        'show_edit_link' => $show_edit_link,
+        'edit_url' => (new moodle_url('/filter/autotranslate/edit.php', ['hash' => $translation->hash, 'tlang' => $translation->lang]))->out(false),
+        'edit_label' => get_string('edit'),
+        'is_rtl' => $is_rtl,
     ];
     if (!empty($internal_filter_lang) && $internal_filter_lang !== 'all' && $internal_filter_lang !== 'other') {
         $row['source_text'] = format_text($source_text, FORMAT_HTML);
