@@ -34,22 +34,35 @@ require_login();
 require_capability('filter/autotranslate:manage', context_system::instance());
 
 $hash = required_param('hash', PARAM_ALPHANUMEXT);
-$tlang = required_param('tlang', PARAM_LANG); // Translation language parameter (required to ensure it's always present)
+$tlang = required_param('tlang', PARAM_RAW); // Use PARAM_RAW to get the exact value
 $contextid = optional_param('contextid', SYSCONTEXTID, PARAM_INT);
 
-// Log the parameters for // debugging
-// debugging("Parameters - Hash: $hash, tlang: $tlang, ContextID: $contextid", DEBUG_DEVELOPER);
+// Validate and normalize tlang
+if (empty($tlang)) {
+    redirect(new moodle_url('/filter/autotranslate/manage.php'), get_string('invalidtlang', 'filter_autotranslate'), null, \core\output\notification::NOTIFY_ERROR);
+    exit();
+}
+
+$tlang = clean_param($tlang, PARAM_TEXT);
+$tlang = strtolower(trim($tlang));
+
+// Ensure tlang is not empty after cleaning
+if (empty($tlang)) {
+    redirect(new moodle_url('/filter/autotranslate/manage.php'), get_string('invalidtlang', 'filter_autotranslate'), null, \core\output\notification::NOTIFY_ERROR);
+    exit();
+}
 
 // Get the site language
 $sitelang = get_config('core', 'lang') ?: 'en'; // Default to 'en' if not set
+$sitelang = strtolower(trim($sitelang));
 
 // Map site language to 'other' if they match
 $queried_tlang = ($tlang === $sitelang) ? 'other' : $tlang;
-// debugging("Mapping tlang - Provided: $tlang, Site Language: $sitelang, Queried tLang: $queried_tlang", DEBUG_DEVELOPER);
 
 // Prevent editing the 'other' language record through this interface
-if ($queried_tlang === 'other') {
-    throw new moodle_exception('cannoteditother', 'filter_autotranslate');
+if ($tlang === 'other' || $queried_tlang === 'other') {
+    redirect(new moodle_url('/filter/autotranslate/manage.php'), get_string('cannoteditother', 'filter_autotranslate'), null, \core\output\notification::NOTIFY_ERROR);
+    exit(); // Ensure no further execution after redirect
 }
 
 // Set up the page
@@ -61,10 +74,8 @@ $PAGE->set_heading(get_string('edittranslation', 'filter_autotranslate'));
 global $DB, $OUTPUT;
 
 // Fetch the translation record
-// debugging("Attempting to fetch translation - Hash: $hash, Queried tLang: $queried_tlang, ContextID: $contextid", DEBUG_DEVELOPER);
 $translation = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => $queried_tlang]);
 if (!$translation) {
-    // debugging("No record found for hash $hash in language $queried_tlang, redirecting to manage.php", DEBUG_DEVELOPER);
     redirect(new moodle_url('/filter/autotranslate/manage.php'), get_string('notranslationfound', 'filter_autotranslate'), null, \core\output\notification::NOTIFY_ERROR);
 }
 
@@ -74,29 +85,12 @@ if (!$source_text) {
     $source_text = 'N/A'; // Fallback if no source text is found
 }
 
-// Rewrite @@PLUGINFILE@@ placeholders in the source text
-// try {
-//     $source_text = file_rewrite_pluginfile_urls(
-//         $source_text,
-//         'pluginfile.php',
-//         context_system::instance()->id,
-//         'filter_autotranslate',
-//         'translations',
-//         $translation->id
-//     );
-// } catch (\Exception $e) {
-//     // debugging("Error rewriting plugin file URLs: " . $e->getMessage(), DEBUG_DEVELOPER);
-//     $source_text = 'N/A'; // Fallback in case of error
-// }
 $source_text = format_text($source_text, FORMAT_HTML);
 
 // Determine if the source text contains HTML to decide on editor type
 $use_wysiwyg = false;
 if ($source_text && preg_match('/<[^>]+>/', $source_text)) {
     $use_wysiwyg = true;
-    // debugging("Source text contains HTML, enabling WYSIWYG editor", DEBUG_DEVELOPER);
-} else {
-    // debugging("Source text is plain text, using regular textarea", DEBUG_DEVELOPER);
 }
 
 // Initialize the form with tlang explicitly passed and set the form action to preserve tlang
@@ -112,19 +106,14 @@ if ($mform->is_cancelled()) {
     try {
         require_sesskey();
     } catch (\moodle_exception $e) {
-        // debugging("Session key validation failed: " . $e->getMessage(), DEBUG_DEVELOPER);
         redirect(new moodle_url('/filter/autotranslate/manage.php'), get_string('invalidsesskey', 'error'), null, \core\output\notification::NOTIFY_ERROR);
     }
 
     // Re-fetch the translation record to ensure it still exists
     $translation = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => $queried_tlang]);
     if (!$translation) {
-        // debugging("No record found for hash $hash in language $queried_tlang after form submission, redirecting to manage.php", DEBUG_DEVELOPER);
         redirect(new moodle_url('/filter/autotranslate/manage.php'), get_string('notranslationfound', 'filter_autotranslate'), null, \core\output\notification::NOTIFY_ERROR);
     }
-
-    // Log the form data for // debugging
-    // debugging("Form submission data: " . print_r($data, true), DEBUG_DEVELOPER);
 
     $translation->translated_text = is_array($data->translated_text) ? $data->translated_text['text'] : $data->translated_text;
     $translation->human = !empty($data->human) ? 1 : 0; // Handle checkbox submission
