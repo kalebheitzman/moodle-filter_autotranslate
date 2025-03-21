@@ -517,6 +517,7 @@ class fetchtranslation_task extends scheduled_task {
             $record->translated_text = $translated_text;
             $record->contextlevel = $contextlevel;
             $record->timemodified = time();
+            $record->timereviewed = time();
             $record->human = 0; // Machine-generated translation
 
             $DB->update_record('autotranslate_translations', $record);
@@ -529,6 +530,7 @@ class fetchtranslation_task extends scheduled_task {
             $record->contextlevel = $contextlevel;
             $record->timecreated = time();
             $record->timemodified = time();
+            $record->timereviewed = time();
             $record->human = 0; // Machine-generated translation
 
             $DB->insert_record('autotranslate_translations', $record);
