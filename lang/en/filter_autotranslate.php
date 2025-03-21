@@ -106,6 +106,7 @@ $string['ctx_80'] = 'Block'; // Added for context level 80
  * Translation Management
  * Strings for managing translations, including the manage interface and edit forms.
  */
+$string['manage'] = 'Manage Translations'; // Added missing string
 $string['search:translation'] = 'Translations';
 $string['edittranslation'] = 'Edit Translation';
 $string['translatedtext'] = 'Translated Text';
