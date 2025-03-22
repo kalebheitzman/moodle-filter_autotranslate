@@ -41,6 +41,7 @@ class tagging_config {
         70 => [
             'assign' => ['name', 'intro', 'activity'],
             'book' => ['name', 'intro'],
+            'book_chapters' => ['title', 'content'],
             'chat' => ['name', 'intro'],
             'choice' => ['name', 'intro'],
             'data' => ['name', 'intro'],
