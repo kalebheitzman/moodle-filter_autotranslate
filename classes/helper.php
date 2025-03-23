@@ -74,24 +74,17 @@ class helper {
 
         $translations = [];
         $source_text = '';
-        $outside_text = '';
+        $display_text = ''; // To preserve HTML structure
         $first_content = null; // Store the first language content as a fallback
 
         // First, process old-style <span lang="xx" class="multilang"> tags
-        $text = self::process_span_multilang_tags($text, $context, $translations, $outside_text, $valid_langs, $first_content);
+        $text = self::process_span_multilang_tags($text, $context, $translations, $display_text, $valid_langs, $first_content, $source_text);
 
         // Then, process new-style {mlang xx}...{mlang} tags
         if (preg_match_all('/{mlang\s+([\w]+)}(.+?)(?:{mlang}|$)/s', $text, $matches, PREG_SET_ORDER)) {
-            $last_pos = 0;
             foreach ($matches as $match) {
                 $lang = trim($match[1]);
                 $content = trim($match[2]);
-                $start_pos = strpos($text, $match[0], $last_pos);
-                $outside = trim(substr($text, $last_pos, $start_pos - $last_pos));
-                if (!empty($outside)) {
-                    $outside_text .= $outside;
-                }
-                $last_pos = $start_pos + strlen($match[0]);
 
                 // Normalize language code to lowercase
                 $lang = strtolower($lang);
@@ -107,21 +100,15 @@ class helper {
 
                 if ($lang === 'other' || $lang === $sitelang) {
                     $source_text .= $content . ' ';
+                    $display_text .= $content . ' ';
                 } else {
                     $translations[$lang] = isset($translations[$lang]) ? $translations[$lang] . ' ' . $content : $content;
                 }
             }
-
-            $outside_text .= trim(substr($text, $last_pos));
         } else {
-            // If no {mlang} tags, the text might have been processed by process_span_multilang_tags
+            // If no {mlang} tags, use the text as-is (possibly processed by process_span_multilang_tags)
             $source_text = $text;
-        }
-
-        if (!empty($outside_text) && empty($source_text)) {
-            $source_text = $outside_text;
-        } elseif (!empty($outside_text)) {
-            $source_text .= ' ' . $outside_text;
+            $display_text = $text;
         }
 
         if (!empty($source_text)) {
@@ -129,6 +116,7 @@ class helper {
         } elseif ($first_content !== null) {
             // Fallback to the first language content if site language or 'other' is not found
             $source_text = trim($first_content);
+            $display_text = $first_content;
         }
 
         if (!empty($source_text)) {
@@ -165,7 +153,7 @@ class helper {
                 }
             }
 
-            return "{translation hash=$hash}" . $source_text . "{/translation}";
+            return $display_text . " {t:$hash}";
         }
 
         return $text;
@@ -180,12 +168,13 @@ class helper {
      * @param string &$outside_text String to store text outside of multilang tags
      * @param array $valid_langs List of valid language codes
      * @param string|null &$first_content First language content as a fallback
+     * @param string &$source_text Source text for translation
      * @return string The processed content (site language content or original content if no tags)
      */
-    public static function process_span_multilang_tags($text, $context, &$translations, &$outside_text, $valid_langs, &$first_content) {
+    public static function process_span_multilang_tags($text, $context, &$translations, &$outside_text, $valid_langs, &$first_content, &$source_text) {
         $sitelang = get_config('core', 'lang') ?: 'en';
-        $source_text = '';
         $last_pos = 0;
+        $display_text = '';
 
         // Pattern to match <span lang="xx" class="multilang">...</span>
         $pattern = '/<span lang="([a-zA-Z-]+)" class="multilang">(.*?)<\/span>/s';
@@ -194,9 +183,10 @@ class helper {
                 $lang = $match[1];
                 $content = trim($match[2]);
                 $start_pos = strpos($text, $match[0], $last_pos);
-                $outside = trim(substr($text, $last_pos, $start_pos - $last_pos));
+                $outside = substr($text, $last_pos, $start_pos - $last_pos);
                 if (!empty($outside)) {
                     $outside_text .= $outside;
+                    $display_text .= $outside;
                 }
                 $last_pos = $start_pos + strlen($match[0]);
 
@@ -214,13 +204,18 @@ class helper {
 
                 if ($lang === $sitelang) {
                     $source_text .= $content . ' ';
+                    $display_text .= $content . ' ';
                 } else {
                     $translations[$lang] = isset($translations[$lang]) ? $translations[$lang] . ' ' . $content : $content;
                 }
             }
 
-            $outside_text .= trim(substr($text, $last_pos));
-            return trim($source_text);
+            $remaining = substr($text, $last_pos);
+            if (!empty($remaining)) {
+                $outside_text .= $remaining;
+                $display_text .= $remaining;
+            }
+            return $display_text;
         }
 
         return $text; // Return original content if no span multilang tags found
@@ -257,7 +252,7 @@ class helper {
             $DB->insert_record('autotranslate_translations', $record);
         }
 
-        return "{translation hash=$hash}" . $content . "{/translation}";
+        return $content . " {t:$hash}";
     }
 
     /**
@@ -267,6 +262,6 @@ class helper {
      * @return bool
      */
     public static function is_tagged($content) {
-        return preg_match('/{translation hash=[a-zA-Z0-9]{10}}.*{\/translation}/s', $content) === 1;
+        return preg_match('/\{t:[a-zA-Z0-9]{10}\}(?:<\/p>)?/s', $content) === 1;
     }
 }

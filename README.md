@@ -90,7 +90,7 @@ Translations are stored in the `mdl_autotranslate_translations` table for site-w
 - **`hash`**:
   - Type: `VARCHAR(10)`
   - A unique 10-character hash for the source text (e.g., `aBcDeFgHiJ`).
-  - Used to link source text to translations via tags like `{translation hash=aBcDeFgHiJ}Source Text{/translation}`.
+  - Used to link source text to translations via tags like `Source Text {t:aBcDeFgHiJ}`.
 
 - **`lang`**:
   - Type: `VARCHAR(20)`
@@ -125,9 +125,9 @@ This table centralizes translations with a persistent `hash` key, enabling reuse
 
 ### Text Tagging
 
-The plugin tags content with `{translation hash=...}CONTENT{/translation}`:
+The plugin tags content with `CONTENT {t:abcd1234}`:
 
-- Example: `{translation hash=aBcDeFgHiJ}Submit{/translation}`
+- Example: `Submit {t:aBcDeFgHiJ}`
 - Spanish (`es`): “Enviar”
 - The hash ensures translations are reusable across identical text.
 
@@ -135,7 +135,7 @@ The plugin tags content with `{translation hash=...}CONTENT{/translation}`:
 
 The filter processes text on page load:
 
-- Detects `{translation hash=...}` tags.
+- Detects `{t:hashid}` tags.
 - Fetches the translation for the user’s language from the database.
 - Falls back to the source text (e.g., “Submit”) if no translation exists.
 
@@ -145,7 +145,7 @@ Two tasks handle translation management:
 
 1. **`autotranslate_task`** (runs **every 15 minutes**):
    - Scans fields (e.g., course summaries, activity intros) for untagged text.
-   - Assigns a unique hash and tags the content with `{translation hash=...}CONTENT{/translation}`.
+   - Assigns a unique hash and tags the content with `CONTENT {t:aBcDeFgHiJ}`.
    - Stores the source text in the database with `human = 1`.
 
 2. **`fetchtranslation_task`** (runs **every 30 minutes**):
@@ -169,7 +169,7 @@ The plugin enhances Moodle’s global search:
 - **Alpha Stage**: This plugin is under development. **Backup your database** before use.
 - **Database Growth**: Storing translations increases database size.
 - **Performance**: Scheduled tasks may impact busy sites.
-- **Content Alteration**: Tags like `{translation hash=...}` modify text fields. Disabling or uninstalling without cleanup may expose raw tags, affecting readability.
+- **Content Alteration**: Tags like `{t:aBcDeFgHiJ}` modify text fields. Disabling or uninstalling without cleanup may expose raw tags, affecting readability.
 - **Hash Sensitivity**: Editing tagged text or hashes manually can break translation links.
 - **Translation Quality**: Auto-translations vary by service/model; human review may be required.
 

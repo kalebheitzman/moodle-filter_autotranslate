@@ -66,7 +66,7 @@ class observer {
                     continue;
                 }
                 $content = $module->$field;
-                if (preg_match('/{translation hash=([a-zA-Z0-9]+)}/', $content, $match)) {
+                if (preg_match('/\{t:([a-zA-Z0-9]{10})\}$/', $content, $match)) {
                     $hash = $match[1];
                     static::update_hash_course_mapping($hash, $cm->course);
                     static::create_or_update_source_translation($hash, $module->$field, $context->contextlevel);
@@ -115,7 +115,7 @@ class observer {
                     continue;
                 }
                 $content = $module->$field;
-                if (preg_match('/{translation hash=([a-zA-Z0-9]+)}/', $content, $match)) {
+                if (preg_match('/\{t:([a-zA-Z0-9]{10})\}$/', $content, $match)) {
                     $hash = $match[1];
                     static::update_hash_course_mapping($hash, $cm->course);
                     static::create_or_update_source_translation($hash, $module->$field, $context->contextlevel);
@@ -162,7 +162,7 @@ class observer {
                     continue;
                 }
                 $content = $course->$field;
-                if (preg_match('/{translation hash=([a-zA-Z0-9]+)}/', $content, $match)) {
+                if (preg_match('/\{t:([a-zA-Z0-9]{10})\}$/', $content, $match)) {
                     $hash = $match[1];
                     static::update_hash_course_mapping($hash, $courseid);
                     static::create_or_update_source_translation($hash, $course->$field, $context->contextlevel);
@@ -205,7 +205,7 @@ class observer {
                     continue;
                 }
                 $content = $course->$field;
-                if (preg_match('/{translation hash=([a-zA-Z0-9]+)}/', $content, $match)) {
+                if (preg_match('/\{t:([a-zA-Z0-9]{10})\}$/', $content, $match)) {
                     $hash = $match[1];
                     static::update_hash_course_mapping($hash, $courseid);
                     static::create_or_update_source_translation($hash, $course->$field, $context->contextlevel);
@@ -251,7 +251,7 @@ class observer {
                     continue;
                 }
                 $content = $section->$field;
-                if (preg_match('/{translation hash=([a-zA-Z0-9]+)}/', $content, $match)) {
+                if (preg_match('/\{t:([a-zA-Z0-9]{10})\}$/', $content, $match)) {
                     $hash = $match[1];
                     static::update_hash_course_mapping($hash, $section->course);
                     static::create_or_update_source_translation($hash, $section->$field, $context->contextlevel);
@@ -293,7 +293,7 @@ class observer {
                     continue;
                 }
                 $content = $section->$field;
-                if (preg_match('/{translation hash=([a-zA-Z0-9]+)}/', $content, $match)) {
+                if (preg_match('/\{t:([a-zA-Z0-9]{10})\}$/', $content, $match)) {
                     $hash = $match[1];
                     static::update_hash_course_mapping($hash, $section->course);
                     static::create_or_update_source_translation($hash, $section->$field, $context->contextlevel);
@@ -432,9 +432,8 @@ class observer {
     private static function create_or_update_source_translation($hash, $content, $contextlevel) {
         global $DB;
 
-        // Extract the source text by removing the {translation} tags
-        $source_text = preg_replace('/{translation[^}]*}/', '', $content);
-        $source_text = preg_replace('/{\/translation}/', '', $source_text);
+        // Extract the source text by removing the {t:hash} tag
+        $source_text = preg_replace('/\{t:[a-zA-Z0-9]{10}\}$/', '', $content);
 
         // Check if a source translation record already exists
         $existing = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => 'other']);
@@ -483,7 +482,7 @@ class observer {
             }
 
             $content = $record->$field;
-            if (preg_match('/{translation hash=([a-zA-Z0-9]+)}/', $content, $match)) {
+            if (preg_match('/\{t:([a-zA-Z0-9]{10})\}$/', $content, $match)) {
                 $hash = $match[1];
                 $hashes[$hash] = true; // Use array to avoid duplicates
             }

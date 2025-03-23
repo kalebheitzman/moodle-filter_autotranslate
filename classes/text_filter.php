@@ -13,7 +13,6 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses>.
-
 /**
  * Auto Translate Filter
  *
@@ -38,13 +37,14 @@ class text_filter extends \core_filters\text_filter {
         $selectedctx = get_config('filter_autotranslate', 'selectctx');
         $selectedctx = $selectedctx ? array_map('trim', explode(',', $selectedctx)) : ['40', '50', '70', '80'];
         $currentcontext = $this->context->contextlevel;
-        // debugging("Filtering context: $currentcontext, Allowed contexts: " . implode(', ', $selectedctx), DEBUG_DEVELOPER);
+        // debugging("Filtering context: $currentcontext, Allowed contexts: " . implode(', ', $selectedctx) . " String: <code>" . $text . "</code>", DEBUG_DEVELOPER);
 
         if (!in_array((string)$currentcontext, $selectedctx)) {
             return $text;
         }
 
-        $pattern = '/{translation hash=([a-zA-Z0-9]{10})}(.*?){\/translation}/s';
+        // Updated regex pattern to match {t:hash} tags in various positions, including when wrapped in <p> tags
+        $pattern = '/((?:[^<{]*(?:<[^>]+>[^<{]*)*)?)\s*(?:<p>\s*)?\{t:([a-zA-Z0-9]{10})\}(?:\s*<\/p>)?/s';
         $matches = [];
         if (!preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             return $text; // No tags to process
@@ -53,8 +53,8 @@ class text_filter extends \core_filters\text_filter {
         $replacements = [];
         foreach ($matches as $match) {
             $fulltag = $match[0];
-            $hash = $match[1];
-            $source_text = trim($match[2]);
+            $hash = $match[2]; // Group 2 is the hash
+            $source_text = trim($match[1]); // Group 1 is the source text
 
             $userlang = current_language();
             $translation = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => $userlang], 'translated_text, human');
@@ -105,32 +105,32 @@ class text_filter extends \core_filters\text_filter {
     }
 
     /**
- * Determine the component, file area, and item ID based on the current context.
- * @return array|null [component, filearea, itemid] or null if not applicable
- */
-private function get_file_params() {
-    $context = $this->context;
+     * Determine the component, file area, and item ID based on the current context.
+     * @return array|null [component, filearea, itemid] or null if not applicable
+     */
+    private function get_file_params() {
+        $context = $this->context;
 
-    if ($context->contextlevel == CONTEXT_COURSE) {
-        // Course context (e.g., course summary)
-        $component = 'course';
-        $filearea = 'summary';
-        $itemid = $context->instanceid;
-    } elseif ($context->contextlevel == CONTEXT_MODULE) {
-        // Module context (e.g., module intro)
-        $cm = get_coursemodule_from_id('', $context->instanceid);
-        if ($cm) {
-            $component = 'mod_' . $cm->modname; // e.g., 'mod_forum'
-            $filearea = 'intro';
-            $itemid = $cm->instance; // Module instance ID, not course module ID
+        if ($context->contextlevel == CONTEXT_COURSE) {
+            // Course context (e.g., course summary)
+            $component = 'course';
+            $filearea = 'summary';
+            $itemid = $context->instanceid;
+        } elseif ($context->contextlevel == CONTEXT_MODULE) {
+            // Module context (e.g., module intro)
+            $cm = get_coursemodule_from_id('', $context->instanceid);
+            if ($cm) {
+                $component = 'mod_' . $cm->modname; // e.g., 'mod_forum'
+                $filearea = 'intro';
+                $itemid = $cm->instance; // Module instance ID, not course module ID
+            } else {
+                return null; // Couldn’t fetch course module
+            }
         } else {
-            return null; // Couldn’t fetch course module
+            // Other contexts (e.g., blocks, categories) not handled yet
+            return null;
         }
-    } else {
-        // Other contexts (e.g., blocks, categories) not handled yet
-        return null;
-    }
 
-    return [$component, $filearea, $itemid];
-}
+        return [$component, $filearea, $itemid];
+    }
 }

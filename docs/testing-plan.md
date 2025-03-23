@@ -310,7 +310,7 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
      </code>
   4. Check the task output in the terminal for logs (e.g., "Tagged and stored: field=summary, instanceid=<id>, old_hash=none, new_hash=<hash>, courseid=<courseid>").
   5. Check the database tables:
-     - `course` table: Verify that the `summary` field now includes a translation tag (e.g., `{translation hash=<hash>}`).
+     - `course` table: Verify that the `summary` field now includes a translation tag (e.g., `{t:<hash>}`).
      - `course_sections` table: Verify that the `summary` field now includes a translation tag.
      - `autotranslate_hid_cids` table: Verify that the hash is mapped to the course ID.
      - `autotranslate_translations` table: Verify that a record exists for the `other` language with the hash, `translated_text`, and `contextlevel`.
@@ -321,7 +321,7 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
   - The `autotranslate_translations` table contains entries for the `other` language with the correct `hash`, `translated_text`, and `contextlevel` (e.g., 50 for `CONTEXT_COURSE`).
 - **Notes**:
   - Verify that the task logs show the correct number of records processed.
-  - Check that the tagged content in the database includes a valid hash (e.g., `{translation hash=abcdefghij}`).
+  - Check that the tagged content in the database includes a valid hash (e.g., `{t:abcdefghij}`).
 
 ### Test Case 4.2: Run `tagcontent_task` on Module Content
 **Objective**: Verify that `tagcontent_task` correctly tags translatable content in a module (e.g., page content).
@@ -351,7 +351,7 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
 - **Steps**:
   1. Create a course with a summary (e.g., "Course Summary Test").
   2. Run the `tagcontent_task` to tag the content (as in Test Case 4.1).
-  3. Verify that the `course.summary` field now includes a translation tag (e.g., `{translation hash=abcdefghij}`).
+  3. Verify that the `course.summary` field now includes a translation tag (e.g., `{t:abcdefghij}`).
   4. Run the `tagcontent_task` again.
   5. Check the task output for logs (e.g., "Updated hash mapping for existing content: instanceid=<id>, hash=<hash>, courseid=<courseid>").
   6. Check the database tables:

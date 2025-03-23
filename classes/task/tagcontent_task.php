@@ -193,7 +193,7 @@ class tagcontent_task extends scheduled_task {
      * @return string|null The extracted hash, or null if not found
      */
     private function extract_hash($content) {
-        if (preg_match('/{translation hash=([a-zA-Z0-9]{10})}/', $content, $matches)) {
+        if (preg_match('/\{t:([a-zA-Z0-9]{10})\}$/', $content, $matches)) {
             return $matches[1];
         }
         return null;
