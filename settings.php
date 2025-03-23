@@ -250,11 +250,25 @@ if ($hassiteconfig) {
         $tagging_options = [];
         foreach ($default_tables as $contextlevel => $tables) {
             $context_name = get_string("ctx_{$contextlevel}", 'filter_autotranslate');
-            foreach ($tables as $table => $fields) {
+            foreach ($tables as $table => $config) {
+                // Handle primary table fields
+                $fields = $config['fields'] ?? [];
                 foreach ($fields as $field) {
                     $key = "ctx{$contextlevel}_{$table}_{$field}";
                     $label = "$context_name: $table.$field";
                     $tagging_options[$key] = $label;
+                }
+
+                // Handle secondary table fields
+                if (isset($config['secondary'])) {
+                    foreach ($config['secondary'] as $secondary_table => $secondary_config) {
+                        $secondary_fields = $secondary_config['fields'] ?? [];
+                        foreach ($secondary_fields as $field) {
+                            $key = "ctx{$contextlevel}_{$secondary_table}_{$field}";
+                            $label = "$context_name: $secondary_table.$field";
+                            $tagging_options[$key] = $label;
+                        }
+                    }
                 }
             }
         }

@@ -84,17 +84,38 @@ class tagcontent_task extends scheduled_task {
             }
 
             $configured_tables[$contextlevel] = [];
-            foreach ($table_list as $table => $fields) {
+            foreach ($table_list as $table => $config) {
+                // Handle primary table fields
+                $fields = $config['fields'] ?? [];
                 $configured_fields = [];
                 foreach ($fields as $field) {
                     $key = "ctx{$contextlevel}_{$table}_{$field}";
-                    // A field is enabled if it's present in the tagging options (checked)
-                    if (isset($tagging_options_map[$key])) {
+                    // A field is enabled if it's present in the tagging options (checked) or if no options are set
+                    if (empty($tagging_options_map) || isset($tagging_options_map[$key])) {
                         $configured_fields[] = $field;
                     }
                 }
                 if (!empty($configured_fields)) {
                     $configured_tables[$contextlevel][$table] = $configured_fields;
+                    mtrace("Table: $table, Configured fields: " . implode(', ', $configured_fields));
+                }
+
+                // Handle secondary tables
+                if (isset($config['secondary'])) {
+                    foreach ($config['secondary'] as $secondary_table => $secondary_config) {
+                        $secondary_fields = $secondary_config['fields'] ?? [];
+                        $configured_secondary_fields = [];
+                        foreach ($secondary_fields as $field) {
+                            $key = "ctx{$contextlevel}_{$secondary_table}_{$field}";
+                            if (empty($tagging_options_map) || isset($tagging_options_map[$key])) {
+                                $configured_secondary_fields[] = $field;
+                            }
+                        }
+                        if (!empty($configured_secondary_fields)) {
+                            $configured_tables[$contextlevel][$secondary_table] = $configured_secondary_fields;
+                            mtrace("Table: $secondary_table, Configured fields: " . implode(', ', $configured_secondary_fields));
+                        }
+                    }
                 }
             }
         }
@@ -108,74 +129,246 @@ class tagcontent_task extends scheduled_task {
 
                     do {
                         try {
-                            // Special handling for course and course_sections to fetch course ID
-                            if ($table === 'course') {
-                                $sql = "SELECT c.id AS instanceid, c.$field AS content, c.id AS course
-                                        FROM {course} c
-                                        WHERE c.$field IS NOT NULL";
-                            } elseif ($table === 'course_sections') {
-                                $sql = "SELECT cs.id AS instanceid, cs.$field AS content, cs.course
-                                        FROM {course_sections} cs
-                                        JOIN {course} c ON c.id = cs.course
-                                        WHERE cs.$field IS NOT NULL";
+                            // Determine if the table is a primary or secondary table
+                            $relationship = \filter_autotranslate\tagging_config::get_relationship_details($table);
+                            $is_secondary = !empty($relationship);
+                            $primary_table = $is_secondary ? $relationship['primary_table'] : $table;
+                            $fk = $is_secondary ? $relationship['fk'] : null;
+                            $parent_table = $is_secondary ? $relationship['parent_table'] : null;
+                            $parent_fk = $is_secondary ? $relationship['parent_fk'] : null;
+                            $grandparent_table = $is_secondary ? $relationship['grandparent_table'] : null;
+                            $grandparent_fk = $is_secondary ? $relationship['grandparent_fk'] : null;
+
+                            // Build the SQL query based on the context level and whether it's a primary or secondary table
+                            if ($ctx == CONTEXT_SYSTEM) { // Context level 10
+                                if ($table === 'message') {
+                                    $sql = "SELECT m.id AS instanceid, m.$field AS content, 0 AS course
+                                            FROM {{$table}} m
+                                            WHERE m.$field IS NOT NULL OR m.$field != ''";
+                                    $params = [];
+                                } elseif ($table === 'block_instances') {
+                                    $sql = "SELECT bi.id AS instanceid, bi.$field AS content, COALESCE(c.id, 0) AS course
+                                            FROM {{$table}} bi
+                                            LEFT JOIN {context} ctx ON ctx.instanceid = bi.id AND ctx.contextlevel = :contextlevel
+                                            LEFT JOIN {course} c ON c.id = ctx.instanceid AND ctx.contextlevel = :coursecontextlevel
+                                            WHERE bi.$field IS NOT NULL OR bi.$field != ''";
+                                    $params = ['contextlevel' => CONTEXT_BLOCK, 'coursecontextlevel' => CONTEXT_COURSE];
+                                } else {
+                                    $sql = "SELECT m.id AS instanceid, m.$field AS content, 0 AS course
+                                            FROM {{$table}} m
+                                            WHERE m.$field IS NOT NULL OR m.$field != ''";
+                                    $params = [];
+                                }
+                            } elseif ($ctx == CONTEXT_USER) { // Context level 30
+                                $sql = "SELECT uid.id AS instanceid, uid.$field AS content, 0 AS course
+                                        FROM {{$table}} uid
+                                        JOIN {user} u ON u.id = uid.userid
+                                        WHERE uid.$field IS NOT NULL OR uid.$field != ''";
+                                $params = [];
+                            } elseif ($ctx == CONTEXT_COURSECAT) { // Context level 40
+                                $sql = "SELECT cc.id AS instanceid, cc.$field AS content, 0 AS course
+                                        FROM {{$table}} cc
+                                        WHERE cc.$field IS NOT NULL OR cc.$field != ''";
+                                $params = [];
+                            } elseif ($ctx == CONTEXT_COURSE) { // Context level 50
+                                if ($table === 'course') {
+                                    $sql = "SELECT c.id AS instanceid, c.$field AS content, c.id AS course
+                                            FROM {course} c
+                                            WHERE c.$field IS NOT NULL OR c.$field != ''";
+                                    $params = [];
+                                } elseif ($table === 'course_sections') {
+                                    $sql = "SELECT cs.id AS instanceid, cs.$field AS content, cs.course
+                                            FROM {course_sections} cs
+                                            JOIN {course} c ON c.id = cs.course
+                                            WHERE cs.$field IS NOT NULL OR cs.$field != ''";
+                                    $params = [];
+                                } else {
+                                    $sql = "SELECT m.id AS instanceid, m.$field AS content, cm.course, cm.id AS cmid
+                                            FROM {" . $table . "} m
+                                            JOIN {course_modules} cm ON cm.instance = m.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                            WHERE m.$field IS NOT NULL OR m.$field != ''";
+                                    $params = ['modulename' => $table];
+                                }
+                            } elseif ($ctx == CONTEXT_MODULE) { // Context level 70
+                                if ($is_secondary) {
+                                    if ($parent_table && $grandparent_table) {
+                                        // Handle nested secondary tables with a grandparent (e.g., wiki_versions, question_answers, question_categories)
+                                        if ($table === 'question_answers') {
+                                            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                                    FROM {{$table}} s
+                                                    JOIN {{$parent_table}} pt ON s.question = pt.id
+                                                    JOIN {question_versions} qv ON qv.questionid = pt.id
+                                                    JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
+                                                    JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
+                                                    JOIN {{$grandparent_table}} gpt ON gpt.id = qr.itemid
+                                                    JOIN {{$primary_table}} p ON p.id = gpt.quizid
+                                                    JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                                    JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
+                                                    WHERE s.$field IS NOT NULL OR s.$field != ''
+                                                    AND qr.usingcontextid = ctx.id
+                                                    AND qr.component = 'mod_quiz'
+                                                    AND qr.questionarea = 'slot'";
+                                            $params = ['modulename' => $primary_table, 'contextlevel' => CONTEXT_MODULE];
+                                        } elseif ($table === 'question_categories') {
+                                            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                                    FROM {{$table}} s
+                                                    JOIN {question_bank_entries} qbe ON qbe.questioncategoryid = s.id
+                                                    JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
+                                                    JOIN {{$grandparent_table}} gpt ON gpt.id = qr.itemid
+                                                    JOIN {{$primary_table}} p ON p.id = gpt.quizid
+                                                    JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                                    JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
+                                                    WHERE s.$field IS NOT NULL OR s.$field != ''
+                                                    AND qr.usingcontextid = ctx.id
+                                                    AND qr.component = 'mod_quiz'
+                                                    AND qr.questionarea = 'slot'";
+                                            $params = ['modulename' => $primary_table, 'contextlevel' => CONTEXT_MODULE];
+                                        } else {
+                                            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                                    FROM {{$table}} s
+                                                    JOIN {{$parent_table}} pt ON s.$fk = pt.id
+                                                    JOIN {{$grandparent_table}} gpt ON pt.$parent_fk = gpt.id
+                                                    JOIN {{$primary_table}} p ON p.id = gpt.$grandparent_fk
+                                                    JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                                    WHERE s.$field IS NOT NULL OR s.$field != ''";
+                                            $params = ['modulename' => $primary_table];
+                                        }
+                                    } elseif ($parent_table) {
+                                        // Handle nested secondary tables (e.g., forum_posts, lesson_answers, question)
+                                        if ($table === 'question') {
+                                            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                                    FROM {{$table}} s
+                                                    JOIN {question_versions} qv ON qv.questionid = s.id
+                                                    JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
+                                                    JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
+                                                    JOIN {{$parent_table}} pt ON pt.id = qr.itemid
+                                                    JOIN {{$primary_table}} p ON p.id = pt.quizid
+                                                    JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                                    JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
+                                                    WHERE s.$field IS NOT NULL OR s.$field != ''
+                                                    AND qr.usingcontextid = ctx.id
+                                                    AND qr.component = 'mod_quiz'
+                                                    AND qr.questionarea = 'slot'";
+                                            $params = ['modulename' => $primary_table, 'contextlevel' => CONTEXT_MODULE];
+                                        } else {
+                                            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                                    FROM {{$table}} s
+                                                    JOIN {{$parent_table}} pt ON s.$fk = pt.id
+                                                    JOIN {{$primary_table}} p ON p.id = pt.$parent_fk
+                                                    JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                                    WHERE s.$field IS NOT NULL OR s.$field != ''";
+                                            $params = ['modulename' => $primary_table];
+                                        }
+                                    } else {
+                                        // Handle direct secondary tables (e.g., book_chapters, choice_options)
+                                        $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                                FROM {{$table}} s
+                                                JOIN {{$primary_table}} p ON p.id = s.$fk
+                                                JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                                WHERE s.$field IS NOT NULL OR s.$field != ''";
+                                        $params = ['modulename' => $primary_table];
+                                    }
+                                } else {
+                                    // Primary table (e.g., book, choice)
+                                    $sql = "SELECT m.id AS instanceid, m.$field AS content, cm.course, cm.id AS cmid
+                                            FROM {" . $table . "} m
+                                            JOIN {course_modules} cm ON cm.instance = m.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                            WHERE m.$field IS NOT NULL OR m.$field != ''";
+                                    $params = ['modulename' => $table];
+                                }
+                            } elseif ($ctx == CONTEXT_BLOCK) { // Context level 80
+                                $sql = "SELECT bi.id AS instanceid, bi.$field AS content, COALESCE(c.id, 0) AS course
+                                        FROM {{$table}} bi
+                                        LEFT JOIN {context} ctx ON ctx.instanceid = bi.id AND ctx.contextlevel = :contextlevel
+                                        LEFT JOIN {course} c ON c.id = ctx.instanceid AND ctx.contextlevel = :coursecontextlevel
+                                        WHERE bi.$field IS NOT NULL OR bi.$field != ''";
+                                $params = ['contextlevel' => CONTEXT_BLOCK, 'coursecontextlevel' => CONTEXT_COURSE];
                             } else {
-                                $sql = "SELECT m.id AS instanceid, m.$field AS content, cm.course
-                                        FROM {" . $table . "} m
-                                        JOIN {course_modules} cm ON cm.instance = m.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                        WHERE m.$field IS NOT NULL";
+                                $sql = "SELECT m.id AS instanceid, m.$field AS content, 0 AS course
+                                        FROM {{$table}} m
+                                        WHERE m.$field IS NOT NULL OR m.$field != ''";
+                                $params = [];
                             }
-                            $params = ($table === 'course' || $table === 'course_sections') ? [] : ['modulename' => $table];
+
+                            mtrace("Executing SQL for table $table, field $field: $sql");
+                            mtrace("Parameters: " . json_encode($params));
+
                             $records = $DB->get_records_sql($sql, $params, $offset, $batchsize);
                             $count = count($records);
                             $total_entries_checked += $count; // Increment the counter
+                            mtrace("Records fetched for table $table, field $field: $count");
 
                             if ($count > 0) {
                                 $firstrecord = reset($records);
-                                $context = $this->get_context_for_level($ctx, $firstrecord->instanceid, $table, $firstrecord);
+                                // Use cmid directly for context derivation
+                                $context = null;
+                                if (isset($firstrecord->cmid)) {
+                                    $context = \context_module::instance($firstrecord->cmid);
+                                } else {
+                                    mtrace("No cmid found in record for table $table, field $field");
+                                    $context = \context_system::instance(); // Fallback
+                                }
+                                mtrace("Context for table $table, cmid " . ($firstrecord->cmid ?? 'null') . ": " . ($context ? $context->id : 'null'));
                                 if (!$context) {
-                                    continue 2; // Skip to the next field
+                                    mtrace("Context is null, using system context as fallback");
+                                    $context = \context_system::instance();
                                 }
                             } else {
                                 $context = \context_system::instance(); // Fallback for no records
+                                mtrace("No records found, using system context");
                             }
 
                             foreach ($records as $record) {
                                 $raw_content = $record->content;
                                 $content = trim($raw_content);
                                 $old_hash = $this->extract_hash($raw_content);
+                                mtrace("Processing record for table $table, field $field, instanceid {$record->instanceid}, content: " . substr($raw_content, 0, 50) . "...");
 
-                                if (!helper::is_tagged($raw_content) && !empty($content)) {
-                                    // Process both old-style <span> and new-style {mlang} tags
-                                    $taggedcontent = helper::process_mlang_tags($content, $context);
+                                if (helper::is_tagged($raw_content)) {
+                                    mtrace("Content is already tagged, skipping");
+                                    continue;
+                                }
+                                if (empty($content)) {
+                                    mtrace("Content is empty after trimming, skipping");
+                                    continue;
+                                }
 
-                                    if ($taggedcontent === $content) {
-                                        $taggedcontent = helper::tag_content($content, $context);
+                                // Process both old-style <span> and new-style {mlang} tags
+                                $taggedcontent = helper::process_mlang_tags($content, $context);
+
+                                if ($taggedcontent === $content) {
+                                    $taggedcontent = helper::tag_content($content, $context);
+                                }
+
+                                if ($taggedcontent !== $content) {
+                                    $new_hash = $this->extract_hash($taggedcontent);
+                                    if (!$new_hash) {
+                                        mtrace("No new hash found in tagged content, skipping");
+                                        continue;
                                     }
 
-                                    if ($taggedcontent !== $content) {
-                                        $new_hash = $this->extract_hash($taggedcontent);
-                                        if (!$new_hash) {
-                                            continue;
+                                    // Use cmid for courseid derivation
+                                    $courseid = $record->course;
+                                    if ($courseid) {
+                                        if ($old_hash && $old_hash !== $new_hash) {
+                                            $this->remove_old_hash_mapping($old_hash, $courseid);
                                         }
-
-                                        $courseid = $this->get_courseid($ctx, $table, $record);
-                                        if ($courseid) {
-                                            if ($old_hash && $old_hash !== $new_hash) {
-                                                $this->remove_old_hash_mapping($old_hash, $courseid);
-                                            }
-                                            $this->update_hash_course_mapping($new_hash, $courseid);
-                                            try {
-                                                $DB->set_field($table, $field, $taggedcontent, ['id' => $record->instanceid]);
-                                            } catch (\dml_exception $e) {
-                                                // Error handling is silent as per your preference
-                                            }
+                                        $this->update_hash_course_mapping($new_hash, $courseid);
+                                        try {
+                                            $DB->set_field($table, $field, $taggedcontent, ['id' => $record->instanceid]);
+                                            mtrace("Tagged content for table $table, field $field, instanceid {$record->instanceid}: " . substr($taggedcontent, 0, 50) . "...");
+                                        } catch (\dml_exception $e) {
+                                            mtrace("Error updating record: " . $e->getMessage());
                                         }
+                                    } else {
+                                        mtrace("Course ID not found for table $table, instanceid {$record->instanceid}");
                                     }
                                 }
                             }
 
                             $offset += $batchsize;
                         } catch (\dml_exception $e) {
+                            mtrace("Error executing query for table $table, field $field: " . $e->getMessage());
                             break;
                         }
                     } while ($count >= $batchsize);
