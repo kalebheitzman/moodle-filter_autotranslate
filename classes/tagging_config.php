@@ -41,31 +41,35 @@ class tagging_config {
     70 => [
         'assign' => ['name', 'intro', 'activity'],
         'book' => ['name', 'intro'],
-        'book_chapters' => ['title', 'content'],
+        'book_chapters' => ['title', 'content'], // not working
         'choice' => ['name', 'intro'],
+        'choice_options' => ['text'], // not working
         'data' => ['name', 'intro'],
+        'data_content' => ['content', 'content1', 'content2', 'content3', 'content4'], // not working
+        'data_fields' => ['name', 'description'], // not working
         'feedback' => ['name', 'intro', 'page_after_submit'],
+        'feedback_item' => ['name', 'label'], // not working
         'folder' => ['name', 'intro'],
         'forum' => ['name', 'intro'],
-        'forum_discussions' => ['name'],
-        'forum_posts' => ['subject', 'message'],
+        'forum_discussions' => ['name'], // not working
+        'forum_posts' => ['subject', 'message'], // not working
         'glossary' => ['name', 'intro'],
-        'glossary_entries' => ['concept', 'definition'],
+        'glossary_entries' => ['concept', 'definition'], // not working
         'label' => ['intro', 'name'],
         'lesson' => ['name', 'intro'],
-        'lesson_pages' => ['title', 'contents'],
-        'lesson_answers' => ['answer'],
+        'lesson_pages' => ['title', 'contents'], // not working
+        'lesson_answers' => ['answer'], // not working
         'lti' => ['name', 'intro'],
         'page' => ['name', 'intro', 'content'],
+        'question' => ['name', 'questiontext', 'generalfeedback'], // not working
+        'question_answers' => ['answer', 'feedback'], // not working
+        'question_categories' => ['name', 'info'], // not working
         'quiz' => ['name', 'intro'],
         'resource' => ['name', 'intro'],
         'url' => ['name', 'intro'],
         'wiki' => ['name', 'intro', 'firstpagetitle'],
-        'wiki_pages' => ['title'],
-        'wiki_versions' => ['content'],
-        'question' => ['name', 'questiontext', 'generalfeedback'],
-        'question_answers' => ['answer', 'feedback'],
-        'question_categories' => ['name', 'info'],
+        'wiki_pages' => ['title'], // not working
+        'wiki_versions' => ['content'], // not working
     ],
     80 => ['block_instances' => ['configdata']],
 ];
