@@ -46,5 +46,11 @@ $observers = [
     [
         'eventname' => '\core\event\course_section_updated',
         'callback' => 'filter_autotranslate\observer::course_section_updated',
-    ]
+    ],
+    // [
+    //     'eventname' => '*',
+    //     'callback' => 'filter_autotranslate\observer::catch_all',
+    //     'priority' => 0,
+    //     'internal' => false,
+    // ]
 ];

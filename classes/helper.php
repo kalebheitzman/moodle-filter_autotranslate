@@ -264,4 +264,128 @@ class helper {
     public static function is_tagged($content) {
         return preg_match('/\{t:[a-zA-Z0-9]{10}\}(?:<\/p>)?/s', $content) === 1;
     }
+
+    /**
+     * Extract the hash from tagged content.
+     *
+     * @param string $content The content to parse
+     * @return string|null The extracted hash, or null if not found
+     */
+    public static function extract_hash($content) {
+        if (preg_match('/\{t:([a-zA-Z0-9]{10})\}$/', $content, $matches)) {
+            return $matches[1];
+        }
+        return null;
+    }
+
+    /**
+     * Updates the autotranslate_hid_cids table with the hash and courseid mapping.
+     *
+     * @param string $content The tagged content (containing the hash)
+     * @param int $courseid The courseid to map
+     */
+    public static function update_hash_course_mapping($content, $courseid) {
+        global $DB;
+
+        $hash = self::extract_hash($content);
+        if (!$hash || !$courseid) {
+            return;
+        }
+
+        $exists = $DB->record_exists('autotranslate_hid_cids', ['hash' => $hash, 'courseid' => $courseid]);
+        if (!$exists) {
+            try {
+                $DB->execute("INSERT INTO {autotranslate_hid_cids} (hash, courseid) VALUES (?, ?) 
+                            ON DUPLICATE KEY UPDATE hash = hash", [$hash, $courseid]);
+            } catch (\dml_exception $e) {
+                // Silent error handling
+            }
+        }
+    }
+
+    /**
+     * Create or update the source translation record in mdl_autotranslate_translations.
+     *
+     * @param string $content The tagged content (containing the hash)
+     * @param int $contextlevel The context level
+     */
+    public static function create_or_update_source_translation($content, $contextlevel) {
+        global $DB;
+
+        $hash = self::extract_hash($content);
+        if (!$hash) {
+            return;
+        }
+
+        // Extract the source text by removing the {t:hash} tag
+        $source_text = preg_replace('/\{t:[a-zA-Z0-9]{10}\}$/', '', $content);
+
+        // Check if a source translation record already exists
+        $existing = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => 'other']);
+        $current_time = time();
+
+        if ($existing) {
+            // Update the existing record
+            $existing->translated_text = $source_text;
+            $existing->contextlevel = $contextlevel;
+            $existing->timemodified = $current_time;
+            $existing->timereviewed = $existing->timereviewed == 0 ? $current_time : $existing->timereviewed;
+            $existing->human = 1; // Human-edited, as per observer requirement
+            $DB->update_record('autotranslate_translations', $existing);
+        } else {
+            // Create a new record
+            $record = new \stdClass();
+            $record->hash = $hash;
+            $record->lang = 'other';
+            $record->translated_text = $source_text;
+            $record->contextlevel = $contextlevel;
+            $record->timecreated = $current_time;
+            $record->timemodified = $current_time;
+            $record->timereviewed = $current_time;
+            $record->human = 1; // Human-edited, as per observer requirement
+            $DB->insert_record('autotranslate_translations', $record);
+        }
+    }
+
+    /**
+     * Mark translations as needing revision by updating timemodified and timereviewed.
+     *
+     * @param string $table Table name (e.g., 'course', 'course_sections', 'mod_*')
+     * @param int $instanceid Instance ID (e.g., course ID, section ID, module instance ID)
+     * @param array $fields Fields that were updated (e.g., ['name', 'intro'])
+     * @param \context $context Context object
+     */
+    public static function mark_translations_for_revision($table, $instanceid, $fields, $context) {
+        global $DB;
+
+        // Find all hashes associated with the updated fields
+        $hashes = [];
+        $record = $DB->get_record($table, ['id' => $instanceid], implode(',', $fields));
+        foreach ($fields as $field) {
+            if (empty($record->$field)) {
+                continue;
+            }
+
+            $content = $record->$field;
+            $hash = self::extract_hash($content);
+            if ($hash) {
+                $hashes[$hash] = true; // Use array to avoid duplicates
+            }
+        }
+
+        if (empty($hashes)) {
+            return;
+        }
+
+        // Update timemodified and timereviewed for all translations with these hashes
+        $placeholders = implode(',', array_fill(0, count($hashes), '?'));
+        $sql = "UPDATE {autotranslate_translations}
+                SET timemodified = ?,
+                    timereviewed = CASE WHEN timereviewed = 0 THEN ? ELSE timereviewed END
+                WHERE hash IN ($placeholders)
+                AND contextlevel = ?
+                AND lang != 'other'";
+        $params = array_merge([time(), time()], array_keys($hashes), [$context->contextlevel]);
+        $DB->execute($sql, $params);
+    }
 }
