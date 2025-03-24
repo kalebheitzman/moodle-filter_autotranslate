@@ -67,18 +67,18 @@ class text_filter extends \core_filters\text_filter {
             $allowhtml = !empty($options['noclean']) || ($this->context->contextlevel !== CONTEXT_COURSE && $this->context->contextlevel !== CONTEXT_MODULE);
 
             // Rewrite @@PLUGINFILE@@ URLs in the translated text
-            $fileparams = $this->get_file_params();
-            if ($fileparams) {
-                list($component, $filearea, $itemid) = $fileparams;
-                $display_text = file_rewrite_pluginfile_urls(
-                    $display_text,
-                    $filearea,
-                    $this->context->id,
-                    $component,
-                    $itemid,
-                    null
-                );
-            }
+            // $fileparams = $this->get_file_params();
+            // if ($fileparams) {
+            //     list($component, $filearea, $itemid) = $fileparams;
+            //     $display_text = \file_rewrite_pluginfile_urls(
+            //         $display_text,
+            //         $filearea,
+            //         $this->context->id,
+            //         $component,
+            //         $itemid,
+            //         null
+            //     );
+            // }
             
             $replacements[$fulltag] = $display_text . ($allowhtml ? $autotranslated_indicator : "");
         }

@@ -272,7 +272,8 @@ class helper {
      * @return string|null The extracted hash, or null if not found
      */
     public static function extract_hash($content) {
-        if (preg_match('/\{t:([a-zA-Z0-9]{10})\}$/', $content, $matches)) {
+        // Updated regex to handle trailing whitespace and HTML tags like </p>
+        if (preg_match('/\{t:([a-zA-Z0-9]{10})\}(?:\s*(?:<\/p>)?)?$/s', $content, $matches)) {
             return $matches[1];
         }
         return null;
@@ -318,7 +319,7 @@ class helper {
         }
 
         // Extract the source text by removing the {t:hash} tag
-        $source_text = preg_replace('/\{t:[a-zA-Z0-9]{10}\}$/', '', $content);
+        $source_text = preg_replace('/\{t:[a-zA-Z0-9]{10}\}(?:\s*(?:<\/p>)?)?$/s', '', $content);
 
         // Check if a source translation record already exists
         $existing = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => 'other']);

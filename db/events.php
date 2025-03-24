@@ -26,26 +26,56 @@ $observers = [
     [
         'eventname' => '\core\event\course_module_created',
         'callback' => 'filter_autotranslate\observer::course_module_created',
+        'priority' => 0,
+        'internal' => false,
     ],
     [
         'eventname' => '\core\event\course_module_updated',
         'callback' => 'filter_autotranslate\observer::course_module_updated',
+        'priority' => 0,
+        'internal' => false,
+    ],
+    [
+        'eventname' => '\core\event\course_module_deleted',
+        'callback' => 'filter_autotranslate\observer::course_module_deleted',
+        'priority' => 0,
+        'internal' => false,
     ],
     [
         'eventname' => '\core\event\course_created',
         'callback' => 'filter_autotranslate\observer::course_created',
+        'priority' => 0,
+        'internal' => false,
     ],
     [
         'eventname' => '\core\event\course_updated',
         'callback' => 'filter_autotranslate\observer::course_updated',
+        'priority' => 0,
+        'internal' => false,
+    ],
+    [
+        'eventname' => '\core\event\course_deleted',
+        'callback' => 'filter_autotranslate\observer::course_deleted',
+        'priority' => 0,
+        'internal' => false,
     ],
     [
         'eventname' => '\core\event\course_section_created',
         'callback' => 'filter_autotranslate\observer::course_section_created',
+        'priority' => 0,
+        'internal' => false,
     ],
     [
         'eventname' => '\core\event\course_section_updated',
         'callback' => 'filter_autotranslate\observer::course_section_updated',
+        'priority' => 0,
+        'internal' => false,
+    ],
+    [
+        'eventname' => '\core\event\course_section_deleted',
+        'callback' => 'filter_autotranslate\observer::course_section_deleted',
+        'priority' => 0,
+        'internal' => false,
     ],
     // [
     //     'eventname' => '*',
