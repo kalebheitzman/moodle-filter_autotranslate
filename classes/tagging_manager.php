@@ -164,17 +164,17 @@ class tagging_manager {
                 continue;
             }
 
+            // Always tag the content, even if the hash exists
             $taggedcontent = helper::process_mlang_tags($content, $context);
             if ($taggedcontent === $content) {
                 $taggedcontent = helper::tag_content($content, $context);
             }
 
-            if ($taggedcontent !== $content) {
-                $record->$field = $taggedcontent;
-                helper::update_hash_course_mapping($taggedcontent, $courseid);
-                helper::create_or_update_source_translation($taggedcontent, $context->contextlevel);
-                $updated = true;
-            }
+            // Ensure the content is updated if it doesn’t have a tag
+            $record->$field = $taggedcontent;
+            helper::update_hash_course_mapping($taggedcontent, $courseid);
+            helper::create_or_update_source_translation($taggedcontent, $context->contextlevel);
+            $updated = true;
         }
 
         if ($updated) {
@@ -194,12 +194,12 @@ class tagging_manager {
      * @param string $secondary_table Secondary table name (e.g., 'book_chapters')
      * @param string $field Field to fetch from the secondary table
      * @param string $primary_table Primary table name (e.g., 'book')
-     * @param int $primary_instanceid Primary instance ID (e.g., book ID)
+     * @param int $primary_instanceid Primary instance ID (e.g., book ID), 0 to fetch all
      * @param array $relationship Relationship details from tagging_config
      * @param bool $include_course_modules Whether to include JOIN with course_modules (for create/update events)
      * @return array [SQL query, parameters]
      */
-    private static function build_secondary_table_query($secondary_table, $field, $primary_table, $primary_instanceid, $relationship, $include_course_modules = true) {
+    public static function build_secondary_table_query($secondary_table, $field, $primary_table, $primary_instanceid, $relationship, $include_course_modules = true) {
         $fk = $relationship['fk'];
         $parent_table = $relationship['parent_table'];
         $parent_fk = $relationship['parent_fk'];
@@ -207,7 +207,7 @@ class tagging_manager {
         $grandparent_fk = $relationship['grandparent_fk'];
 
         if ($secondary_table === 'question') {
-            $sql = "SELECT s.id AS instanceid, s.$field AS content" . ($include_course_modules ? ", cm.course, p.id AS primary_instanceid, cm.id AS cmid" : "") . "
+            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
                     FROM {{$secondary_table}} s
                     JOIN {question_versions} qv ON qv.questionid = s.id
                     JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
@@ -218,16 +218,21 @@ class tagging_manager {
                 $sql .= " JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                           JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel";
             }
-            $sql .= " WHERE p.id = :instanceid
-                      AND s.$field IS NOT NULL OR s.$field != ''";
+            $sql .= " WHERE s.$field IS NOT NULL AND s.$field != ''";
             if ($include_course_modules) {
                 $sql .= " AND qr.usingcontextid = ctx.id
                           AND qr.component = 'mod_quiz'
                           AND qr.questionarea = 'slot'";
             }
-            $params = $include_course_modules ? ['modulename' => $primary_table, 'contextlevel' => CONTEXT_MODULE, 'instanceid' => $primary_instanceid] : ['instanceid' => $primary_instanceid];
+            if ($primary_instanceid > 0) {
+                $sql .= " AND p.id = :instanceid";
+            }
+            $params = $include_course_modules ? ['modulename' => $primary_table, 'contextlevel' => CONTEXT_MODULE] : [];
+            if ($primary_instanceid > 0) {
+                $params['instanceid'] = $primary_instanceid;
+            }
         } elseif ($secondary_table === 'question_answers') {
-            $sql = "SELECT s.id AS instanceid, s.$field AS content" . ($include_course_modules ? ", cm.course, p.id AS primary_instanceid, cm.id AS cmid" : "") . "
+            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
                     FROM {{$secondary_table}} s
                     JOIN {{$parent_table}} pt ON s.question = pt.id
                     JOIN {question_versions} qv ON qv.questionid = pt.id
@@ -239,16 +244,21 @@ class tagging_manager {
                 $sql .= " JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                           JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel";
             }
-            $sql .= " WHERE p.id = :instanceid
-                      AND s.$field IS NOT NULL OR s.$field != ''";
+            $sql .= " WHERE s.$field IS NOT NULL AND s.$field != ''";
             if ($include_course_modules) {
                 $sql .= " AND qr.usingcontextid = ctx.id
                           AND qr.component = 'mod_quiz'
                           AND qr.questionarea = 'slot'";
             }
-            $params = $include_course_modules ? ['modulename' => $primary_table, 'contextlevel' => CONTEXT_MODULE, 'instanceid' => $primary_instanceid] : ['instanceid' => $primary_instanceid];
+            if ($primary_instanceid > 0) {
+                $sql .= " AND p.id = :instanceid";
+            }
+            $params = $include_course_modules ? ['modulename' => $primary_table, 'contextlevel' => CONTEXT_MODULE] : [];
+            if ($primary_instanceid > 0) {
+                $params['instanceid'] = $primary_instanceid;
+            }
         } elseif ($secondary_table === 'question_categories') {
-            $sql = "SELECT s.id AS instanceid, s.$field AS content" . ($include_course_modules ? ", cm.course, p.id AS primary_instanceid, cm.id AS cmid" : "") . "
+            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
                     FROM {{$secondary_table}} s
                     JOIN {question_bank_entries} qbe ON qbe.questioncategoryid = s.id
                     JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
@@ -258,16 +268,21 @@ class tagging_manager {
                 $sql .= " JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                           JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel";
             }
-            $sql .= " WHERE p.id = :instanceid
-                      AND s.$field IS NOT NULL OR s.$field != ''";
+            $sql .= " WHERE s.$field IS NOT NULL AND s.$field != ''";
             if ($include_course_modules) {
                 $sql .= " AND qr.usingcontextid = ctx.id
                           AND qr.component = 'mod_quiz'
                           AND qr.questionarea = 'slot'";
             }
-            $params = $include_course_modules ? ['modulename' => $primary_table, 'contextlevel' => CONTEXT_MODULE, 'instanceid' => $primary_instanceid] : ['instanceid' => $primary_instanceid];
+            if ($primary_instanceid > 0) {
+                $sql .= " AND p.id = :instanceid";
+            }
+            $params = $include_course_modules ? ['modulename' => $primary_table, 'contextlevel' => CONTEXT_MODULE] : [];
+            if ($primary_instanceid > 0) {
+                $params['instanceid'] = $primary_instanceid;
+            }
         } else {
-            $sql = "SELECT s.id AS instanceid, s.$field AS content" . ($include_course_modules ? ", cm.course, p.id AS primary_instanceid, cm.id AS cmid" : "") . "
+            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
                     FROM {{$secondary_table}} s";
             if ($grandparent_table) {
                 $sql .= " JOIN {{$parent_table}} pt ON s.$fk = pt.id
@@ -282,9 +297,14 @@ class tagging_manager {
             if ($include_course_modules) {
                 $sql .= " JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)";
             }
-            $sql .= " WHERE p.id = :instanceid
-                      AND s.$field IS NOT NULL OR s.$field != ''";
-            $params = $include_course_modules ? ['modulename' => $primary_table, 'instanceid' => $primary_instanceid] : ['instanceid' => $primary_instanceid];
+            $sql .= " WHERE s.$field IS NOT NULL AND s.$field != ''";
+            if ($primary_instanceid > 0) {
+                $sql .= " AND p.id = :instanceid";
+            }
+            $params = $include_course_modules ? ['modulename' => $primary_table] : [];
+            if ($primary_instanceid > 0) {
+                $params['instanceid'] = $primary_instanceid;
+            }
         }
 
         return [$sql, $params];

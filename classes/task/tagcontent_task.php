@@ -160,10 +160,22 @@ class tagcontent_task extends scheduled_task {
                             }
 
                             foreach ($records as $record) {
+                                if (!isset($record->instanceid)) {
+                                    mtrace("Error: Record missing instanceid for table $table, field $field: " . json_encode($record));
+                                    continue;
+                                }
+                                $record->id = $record->instanceid;
+                                unset($record->instanceid);
+                                $record->$field = $record->content;
+                                unset($record->content);
+                                if (!isset($record->id)) {
+                                    mtrace("Error: Record missing id field after renaming for table $table, field $field");
+                                    continue;
+                                }
                                 $updated = \filter_autotranslate\tagging_manager::tag_fields($table, $record, [$field], $context, $record->course);
                                 if ($updated) {
-                                    mtrace("Tagged content in table $table, field $field, instanceid {$record->instanceid}: " . substr($record->$field, 0, 50) . "...");
-                                    \filter_autotranslate\helper::mark_translations_for_revision($table, $record->instanceid, [$field], $context);
+                                    mtrace("Tagged content in table $table, field $field, instanceid {$record->id}: " . substr($record->$field, 0, 50) . "...");
+                                    \filter_autotranslate\helper::mark_translations_for_revision($table, $record->id, [$field], $context);
                                 }
                             }
 
@@ -180,119 +192,215 @@ class tagcontent_task extends scheduled_task {
                     $secondary_tables = \filter_autotranslate\tagging_manager::get_secondary_tables($table, $ctx);
                     foreach ($secondary_tables as $secondary_table => $secondary_fields) {
                         mtrace("Processing table: $secondary_table, Fields: " . implode(', ', $secondary_fields));
-                        foreach ($secondary_fields as $field) {
-                            $offset = 0;
-                            do {
-                                try {
-                                    $relationship = \filter_autotranslate\tagging_config::get_relationship_details($secondary_table);
-                                    $fk = $relationship['fk'];
-                                    $parent_table = $relationship['parent_table'];
-                                    $parent_fk = $relationship['parent_fk'];
-                                    $grandparent_table = $relationship['grandparent_table'];
-                                    $grandparent_fk = $relationship['grandparent_fk'];
+                        $offset = 0;
+                        do {
+                            try {
+                                $relationship = \filter_autotranslate\tagging_config::get_relationship_details($secondary_table);
+                                $fk = $relationship['fk'];
+                                $parent_table = $relationship['parent_table'];
+                                $parent_fk = $relationship['parent_fk'];
+                                $grandparent_table = $relationship['grandparent_table'];
+                                $grandparent_fk = $relationship['grandparent_fk'];
 
-                                    if ($secondary_table === 'question') {
-                                        $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                // Fetch instance IDs to process
+                                if ($secondary_table === 'question') {
+                                    $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                            FROM {{$secondary_table}} s
+                                            JOIN {question_versions} qv ON qv.questionid = s.id
+                                            JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
+                                            JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
+                                            JOIN {{$parent_table}} pt ON pt.id = qr.itemid
+                                            JOIN {{$table}} p ON p.id = pt.quizid
+                                            JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                            JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
+                                            WHERE qr.usingcontextid = ctx.id
+                                            AND qr.component = 'mod_quiz'
+                                            AND qr.questionarea = 'slot'";
+                                    $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE];
+                                } elseif ($secondary_table === 'question_answers') {
+                                    $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                            FROM {{$secondary_table}} s
+                                            JOIN {{$parent_table}} pt ON s.question = pt.id
+                                            JOIN {question_versions} qv ON qv.questionid = pt.id
+                                            JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
+                                            JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
+                                            JOIN {{$grandparent_table}} gpt ON gpt.id = qr.itemid
+                                            JOIN {{$table}} p ON p.id = gpt.quizid
+                                            JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                            JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
+                                            WHERE qr.usingcontextid = ctx.id
+                                            AND qr.component = 'mod_quiz'
+                                            AND qr.questionarea = 'slot'";
+                                    $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE];
+                                } elseif ($secondary_table === 'question_categories') {
+                                    $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                            FROM {{$secondary_table}} s
+                                            JOIN {question_bank_entries} qbe ON qbe.questioncategoryid = s.id
+                                            JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
+                                            JOIN {{$grandparent_table}} gpt ON gpt.id = qr.itemid
+                                            JOIN {{$table}} p ON p.id = gpt.quizid
+                                            JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                            JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
+                                            WHERE qr.usingcontextid = ctx.id
+                                            AND qr.component = 'mod_quiz'
+                                            AND qr.questionarea = 'slot'";
+                                    $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE];
+                                } else {
+                                    if ($grandparent_table) {
+                                        $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id AS primary_instanceid, cm.id AS cmid
                                                 FROM {{$secondary_table}} s
-                                                JOIN {question_versions} qv ON qv.questionid = s.id
-                                                JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
-                                                JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
-                                                JOIN {{$parent_table}} pt ON pt.id = qr.itemid
-                                                JOIN {{$table}} p ON p.id = pt.quizid
-                                                JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                                JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
-                                                WHERE s.$field IS NOT NULL OR s.$field != ''
-                                                AND qr.usingcontextid = ctx.id
-                                                AND qr.component = 'mod_quiz'
-                                                AND qr.questionarea = 'slot'";
-                                        $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE];
-                                    } elseif ($secondary_table === 'question_answers') {
-                                        $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                                JOIN {{$parent_table}} pt ON s.$fk = pt.id
+                                                JOIN {{$grandparent_table}} gpt ON pt.$parent_fk = gpt.id
+                                                JOIN {{$table}} p ON p.id = gpt.$grandparent_fk
+                                                JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)";
+                                    } elseif ($parent_table) {
+                                        $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id AS primary_instanceid, cm.id AS cmid
                                                 FROM {{$secondary_table}} s
-                                                JOIN {{$parent_table}} pt ON s.question = pt.id
-                                                JOIN {question_versions} qv ON qv.questionid = pt.id
-                                                JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
-                                                JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
-                                                JOIN {{$grandparent_table}} gpt ON gpt.id = qr.itemid
-                                                JOIN {{$table}} p ON p.id = gpt.quizid
-                                                JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                                JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
-                                                WHERE s.$field IS NOT NULL OR s.$field != ''
-                                                AND qr.usingcontextid = ctx.id
-                                                AND qr.component = 'mod_quiz'
-                                                AND qr.questionarea = 'slot'";
-                                        $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE];
-                                    } elseif ($secondary_table === 'question_categories') {
-                                        $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
-                                                FROM {{$secondary_table}} s
-                                                JOIN {question_bank_entries} qbe ON qbe.questioncategoryid = s.id
-                                                JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
-                                                JOIN {{$grandparent_table}} gpt ON gpt.id = qr.itemid
-                                                JOIN {{$table}} p ON p.id = gpt.quizid
-                                                JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                                JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
-                                                WHERE s.$field IS NOT NULL OR s.$field != ''
-                                                AND qr.usingcontextid = ctx.id
-                                                AND qr.component = 'mod_quiz'
-                                                AND qr.questionarea = 'slot'";
-                                        $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE];
+                                                JOIN {{$parent_table}} pt ON s.$fk = pt.id
+                                                JOIN {{$table}} p ON p.id = pt.$parent_fk
+                                                JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)";
                                     } else {
-                                        if ($grandparent_table) {
-                                            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
-                                                    FROM {{$secondary_table}} s
-                                                    JOIN {{$parent_table}} pt ON s.$fk = pt.id
-                                                    JOIN {{$grandparent_table}} gpt ON pt.$parent_fk = gpt.id
-                                                    JOIN {{$table}} p ON p.id = gpt.$grandparent_fk
-                                                    JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                                    WHERE s.$field IS NOT NULL OR s.$field != ''";
-                                        } elseif ($parent_table) {
-                                            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
-                                                    FROM {{$secondary_table}} s
-                                                    JOIN {{$parent_table}} pt ON s.$fk = pt.id
-                                                    JOIN {{$table}} p ON p.id = pt.$parent_fk
-                                                    JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                                    WHERE s.$field IS NOT NULL OR s.$field != ''";
-                                        } else {
-                                            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
-                                                    FROM {{$secondary_table}} s
-                                                    JOIN {{$table}} p ON p.id = s.$fk
-                                                    JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                                    WHERE s.$field IS NOT NULL OR s.$field != ''";
-                                        }
-                                        $params = ['modulename' => $table];
+                                        $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                                FROM {{$secondary_table}} s
+                                                JOIN {{$table}} p ON p.id = s.$fk
+                                                JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)";
                                     }
-
-                                    $records = $DB->get_records_sql($sql, $params, $offset, $batchsize);
-                                    $count = count($records);
-                                    $total_entries_checked += $count;
-
-                                    if ($count > 0) {
-                                        $firstrecord = reset($records);
-                                        $context = null;
-                                        if (isset($firstrecord->cmid)) {
-                                            $context = \context_module::instance($firstrecord->cmid);
-                                        } else {
-                                            $context = \context_system::instance(); // Fallback
-                                        }
-                                    } else {
-                                        $context = \context_system::instance(); // Fallback for no records
-                                    }
-
-                                    foreach ($records as $record) {
-                                        $updated = \filter_autotranslate\tagging_manager::tag_fields($secondary_table, $record, [$field], $context, $record->course);
-                                        if ($updated) {
-                                            mtrace("Tagged content in table $secondary_table, field $field, instanceid {$record->instanceid}: " . substr($record->$field, 0, 50) . "...");
-                                            \filter_autotranslate\helper::mark_translations_for_revision($secondary_table, $record->instanceid, [$field], $context);
-                                        }
-                                    }
-
-                                    $offset += $batchsize;
-                                } catch (\dml_exception $e) {
-                                    mtrace("Error executing query for table $secondary_table, field $field: " . $e->getMessage());
-                                    break;
+                                    $params = ['modulename' => $table];
                                 }
-                            } while ($count >= $batchsize);
-                        }
+
+                                $records = $DB->get_records_sql($sql, $params, $offset, $batchsize);
+                                $count = count($records);
+                                $total_entries_checked += $count;
+
+                                if ($count > 0) {
+                                    $firstrecord = reset($records);
+                                    $context = null;
+                                    if (isset($firstrecord->cmid)) {
+                                        $context = \context_module::instance($firstrecord->cmid);
+                                    } else {
+                                        $context = \context_system::instance(); // Fallback
+                                    }
+                                } else {
+                                    $context = \context_system::instance(); // Fallback for no records
+                                }
+
+                                foreach ($records as $record) {
+                                    if (!isset($record->instanceid)) {
+                                        mtrace("Error: Secondary record missing instanceid for table $secondary_table: " . json_encode($record));
+                                        continue;
+                                    }
+                                    $instanceid = $record->instanceid;
+                                    $course = $record->course;
+                                    $cmid = isset($record->cmid) ? $record->cmid : null;
+                                    $primary_instanceid = $record->primary_instanceid;
+
+                                    // Process each field for this instance
+                                    foreach ($secondary_fields as $field) {
+                                        // Fetch the record for this specific field
+                                        if ($secondary_table === 'question') {
+                                            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                                    FROM {{$secondary_table}} s
+                                                    JOIN {question_versions} qv ON qv.questionid = s.id
+                                                    JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
+                                                    JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
+                                                    JOIN {{$parent_table}} pt ON pt.id = qr.itemid
+                                                    JOIN {{$table}} p ON p.id = pt.quizid
+                                                    JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                                    JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
+                                                    WHERE s.id = :instanceid
+                                                    AND s.$field IS NOT NULL AND s.$field != ''
+                                                    AND qr.usingcontextid = ctx.id
+                                                    AND qr.component = 'mod_quiz'
+                                                    AND qr.questionarea = 'slot'";
+                                            $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE, 'instanceid' => $instanceid];
+                                        } elseif ($secondary_table === 'question_answers') {
+                                            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                                    FROM {{$secondary_table}} s
+                                                    JOIN {{$parent_table}} pt ON s.question = pt.id
+                                                    JOIN {question_versions} qv ON qv.questionid = pt.id
+                                                    JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
+                                                    JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
+                                                    JOIN {{$grandparent_table}} gpt ON gpt.id = qr.itemid
+                                                    JOIN {{$table}} p ON p.id = gpt.quizid
+                                                    JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                                    JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
+                                                    WHERE s.id = :instanceid
+                                                    AND s.$field IS NOT NULL AND s.$field != ''
+                                                    AND qr.usingcontextid = ctx.id
+                                                    AND qr.component = 'mod_quiz'
+                                                    AND qr.questionarea = 'slot'";
+                                            $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE, 'instanceid' => $instanceid];
+                                        } elseif ($secondary_table === 'question_categories') {
+                                            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                                    FROM {{$secondary_table}} s
+                                                    JOIN {question_bank_entries} qbe ON qbe.questioncategoryid = s.id
+                                                    JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
+                                                    JOIN {{$grandparent_table}} gpt ON gpt.id = qr.itemid
+                                                    JOIN {{$table}} p ON p.id = gpt.quizid
+                                                    JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                                    JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
+                                                    WHERE s.id = :instanceid
+                                                    AND s.$field IS NOT NULL AND s.$field != ''
+                                                    AND qr.usingcontextid = ctx.id
+                                                    AND qr.component = 'mod_quiz'
+                                                    AND qr.questionarea = 'slot'";
+                                            $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE, 'instanceid' => $instanceid];
+                                        } else {
+                                            if ($grandparent_table) {
+                                                $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                                        FROM {{$secondary_table}} s
+                                                        JOIN {{$parent_table}} pt ON s.$fk = pt.id
+                                                        JOIN {{$grandparent_table}} gpt ON pt.$parent_fk = gpt.id
+                                                        JOIN {{$table}} p ON p.id = gpt.$grandparent_fk
+                                                        JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                                        WHERE s.id = :instanceid
+                                                        AND s.$field IS NOT NULL AND s.$field != ''";
+                                            } elseif ($parent_table) {
+                                                $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                                        FROM {{$secondary_table}} s
+                                                        JOIN {{$parent_table}} pt ON s.$fk = pt.id
+                                                        JOIN {{$table}} p ON p.id = pt.$parent_fk
+                                                        JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                                        WHERE s.id = :instanceid
+                                                        AND s.$field IS NOT NULL AND s.$field != ''";
+                                            } else {
+                                                $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                                        FROM {{$secondary_table}} s
+                                                        JOIN {{$table}} p ON p.id = s.$fk
+                                                        JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                                        WHERE s.id = :instanceid
+                                                        AND s.$field IS NOT NULL AND s.$field != ''";
+                                            }
+                                            $params = ['modulename' => $table, 'instanceid' => $instanceid];
+                                        }
+
+                                        $field_record = $DB->get_record_sql($sql, $params);
+                                        if (!$field_record) {
+                                            continue; // Skip if no record found for this field
+                                        }
+
+                                        $field_record->id = $field_record->instanceid;
+                                        unset($field_record->instanceid);
+                                        $field_record->$field = $field_record->content;
+                                        unset($field_record->content);
+                                        if (!isset($field_record->id)) {
+                                            mtrace("Error: Secondary record missing id field after renaming for table $secondary_table, field $field");
+                                            continue;
+                                        }
+                                        $updated = \filter_autotranslate\tagging_manager::tag_fields($secondary_table, $field_record, [$field], $context, $field_record->course);
+                                        if ($updated) {
+                                            mtrace("Tagged content in table $secondary_table, field $field, instanceid {$field_record->id}: " . substr($field_record->$field, 0, 50) . "...");
+                                            \filter_autotranslate\helper::mark_translations_for_revision($secondary_table, $field_record->id, [$field], $context);
+                                        }
+                                    }
+                                }
+
+                                $offset += $batchsize;
+                            } catch (\dml_exception $e) {
+                                mtrace("Error executing query for table $secondary_table: " . $e->getMessage());
+                                break;
+                            }
+                        } while ($count >= $batchsize);
                     }
                 }
             }
