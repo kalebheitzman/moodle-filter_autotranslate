@@ -24,12 +24,38 @@ namespace filter_autotranslate;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Utility class providing helper functions for the filter_autotranslate plugin.
+ *
+ * Purpose:
+ * This class contains pure utility functions for string manipulation, hash generation,
+ * tag detection, and MLang tag processing. It is designed to handle common operations
+ * that do not involve database interactions, ensuring a clear separation of concerns.
+ * Database operations (e.g., storing translations, updating hash-course mappings) are
+ * handled by dedicated service classes (tagging_service.php, translation_service.php).
+ *
+ * Design Decisions:
+ * - Focuses on utility functions only, with no database operations, to adhere to the
+ *   principle of separation of concerns.
+ * - Function names use snake_case (e.g., generate_unique_hash) to follow Moodle's coding style.
+ * - The process_mlang_tags function no longer performs database writes; it returns processed
+ *   data for the caller to handle (e.g., tagging_service.php inserts translations).
+ * - Functions are designed to be reusable across the plugin (e.g., by tagcontent_task.php,
+ *   text_filter.php, and service classes).
+ *
+ * Dependencies:
+ * - None (pure utility functions).
+ */
 class helper {
+
     /**
-     * Generate a unique 10-character alphanumeric hash.
+     * Generates a unique 10-character alphanumeric hash.
      *
-     * @return string
-     * @throws \Exception
+     * This function creates a random hash to be used in {t:hash} tags for tagging content.
+     * The hash is checked against the autotranslate_translations table to ensure uniqueness.
+     *
+     * @return string A unique 10-character hash.
+     * @throws \Exception If a unique hash cannot be generated after 100 attempts.
      */
     public static function generate_unique_hash() {
         global $DB;
@@ -55,15 +81,21 @@ class helper {
     }
 
     /**
-     * Process both {mlang} and <span lang="xx" class="multilang"> tags in content and store translations.
+     * Processes {mlang} and <span lang="xx" class="multilang"> tags in content.
      *
-     * @param string $text Content to process
-     * @param \context $context Context object
-     * @return string Tagged content
+     * This function extracts translations from MLang tags ({mlang xx}...{mlang}) and
+     * <span lang="xx" class="multilang"> tags, returning the source text, display text,
+     * and translations. It no longer performs database operations; the caller (e.g., tagging_service.php)
+     * is responsible for storing translations.
+     *
+     * @param string $text The content to process.
+     * @param \context $context The context object (used for contextlevel in translations).
+     * @return array An array containing:
+     *               - 'source_text': The extracted source text (site language or 'other').
+     *               - 'display_text': The text to display (preserving HTML structure).
+     *               - 'translations': An array of translations (lang => text).
      */
     public static function process_mlang_tags($text, $context) {
-        global $DB;
-
         $sitelang = get_config('core', 'lang') ?: 'en';
         // Get the list of installed language packs
         $installed_langs = array_keys(get_string_manager()->get_list_of_translations());
@@ -77,10 +109,10 @@ class helper {
         $display_text = ''; // To preserve HTML structure
         $first_content = null; // Store the first language content as a fallback
 
-        // First, process old-style <span lang="xx" class="multilang"> tags
+        // Process old-style <span lang="xx" class="multilang"> tags
         $text = self::process_span_multilang_tags($text, $context, $translations, $display_text, $valid_langs, $first_content, $source_text);
 
-        // Then, process new-style {mlang xx}...{mlang} tags
+        // Process new-style {mlang xx}...{mlang} tags
         if (preg_match_all('/{mlang\s+([\w]+)}(.+?)(?:{mlang}|$)/s', $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $lang = trim($match[1]);
@@ -119,57 +151,28 @@ class helper {
             $display_text = $first_content;
         }
 
-        if (!empty($source_text)) {
-            $params = ['lang' => 'other', 'text' => $source_text];
-            $sql = "SELECT hash FROM {autotranslate_translations} WHERE lang = :lang AND " . $DB->sql_compare_text('translated_text') . " = " . $DB->sql_compare_text(':text');
-            $existing = $DB->get_record_sql($sql, $params, IGNORE_MULTIPLE);
-
-            $hash = $existing ? $existing->hash : static::generate_unique_hash();
-
-            if (!$existing) {
-                $record = new \stdClass();
-                $record->hash = $hash;
-                $record->lang = 'other';
-                $record->translated_text = $source_text;
-                $record->contextlevel = $context->contextlevel;
-                $record->timecreated = time();
-                $record->timemodified = time();
-                $record->timereviewed = time();
-                $record->human = 1;
-
-                $DB->insert_record('autotranslate_translations', $record);
-
-                foreach ($translations as $lang => $translated_text) {
-                    $trans_record = new \stdClass();
-                    $trans_record->hash = $hash;
-                    $trans_record->lang = $lang;
-                    $trans_record->translated_text = $translated_text;
-                    $trans_record->contextlevel = $context->contextlevel;
-                    $trans_record->timecreated = time();
-                    $trans_record->timemodified = time();
-                    $trans_record->timereviewed = time();
-                    $trans_record->human = 1;
-                    $DB->insert_record('autotranslate_translations', $trans_record);
-                }
-            }
-
-            return $display_text . " {t:$hash}";
-        }
-
-        return $text;
+        return [
+            'source_text' => $source_text,
+            'display_text' => $display_text,
+            'translations' => $translations,
+        ];
     }
 
     /**
-     * Process old-style <span lang="xx" class="multilang"> tags in content and extract translations.
+     * Processes old-style <span lang="xx" class="multilang"> tags in content.
      *
-     * @param string $text Content to process
-     * @param \context $context Context object
-     * @param array &$translations Array to store translations for other languages
-     * @param string &$outside_text String to store text outside of multilang tags
-     * @param array $valid_langs List of valid language codes
-     * @param string|null &$first_content First language content as a fallback
-     * @param string &$source_text Source text for translation
-     * @return string The processed content (site language content or original content if no tags)
+     * This function extracts translations from <span lang="xx" class="multilang"> tags,
+     * returning the display text while populating the translations array. It is a helper
+     * function for process_mlang_tags and does not interact with the database.
+     *
+     * @param string $text The content to process.
+     * @param \context $context The context object (used for contextlevel in translations).
+     * @param array &$translations Array to store translations for other languages.
+     * @param string &$outside_text String to store text outside of multilang tags.
+     * @param array $valid_langs List of valid language codes.
+     * @param string|null &$first_content First language content as a fallback.
+     * @param string &$source_text Source text for translation.
+     * @return string The processed content (site language content or original content if no tags).
      */
     public static function process_span_multilang_tags($text, $context, &$translations, &$outside_text, $valid_langs, &$first_content, &$source_text) {
         $sitelang = get_config('core', 'lang') ?: 'en';
@@ -222,11 +225,16 @@ class helper {
     }
 
     /**
-     * Tag content with a hash if untagged.
+     * Tags content with a hash if untagged.
      *
-     * @param string $text Content to tag
-     * @param \context $context Context object
-     * @return string Tagged content
+     * This function checks if the content already has a hash in autotranslate_translations,
+     * reusing the existing hash for identical strings (after trimming). If no hash exists,
+     * it generates a new one using generate_unique_hash. It no longer performs database
+     * operations; the caller (e.g., tagging_service.php) is responsible for storing the hash.
+     *
+     * @param string $text The content to tag.
+     * @param \context $context The context object (used for contextlevel in translations).
+     * @return string The tagged content with a {t:hash} tag.
      */
     public static function tag_content($text, $context) {
         global $DB;
@@ -238,41 +246,32 @@ class helper {
 
         $hash = $existing ? $existing->hash : static::generate_unique_hash();
 
-        if (!$existing) {
-            $record = new \stdClass();
-            $record->hash = $hash;
-            $record->lang = 'other';
-            $record->translated_text = $content;
-            $record->contextlevel = $context->contextlevel;
-            $record->timecreated = time();
-            $record->timemodified = time();
-            $record->timereviewed = time();
-            $record->human = 1;
-
-            $DB->insert_record('autotranslate_translations', $record);
-        }
-
         return $content . " {t:$hash}";
     }
 
     /**
-     * Check if content is already tagged.
+     * Checks if content is already tagged with a {t:hash} tag.
      *
-     * @param string $content Content to check
-     * @return bool
+     * This function uses a regular expression to detect the presence of a {t:hash} tag,
+     * allowing for optional trailing HTML tags like </p>.
+     *
+     * @param string $content The content to check.
+     * @return bool True if the content is tagged, false otherwise.
      */
     public static function is_tagged($content) {
         return preg_match('/\{t:[a-zA-Z0-9]{10}\}(?:<\/p>)?/s', $content) === 1;
     }
 
     /**
-     * Extract the hash from tagged content.
+     * Extracts the hash from tagged content.
      *
-     * @param string $content The content to parse
-     * @return string|null The extracted hash, or null if not found
+     * This function uses a regular expression to extract the 10-character hash from a {t:hash} tag,
+     * handling cases where the tag may be followed by whitespace or HTML tags like </p>.
+     *
+     * @param string $content The content to parse.
+     * @return string|null The extracted hash, or null if not found.
      */
     public static function extract_hash($content) {
-        // Updated regex to handle trailing whitespace and HTML tags like </p>
         if (preg_match('/\{t:([a-zA-Z0-9]{10})\}(?:\s*(?:<\/p>)?)?$/s', $content, $matches)) {
             return $matches[1];
         }
@@ -280,113 +279,26 @@ class helper {
     }
 
     /**
-     * Updates the autotranslate_hid_cids table with the hash and courseid mapping.
+     * Checks if a language is right-to-left (RTL).
      *
-     * @param string $content The tagged content (containing the hash)
-     * @param int $courseid The courseid to map
-     */
-    public static function update_hash_course_mapping($content, $courseid) {
-        global $DB;
-
-        $hash = self::extract_hash($content);
-        if (!$hash || !$courseid) {
-            return;
-        }
-
-        $exists = $DB->record_exists('autotranslate_hid_cids', ['hash' => $hash, 'courseid' => $courseid]);
-        if (!$exists) {
-            try {
-                $DB->execute("INSERT INTO {autotranslate_hid_cids} (hash, courseid) VALUES (?, ?) 
-                            ON DUPLICATE KEY UPDATE hash = hash", [$hash, $courseid]);
-            } catch (\dml_exception $e) {
-                // Silent error handling
-            }
-        }
-    }
-
-    /**
-     * Create or update the source translation record in mdl_autotranslate_translations.
+     * This function determines if a given language code corresponds to a right-to-left language,
+     * such as Arabic or Hebrew, to apply appropriate text direction and alignment in the UI.
      *
-     * @param string $content The tagged content (containing the hash)
-     * @param int $contextlevel The context level
+     * @param string $lang The language code (e.g., 'en', 'ar', 'he').
+     * @return bool True if the language is RTL, false otherwise.
      */
-    public static function create_or_update_source_translation($content, $contextlevel) {
-        global $DB;
+    public static function is_rtl_language($lang) {
+        // List of known RTL languages in Moodle
+        $rtl_languages = ['ar', 'he', 'fa', 'ur']; // Arabic, Hebrew, Persian, Urdu
 
-        $hash = self::extract_hash($content);
-        if (!$hash) {
-            return;
+        // Check if the language is in the RTL list
+        if (in_array($lang, $rtl_languages)) {
+            return true;
         }
 
-        // Extract the source text by removing the {t:hash} tag
-        $source_text = preg_replace('/\{t:[a-zA-Z0-9]{10}\}(?:\s*(?:<\/p>)?)?$/s', '', $content);
-
-        // Check if a source translation record already exists
-        $existing = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => 'other']);
-        $current_time = time();
-
-        if ($existing) {
-            // Update the existing record
-            $existing->translated_text = $source_text;
-            $existing->contextlevel = $contextlevel;
-            $existing->timemodified = $current_time;
-            $existing->timereviewed = $existing->timereviewed == 0 ? $current_time : $existing->timereviewed;
-            $existing->human = 1; // Human-edited, as per observer requirement
-            $DB->update_record('autotranslate_translations', $existing);
-        } else {
-            // Create a new record
-            $record = new \stdClass();
-            $record->hash = $hash;
-            $record->lang = 'other';
-            $record->translated_text = $source_text;
-            $record->contextlevel = $contextlevel;
-            $record->timecreated = $current_time;
-            $record->timemodified = $current_time;
-            $record->timereviewed = $current_time;
-            $record->human = 1; // Human-edited, as per observer requirement
-            $DB->insert_record('autotranslate_translations', $record);
-        }
-    }
-
-    /**
-     * Mark translations as needing revision by updating timemodified and timereviewed.
-     *
-     * @param string $table Table name (e.g., 'course', 'course_sections', 'mod_*')
-     * @param int $instanceid Instance ID (e.g., course ID, section ID, module instance ID)
-     * @param array $fields Fields that were updated (e.g., ['name', 'intro'])
-     * @param \context $context Context object
-     */
-    public static function mark_translations_for_revision($table, $instanceid, $fields, $context) {
-        global $DB;
-
-        // Find all hashes associated with the updated fields
-        $hashes = [];
-        $record = $DB->get_record($table, ['id' => $instanceid], implode(',', $fields));
-        foreach ($fields as $field) {
-            if (empty($record->$field)) {
-                continue;
-            }
-
-            $content = $record->$field;
-            $hash = self::extract_hash($content);
-            if ($hash) {
-                $hashes[$hash] = true; // Use array to avoid duplicates
-            }
-        }
-
-        if (empty($hashes)) {
-            return;
-        }
-
-        // Update timemodified and timereviewed for all translations with these hashes
-        $placeholders = implode(',', array_fill(0, count($hashes), '?'));
-        $sql = "UPDATE {autotranslate_translations}
-                SET timemodified = ?,
-                    timereviewed = CASE WHEN timereviewed = 0 THEN ? ELSE timereviewed END
-                WHERE hash IN ($placeholders)
-                AND contextlevel = ?
-                AND lang != 'other'";
-        $params = array_merge([time(), time()], array_keys($hashes), [$context->contextlevel]);
-        $DB->execute($sql, $params);
+        // Optionally, check the language pack's configuration (if available)
+        // This requires access to the language pack's langconfig.php, which is not directly accessible
+        // For now, rely on the predefined list above
+        return false;
     }
 }

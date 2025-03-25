@@ -27,7 +27,34 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir . '/formslib.php');
 
+/**
+ * Form class for filtering translations on the manage page in the filter_autotranslate plugin.
+ *
+ * Purpose:
+ * This class defines the filter form used on the manage page (manage.php) to allow administrators
+ * to filter translations by language, human status, review status, and records per page. It uses
+ * Moodle's form API to render a set of filter buttons for each criterion.
+ *
+ * Design Decisions:
+ * - Uses Moodle's moodleform class to ensure consistency with Moodle's form handling.
+ * - Implements filter buttons as static elements with links, allowing for a clean and intuitive
+ *   user interface without requiring form submission for filtering.
+ * - Dynamically generates language options based on the site language and target languages
+ *   configured in the plugin settings.
+ * - Function names use snake_case (e.g., definition) to follow Moodle's coding style.
+ * - Removed debugging statements to ensure production readiness.
+ *
+ * Dependencies:
+ * - None (uses Moodle's core formslib and configuration settings).
+ */
 class manage_form extends \moodleform {
+    /**
+     * Defines the form elements for filtering translations.
+     *
+     * This function sets up the filter form with buttons for language, human status, review status,
+     * and records per page. Each filter criterion is represented by a set of buttons that link to
+     * the manage page with updated parameters.
+     */
     public function definition() {
         $mform = $this->_form;
         $filter_lang = $this->_customdata['filter_lang'] ?? '';
@@ -36,9 +63,9 @@ class manage_form extends \moodleform {
         $perpage = $this->_customdata['perpage'] ?? 20; // Default to 20 if not set
         $baseurl = $this->_customdata['baseurl'] ?? new \moodle_url('/filter/autotranslate/manage.php');
 
-        // Ensure $filter_human is a string and trim any whitespace
+        // Ensure $filter_human and $filter_needsreview are strings
         $filter_human = trim((string)$filter_human);
-        // debugging("Processed filter_human: '$filter_human' (from customdata: '{$this->_customdata['filter_human']}'), Type: " . gettype($filter_human), DEBUG_DEVELOPER);
+        $filter_needsreview = trim((string)$filter_needsreview);
 
         // Get site language and target languages
         $sitelang = get_config('core', 'lang') ?: 'en';
@@ -58,9 +85,7 @@ class manage_form extends \moodleform {
         $filter_buttons = [];
         foreach ($lang_options as $value => $label) {
             $url = new \moodle_url($baseurl, ['filter_lang' => $value, 'page' => 0, 'filter_human' => $filter_human, 'filter_needsreview' => $filter_needsreview, 'perpage' => $perpage]);
-            // Highlight "All" button if filter_lang is empty
             $class = ($filter_lang === $value || ($value === 'all' && empty($filter_lang))) ? 'btn btn-primary' : 'btn btn-secondary';
-            // debugging("Filter lang: '$filter_lang', Value: '$value', Class: $class", DEBUG_DEVELOPER);
             $filter_buttons[] = \html_writer::link($url, $label, ['class' => $class . ' mr-1']);
         }
         $mform->addElement('static', 'lang_filter', get_string('filterbylanguage', 'filter_autotranslate'), implode(' ', $filter_buttons));
@@ -76,8 +101,7 @@ class manage_form extends \moodleform {
         $human_buttons = [];
         foreach ($human_options as $value => $label) {
             $url = new \moodle_url($baseurl, ['filter_human' => $value, 'page' => 0, 'filter_lang' => $filter_lang, 'filter_needsreview' => $filter_needsreview, 'perpage' => $perpage]);
-            $class = ($filter_human == $value) ? 'btn btn-primary' : 'btn btn-secondary';
-            // debugging("Filter human: '$filter_human' (Type: " . gettype($filter_human) . "), Value: '$value' (Type: " . gettype($value) . "), Class: $class", DEBUG_DEVELOPER);
+            $class = ($filter_human === (string)$value) ? 'btn btn-primary' : 'btn btn-secondary';
             $human_buttons[] = \html_writer::link($url, $label, ['class' => $class . ' mr-1']);
         }
         $mform->addElement('static', 'human_filter', get_string('filterbyhumanreviewed', 'filter_autotranslate'), implode(' ', $human_buttons));
@@ -93,8 +117,7 @@ class manage_form extends \moodleform {
         $needsreview_buttons = [];
         foreach ($needsreview_options as $value => $label) {
             $url = new \moodle_url($baseurl, ['filter_needsreview' => $value, 'page' => 0, 'filter_lang' => $filter_lang, 'filter_human' => $filter_human, 'perpage' => $perpage]);
-            $class = ($filter_needsreview == $value) ? 'btn btn-primary' : 'btn btn-secondary';
-            // debugging("Filter needsreview: '$filter_needsreview' (Type: " . gettype($filter_needsreview) . "), Value: '$value' (Type: " . gettype($value) . "), Class: $class", DEBUG_DEVELOPER);
+            $class = ($filter_needsreview === (string)$value) ? 'btn btn-primary' : 'btn btn-secondary';
             $needsreview_buttons[] = \html_writer::link($url, $label, ['class' => $class . ' mr-1']);
         }
         $mform->addElement('static', 'needsreview_filter', get_string('filterbyneedsreview', 'filter_autotranslate'), implode(' ', $needsreview_buttons));
@@ -113,7 +136,6 @@ class manage_form extends \moodleform {
         foreach ($limit_options as $value => $label) {
             $url = new \moodle_url($baseurl, ['perpage' => $value, 'page' => 0, 'filter_lang' => $filter_lang, 'filter_human' => $filter_human, 'filter_needsreview' => $filter_needsreview]);
             $class = ($perpage == $value) ? 'btn btn-primary' : 'btn btn-secondary';
-            // debugging("Limit: '$perpage', Value: '$value', Class: $class", DEBUG_DEVELOPER);
             $limit_buttons[] = \html_writer::link($url, $label, ['class' => $class . ' mr-1']);
         }
         $mform->addElement('static', 'limit_filter', get_string('perpage', 'filter_autotranslate'), implode(' ', $limit_buttons));

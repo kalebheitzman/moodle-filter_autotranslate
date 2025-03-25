@@ -25,6 +25,7 @@ namespace filter_autotranslate\task;
 defined('MOODLE_INTERNAL') || die();
 
 use core\task\scheduled_task;
+use filter_autotranslate\translation_service;
 
 class fetchtranslation_task extends scheduled_task {
 
@@ -90,6 +91,9 @@ class fetchtranslation_task extends scheduled_task {
 
         // Initialize $transaction to null to avoid undefined variable warnings
         $transaction = null;
+
+        // Initialize the translation service
+        $translation_service = new \filter_autotranslate\translation_service($DB);
 
         // Set up signal handling if the pcntl extension is available
         if (extension_loaded('pcntl')) {
@@ -284,7 +288,7 @@ class fetchtranslation_task extends scheduled_task {
                         $translation_summary[] = "hash=" . $record->hash . ": $langs_translated langs";
                         foreach ($lang_translations as $lang => $translated_text) {
                             $translated_text = is_array($translated_text) ? implode(' ', $translated_text) : $translated_text;
-                            $this->store_translation($record->hash, $lang, $translated_text, $record->contextlevel);
+                            $translation_service->store_translation($record->hash, $lang, $translated_text, $record->contextlevel);
                         }
                     }
 
@@ -491,49 +495,6 @@ class fetchtranslation_task extends scheduled_task {
         } finally {
             // Ensure the cURL handle is always closed
             curl_close($ch);
-        }
-    }
-
-    /**
-     * Stores a translation in the translations table, updating if it already exists.
-     *
-     * @param string $hash The unique hash
-     * @param string $lang The language code
-     * @param string|array $translated_text The translated text (string or array to handle potential API responses)
-     * @param int $contextlevel The context level
-     */
-    private function store_translation($hash, $lang, $translated_text, $contextlevel) {
-        global $DB;
-
-        // Ensure translated_text is a string
-        $translated_text = is_array($translated_text) ? implode(' ', $translated_text) : (string)$translated_text;
-
-        // Check if a translation already exists for this hash and lang
-        $existing = $DB->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
-        if ($existing) {
-            // Update the existing record
-            $record = new \stdClass();
-            $record->id = $existing->id;
-            $record->translated_text = $translated_text;
-            $record->contextlevel = $contextlevel;
-            $record->timemodified = time();
-            $record->timereviewed = time();
-            $record->human = 0; // Machine-generated translation
-
-            $DB->update_record('autotranslate_translations', $record);
-        } else {
-            // Insert a new record
-            $record = new \stdClass();
-            $record->hash = $hash;
-            $record->lang = $lang;
-            $record->translated_text = $translated_text;
-            $record->contextlevel = $contextlevel;
-            $record->timecreated = time();
-            $record->timemodified = time();
-            $record->timereviewed = time();
-            $record->human = 0; // Machine-generated translation
-
-            $DB->insert_record('autotranslate_translations', $record);
         }
     }
 }

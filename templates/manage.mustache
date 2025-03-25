@@ -1,3 +1,36 @@
+{{!
+    Mustache template for rendering the manage page table in the filter_autotranslate plugin.
+
+    Purpose:
+    This template renders a responsive table displaying translations, with filtering and pagination
+    controls. It is used by manage.php to display a list of translations with columns for hash,
+    language, source text, translated text, human status, context level, review status, and actions.
+
+    Variables:
+    - form_action: The URL for the form's action attribute.
+    - hidden_params: HTML for hidden input fields (e.g., courseid, sort, dir).
+    - filter_form: HTML for the filter form (rendered by manage_form.php).
+    - table_headers: Array of table header labels.
+    - table_rows: Array of table rows, each containing:
+        - hash: The translation hash.
+        - lang: The language code.
+        - source_text: The source text (optional, shown if filtering by a specific language).
+        - translated_text: The translated text with appended dates (last modified, last reviewed).
+        - human: The human status (Yes/No).
+        - contextlevel: The context level.
+        - review_status: HTML for the review status indicator (e.g., warning icon if needs review).
+        - show_edit_link: Boolean indicating if the edit link should be shown.
+        - edit_url: URL for the edit link.
+        - edit_label: Label for the edit link.
+        - is_rtl: Boolean indicating if the language is right-to-left.
+    - pagination: HTML for the pagination bar.
+
+    Design Decisions:
+    - Uses Bootstrap classes (table, table-striped, table-responsive) for responsive styling.
+    - Conditionally displays source_text and translated_text columns based on the filter_lang parameter.
+    - Applies dir="rtl" and right-aligned text for RTL languages to ensure proper text direction.
+    - Includes pagination and filter form placeholders for dynamic content.
+}}
 <form method="post" action="{{{form_action}}}">
     {{{hidden_params}}}
     <div class="mb-3">
@@ -8,7 +41,7 @@
             <thead>
                 <tr>
                     {{#table_headers}}
-                        <th class="text-left">{{.}}</th>
+                        <th scope="col" class="text-left">{{.}}</th>
                     {{/table_headers}}
                 </tr>
             </thead>

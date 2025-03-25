@@ -24,192 +24,254 @@ namespace filter_autotranslate;
 
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Configuration class for defining tables and fields to be tagged in the filter_autotranslate plugin.
+ *
+ * Purpose:
+ * This class defines the default tables, fields, and relationships to be tagged with {t:hash} tags
+ * for translation, organized by Moodle context levels (e.g., 50 for courses, 70 for modules). It is
+ * used by tagcontent_task.php, observer.php, and tagging_manager.php to determine which content to tag.
+ *
+ * Structure:
+ * The $default_tables array is organized as follows:
+ * - Key: Context level (e.g., 50 for CONTEXT_COURSE, 70 for CONTEXT_MODULE).
+ * - Value: Array of tables, where each table entry contains:
+ *   - 'fields': Array of fields to tag (e.g., ['name', 'intro']).
+ *   - 'secondary': Optional array of secondary tables (e.g., book_chapters for book), where each secondary table contains:
+ *     - 'fk': Foreign key linking to the primary or parent table (e.g., 'bookid').
+ *     - 'fields': Array of fields to tag in the secondary table.
+ *     - 'parent_table': Optional parent table for nested relationships (e.g., forum_discussions for forum_posts).
+ *     - 'parent_fk': Foreign key linking the parent to the primary or grandparent table.
+ *     - 'grandparent_table': Optional grandparent table for deeply nested relationships.
+ *     - 'grandparent_fk': Foreign key linking the grandparent to the primary table.
+ *
+ * Design Decisions:
+ * - Uses a nested structure to organize tables by context level, aligning with Moodle's context system
+ *   for efficient filtering (e.g., via the selectctx setting).
+ * - Includes secondary tables to ensure all translatable content is tagged (e.g., book_chapters for book),
+ *   with relationship details to determine course IDs for hash-course mappings.
+ * - Function names use snake_case (e.g., get_tagging_config) to follow Moodle's coding style.
+ * - The get_tagging_config function allows for a custom configuration via the tagging_config setting,
+ *   falling back to $default_tables if not set.
+ *
+ * Dependencies:
+ * - None (pure configuration class).
+ */
 class tagging_config {
     /**
      * Default tables, fields, and relationships to be tagged, organized by context level.
      *
-     * Each table entry is an array with:
-     * - 'fields': The fields to be tagged.
-     * - 'primary_table': (Optional) The primary table for secondary tables.
-     * - 'fk': (Optional) The foreign key linking to the primary or parent table.
-     * - 'parent_table': (Optional) The parent table for nested secondary tables.
-     * - 'parent_fk': (Optional) The foreign key linking the parent to the primary or grandparent table.
-     * - 'grandparent_table': (Optional) The grandparent table for deeply nested secondary tables.
-     * - 'grandparent_fk': (Optional) The foreign key linking the grandparent to the primary table.
-     *
      * @var array
      */
     private static $default_tables = [
+        // Context level 10: System context
         10 => [
-            'message' => ['fields' => ['fullmessage']],
-            'block_instances' => ['fields' => ['configdata']],
+            'message' => [
+                'fields' => ['fullmessage'], // Messages sent between users
+            ],
+            'block_instances' => [
+                'fields' => ['configdata'], // Block configuration data
+            ],
         ],
+        // Context level 30: User context
         30 => [
-            'user_info_data' => ['fields' => ['data']],
+            'user_info_data' => [
+                'fields' => ['data'], // Custom user profile fields
+            ],
         ],
+        // Context level 40: Course category context
         40 => [
-            'course_categories' => ['fields' => ['description']],
+            'course_categories' => [
+                'fields' => ['description'], // Course category descriptions
+            ],
         ],
+        // Context level 50: Course context
         50 => [
-            'course' => ['fields' => ['fullname', 'shortname', 'summary']],
-            'course_sections' => ['fields' => ['name', 'summary']],
+            'course' => [
+                'fields' => ['fullname', 'shortname', 'summary'], // Course details
+            ],
+            'course_sections' => [
+                'fields' => ['name', 'summary'], // Course section details
+            ],
         ],
+        // Context level 70: Module context
         70 => [
-            'assign' => ['fields' => ['name', 'intro', 'activity']],
+            'assign' => [
+                'fields' => ['name', 'intro', 'activity'], // Assignment details
+            ],
             'book' => [
-                'fields' => ['name', 'intro'],
+                'fields' => ['name', 'intro'], // Book module details
                 'secondary' => [
                     'book_chapters' => [
-                        'fk' => 'bookid',
-                        'fields' => ['title', 'content'],
+                        'fk' => 'bookid', // Links to book.id
+                        'fields' => ['title', 'content'], // Book chapter content
                     ],
                 ],
             ],
             'choice' => [
-                'fields' => ['name', 'intro'],
+                'fields' => ['name', 'intro'], // Choice module details
                 'secondary' => [
                     'choice_options' => [
-                        'fk' => 'choiceid',
-                        'fields' => ['text'],
+                        'fk' => 'choiceid', // Links to choice.id
+                        'fields' => ['text'], // Choice options
                     ],
                 ],
             ],
             'data' => [
-                'fields' => ['name', 'intro'],
+                'fields' => ['name', 'intro'], // Database module details
                 'secondary' => [
                     'data_content' => [
-                        'fk' => 'recordid',
-                        'fields' => ['content', 'content1', 'content2', 'content3', 'content4'],
+                        'fk' => 'recordid', // Links to data_records.id
+                        'fields' => ['content', 'content1', 'content2', 'content3', 'content4'], // Database content
                     ],
                     'data_fields' => [
-                        'fk' => 'dataid',
-                        'fields' => ['name', 'description'],
+                        'fk' => 'dataid', // Links to data.id
+                        'fields' => ['name', 'description'], // Database field definitions
                     ],
                 ],
             ],
             'feedback' => [
-                'fields' => ['name', 'intro', 'page_after_submit'],
+                'fields' => ['name', 'intro', 'page_after_submit'], // Feedback module details
                 'secondary' => [
                     'feedback_item' => [
-                        'fk' => 'feedback',
-                        'fields' => ['name', 'label'],
+                        'fk' => 'feedback', // Links to feedback.id
+                        'fields' => ['name', 'label'], // Feedback items
                     ],
                 ],
             ],
-            'folder' => ['fields' => ['name', 'intro']],
+            'folder' => [
+                'fields' => ['name', 'intro'], // Folder module details
+            ],
             'forum' => [
-                'fields' => ['name', 'intro'],
+                'fields' => ['name', 'intro'], // Forum module details
                 'secondary' => [
                     'forum_discussions' => [
-                        'fk' => 'forum',
-                        'fields' => ['name'],
+                        'fk' => 'forum', // Links to forum.id
+                        'fields' => ['name'], // Forum discussion titles
                     ],
                     'forum_posts' => [
-                        'fk' => 'discussion',
-                        'parent_table' => 'forum_discussions',
-                        'parent_fk' => 'forum',
-                        'fields' => ['subject', 'message'],
+                        'fk' => 'discussion', // Links to forum_discussions.id
+                        'parent_table' => 'forum_discussions', // Parent table for relationship
+                        'parent_fk' => 'forum', // Links forum_discussions to forum.id
+                        'fields' => ['subject', 'message'], // Forum post content
                     ],
                 ],
             ],
             'glossary' => [
-                'fields' => ['name', 'intro'],
+                'fields' => ['name', 'intro'], // Glossary module details
                 'secondary' => [
                     'glossary_entries' => [
-                        'fk' => 'glossaryid',
-                        'fields' => ['concept', 'definition'],
+                        'fk' => 'glossaryid', // Links to glossary.id
+                        'fields' => ['concept', 'definition'], // Glossary entries
                     ],
                 ],
             ],
-            'label' => ['fields' => ['intro', 'name']],
+            'label' => [
+                'fields' => ['intro', 'name'], // Label module details
+            ],
             'lesson' => [
-                'fields' => ['name', 'intro'],
+                'fields' => ['name', 'intro'], // Lesson module details
                 'secondary' => [
                     'lesson_pages' => [
-                        'fk' => 'lessonid',
-                        'fields' => ['title', 'contents'],
+                        'fk' => 'lessonid', // Links to lesson.id
+                        'fields' => ['title', 'contents'], // Lesson pages
                     ],
                     'lesson_answers' => [
-                        'fk' => 'pageid',
-                        'parent_table' => 'lesson_pages',
-                        'parent_fk' => 'lessonid',
-                        'fields' => ['answer'],
+                        'fk' => 'pageid', // Links to lesson_pages.id
+                        'parent_table' => 'lesson_pages', // Parent table for relationship
+                        'parent_fk' => 'lessonid', // Links lesson_pages to lesson.id
+                        'fields' => ['answer'], // Lesson answers
                     ],
                 ],
             ],
-            'lti' => ['fields' => ['name', 'intro']],
-            'page' => ['fields' => ['name', 'intro', 'content']],
+            'lti' => [
+                'fields' => ['name', 'intro'], // LTI module details
+            ],
+            'page' => [
+                'fields' => ['name', 'intro', 'content'], // Page module details
+            ],
             'quiz' => [
-                'fields' => ['name', 'intro'],
+                'fields' => ['name', 'intro'], // Quiz module details
                 'secondary' => [
                     'question' => [
-                        'fk' => 'questionid',
-                        'parent_table' => 'quiz_slots',
-                        'parent_fk' => 'quizid',
-                        'fields' => ['name', 'questiontext', 'generalfeedback'],
+                        'fk' => 'questionid', // Links to quiz_slots.questionid
+                        'parent_table' => 'quiz_slots', // Parent table for relationship
+                        'parent_fk' => 'quizid', // Links quiz_slots to quiz.id
+                        'fields' => ['name', 'questiontext', 'generalfeedback'], // Quiz questions
                     ],
                     'question_answers' => [
-                        'fk' => 'question',
-                        'parent_table' => 'question',
-                        'parent_fk' => 'questionid',
-                        'grandparent_table' => 'quiz_slots',
-                        'grandparent_fk' => 'quizid',
-                        'fields' => ['answer', 'feedback'],
+                        'fk' => 'question', // Links to question.id
+                        'parent_table' => 'question', // Parent table for relationship
+                        'parent_fk' => 'questionid', // Links question to quiz_slots.questionid
+                        'grandparent_table' => 'quiz_slots', // Grandparent table for relationship
+                        'grandparent_fk' => 'quizid', // Links quiz_slots to quiz.id
+                        'fields' => ['answer', 'feedback'], // Quiz question answers
                     ],
                     'question_categories' => [
-                        'fk' => 'category',
-                        'parent_table' => 'question',
-                        'parent_fk' => 'questionid',
-                        'grandparent_table' => 'quiz_slots',
-                        'grandparent_fk' => 'quizid',
-                        'fields' => ['name', 'info'],
+                        'fk' => 'category', // Links to question.category
+                        'parent_table' => 'question', // Parent table for relationship
+                        'parent_fk' => 'questionid', // Links question to quiz_slots.questionid
+                        'grandparent_table' => 'quiz_slots', // Grandparent table for relationship
+                        'grandparent_fk' => 'quizid', // Links quiz_slots to quiz.id
+                        'fields' => ['name', 'info'], // Quiz question categories
                     ],
                 ],
             ],
-            'resource' => ['fields' => ['name', 'intro']],
-            'url' => ['fields' => ['name', 'intro']],
+            'resource' => [
+                'fields' => ['name', 'intro'], // Resource module details
+            ],
+            'url' => [
+                'fields' => ['name', 'intro'], // URL module details
+            ],
             'wiki' => [
-                'fields' => ['name', 'intro', 'firstpagetitle'],
+                'fields' => ['name', 'intro', 'firstpagetitle'], // Wiki module details
                 'secondary' => [
                     'wiki_pages' => [
-                        'fk' => 'subwikiid',
-                        'parent_table' => 'wiki_subwikis',
-                        'parent_fk' => 'wikiid',
-                        'fields' => ['title'],
+                        'fk' => 'subwikiid', // Links to wiki_subwikis.id
+                        'parent_table' => 'wiki_subwikis', // Parent table for relationship
+                        'parent_fk' => 'wikiid', // Links wiki_subwikis to wiki.id
+                        'fields' => ['title'], // Wiki pages
                     ],
                     'wiki_versions' => [
-                        'fk' => 'pageid',
-                        'parent_table' => 'wiki_pages',
-                        'parent_fk' => 'subwikiid',
-                        'grandparent_table' => 'wiki_subwikis',
-                        'grandparent_fk' => 'wikiid',
-                        'fields' => ['content'],
+                        'fk' => 'pageid', // Links to wiki_pages.id
+                        'parent_table' => 'wiki_pages', // Parent table for relationship
+                        'parent_fk' => 'subwikiid', // Links wiki_pages to wiki_subwikis.id
+                        'grandparent_table' => 'wiki_subwikis', // Grandparent table for relationship
+                        'grandparent_fk' => 'wikiid', // Links wiki_subwikis to wiki.id
+                        'fields' => ['content'], // Wiki page versions
                     ],
                 ],
             ],
             'workshop' => [
-                'fields' => ['name', 'intro'],
+                'fields' => ['name', 'intro'], // Workshop module details
                 'secondary' => [
                     'workshop_submissions' => [
-                        'fk' => 'workshopid',
-                        'fields' => ['title', 'content'],
+                        'fk' => 'workshopid', // Links to workshop.id
+                        'fields' => ['title', 'content'], // Workshop submissions
                     ],
                     'workshop_assessments' => [
-                        'fk' => 'submissionid',
-                        'parent_table' => 'workshop_submissions',
-                        'parent_fk' => 'workshopid',
-                        'fields' => ['feedbackauthor', 'feedbackreviewer'],
+                        'fk' => 'submissionid', // Links to workshop_submissions.id
+                        'parent_table' => 'workshop_submissions', // Parent table for relationship
+                        'parent_fk' => 'workshopid', // Links workshop_submissions to workshop.id
+                        'fields' => ['feedbackauthor', 'feedbackreviewer'], // Workshop assessments
                     ],
                 ],
             ],
         ],
+        // Context level 80: Block context
         80 => [
-            'block_instances' => ['fields' => ['configdata']],
+            'block_instances' => [
+                'fields' => ['configdata'], // Block configuration data (repeated from context 10)
+            ],
         ],
     ];
 
     /**
-     * Get the configured tables and fields to be tagged.
+     * Fetches the configured tables and fields to be tagged.
+     *
+     * This function retrieves the tagging configuration from the tagging_config setting,
+     * falling back to the default $default_tables array if not set. It allows admins to
+     * override the default configuration via the plugin settings.
      *
      * @return array The configured tables and fields, or the default if not set.
      */
@@ -225,7 +287,10 @@ class tagging_config {
     }
 
     /**
-     * Get the default tables, fields, and relationships for use in settings and tasks.
+     * Returns the default tables, fields, and relationships for use in settings and tasks.
+     *
+     * This function provides access to the $default_tables array, which defines the default
+     * configuration for tagging. It is used by tagcontent_task.php, observer.php, and settings.php.
      *
      * @return array The default tables, fields, and relationships.
      */
@@ -234,7 +299,10 @@ class tagging_config {
     }
 
     /**
-     * Get the secondary mappings for a specific primary table.
+     * Fetches the secondary mappings for a specific primary table.
+     *
+     * This function retrieves the secondary tables (e.g., book_chapters for book) defined for
+     * a given primary table, used by tagging_manager.php to process secondary tables.
      *
      * @param string $primary_table The primary table name.
      * @return array The secondary mappings for the primary table, or an empty array if none exist.
@@ -249,7 +317,10 @@ class tagging_config {
     }
 
     /**
-     * Check if a table is a secondary table and return its relationship details.
+     * Fetches relationship details for a secondary table.
+     *
+     * This function retrieves the relationship details (e.g., foreign keys, parent tables) for
+     * a secondary table, used by tagging_manager.php to build queries for fetching records.
      *
      * @param string $table The table to check.
      * @return array|null The relationship details if the table is secondary, or null if not.

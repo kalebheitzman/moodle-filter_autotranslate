@@ -20,9 +20,37 @@
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Defines the admin settings for the filter_autotranslate plugin.
+ *
+ * Purpose:
+ * This file sets up the configuration options for the filter_autotranslate plugin, allowing
+ * administrators to customize API settings, translation settings, task settings, and tagging
+ * configuration. It is displayed under Site administration > Plugins > Filters > Autotranslate.
+ *
+ * Structure:
+ * The settings are organized into sections using admin_setting_heading:
+ * - API Configuration: Settings for the translation API (e.g., endpoint, key, model).
+ * - Translation Settings: Settings for translation behavior (e.g., target languages, batch size).
+ * - Task Configuration: Settings for scheduled tasks (e.g., fetch limits, task frequency).
+ * - Tagging Configuration: Settings for selecting tables and fields to tag.
+ *
+ * Design Decisions:
+ * - Uses Moodle's admin settings API (admin_setting_configcheckbox, admin_setting_configtext, etc.)
+ *   to define form elements, ensuring consistency with Moodle's admin interface.
+ * - The apiendpoint and apimodel defaults are set to match the Google Generative AI API used in
+ *   fetchtranslation_task.php, ensuring compatibility out of the box.
+ * - The tagging_config multicheckbox defaults to a selective set of commonly used tables (e.g., course,
+ *   course_sections, page, assign, forum, quiz, resource, folder) to avoid overwhelming admins,
+ *   while allowing full customization.
+ * - Includes validation for fields (e.g., PARAM_URL for apiendpoint, PARAM_INT for batchsize) to
+ *   ensure valid input.
+ *
+ * Dependencies:
+ * - tagging_config.php: Used to generate the tagging_config multicheckbox options.
+ */
 if ($hassiteconfig) {
     if ($ADMIN->fulltree) {
         require_once($CFG->dirroot . '/filter/autotranslate/classes/tagging_config.php');
@@ -52,7 +80,7 @@ if ($hassiteconfig) {
                 'filter_autotranslate/apiendpoint',
                 get_string('apiendpoint', 'filter_autotranslate'),
                 get_string('apiendpoint_desc', 'filter_autotranslate'),
-                'http://localhost:11434/v1', // Default to local Ollama instance
+                'https://generativelanguage.googleapis.com/v1beta/openai', // Default to Google Generative AI API
                 PARAM_URL
             )
         );
@@ -75,7 +103,7 @@ if ($hassiteconfig) {
                 'filter_autotranslate/apimodel',
                 get_string('apimodel', 'filter_autotranslate'),
                 get_string('apimodel_desc', 'filter_autotranslate'),
-                'mistral',
+                'gemini-1.5-pro-latest', // Default to Google Generative AI model
                 PARAM_TEXT
             )
         );
@@ -103,8 +131,8 @@ if ($hassiteconfig) {
                 )
             );
         } else {
-            // Define default languages
-            $defaultlangs = ['es' => 1, 'fr' => 1, 'de' => 1]; // Default to Spanish, French, German
+            // Define default languages (Spanish, French, German)
+            $defaultlangs = ['es' => 1, 'fr' => 1, 'de' => 1];
             // Ensure defaults only include enabled languages
             $defaultlangs = array_intersect_key($defaultlangs, $enabledlangs);
             // If no defaults match enabled languages, select none by default
@@ -197,6 +225,17 @@ if ($hassiteconfig) {
             )
         );
 
+        // Manage limit for tagcontent_task
+        $settings->add(
+            new admin_setting_configtext(
+                'filter_autotranslate/managelimit',
+                get_string('managelimit', 'filter_autotranslate', null, true) ?: 'Manage Limit',
+                get_string('managelimit_desc', 'filter_autotranslate', null, true) ?: 'The maximum number of records to process in a single batch for the tagcontent_task.',
+                20, // Default to 20 records per batch
+                PARAM_INT
+            )
+        );
+
         // Select context levels for autotranslation
         $settings->add(
             new admin_setting_configmulticheckbox(
@@ -273,12 +312,45 @@ if ($hassiteconfig) {
             }
         }
 
+        // Define default selected options (selective to include commonly used activities)
+        $default_tagging = [
+            // Course context
+            'ctx50_course_fullname' => 1,
+            'ctx50_course_shortname' => 1,
+            'ctx50_course_summary' => 1,
+            'ctx50_course_sections_name' => 1,
+            'ctx50_course_sections_summary' => 1,
+            // Module context (commonly used activities: page, assign, forum, quiz, resource, folder)
+            'ctx70_page_name' => 1,
+            'ctx70_page_intro' => 1,
+            'ctx70_page_content' => 1,
+            'ctx70_assign_name' => 1,
+            'ctx70_assign_intro' => 1,
+            'ctx70_assign_activity' => 1,
+            'ctx70_forum_name' => 1,
+            'ctx70_forum_intro' => 1,
+            'ctx70_forum_discussions_name' => 1,
+            'ctx70_forum_posts_subject' => 1,
+            'ctx70_forum_posts_message' => 1,
+            'ctx70_quiz_name' => 1,
+            'ctx70_quiz_intro' => 1,
+            'ctx70_quiz_question_name' => 1,
+            'ctx70_quiz_question_questiontext' => 1,
+            'ctx70_quiz_question_generalfeedback' => 1,
+            'ctx70_quiz_question_answers_answer' => 1,
+            'ctx70_quiz_question_answers_feedback' => 1,
+            'ctx70_resource_name' => 1,
+            'ctx70_resource_intro' => 1,
+            'ctx70_folder_name' => 1,
+            'ctx70_folder_intro' => 1,
+        ];
+
         $settings->add(
             new admin_setting_configmulticheckbox(
                 'filter_autotranslate/tagging_config',
                 get_string('taggingconfig_options', 'filter_autotranslate'),
                 get_string('taggingconfig_options_desc', 'filter_autotranslate'),
-                array_fill_keys(array_keys($tagging_options), 1), // Default to all checked
+                $default_tagging, // Default to commonly used tables
                 $tagging_options
             )
         );

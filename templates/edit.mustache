@@ -1,8 +1,27 @@
+{{!
+    Mustache template for rendering the edit page in the filter_autotranslate plugin.
+
+    Purpose:
+    This template renders the edit page, displaying a form for editing a translation alongside
+    the source text for reference. It uses a two-column layout to present the form and source text
+    side by side.
+
+    Variables:
+    - form: HTML for the edit form (rendered by edit_form.php).
+    - source_text: The source text (lang = 'other') for the translation.
+    - source_text_label: The label for the source text section (e.g., "Source Text").
+
+    Design Decisions:
+    - Uses Bootstrap classes (row, col-md-7, col-md-5, card) for a responsive two-column layout.
+    - Places the edit form on the left (7 columns) and the source text on the right (5 columns)
+      to provide context while editing.
+    - Includes card titles for clarity and visual separation.
+}}
 <div class="row mb-3">
     <div class="col-md-7">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">{{#str}}translation, filter_autotranslate{{/str}}</h5>
+                <h5 class="card-title" role="heading" aria-level="2">{{#str}}translation, filter_autotranslate{{/str}}</h5>
                 {{{form}}}
             </div>
         </div>
@@ -10,7 +29,7 @@
     <div class="col-md-5">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">{{source_text_label}}</h5>
+                <h5 class="card-title" role="heading" aria-level="2">{{source_text_label}}</h5>
                 <div class="card-text">
                     {{{source_text}}}
                 </div>
