@@ -20,21 +20,29 @@
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
 defined('MOODLE_INTERNAL') || die();
 
+/**
+ * Defines the events observed by the filter_autotranslate plugin.
+ *
+ * Purpose:
+ * This file specifies the Moodle events that the filter_autotranslate plugin listens to, mapping
+ * each event to a callback function in observer.php. The observer handles delete events to clean up
+ * hash-course mappings in the autotranslate_hid_cids table, ensuring the database remains consistent.
+ *
+ * Design Decisions:
+ * - Observes only delete events (course_module_deleted, course_deleted, course_section_deleted) to
+ *   remove obsolete hash-course mappings, keeping the database clean.
+ * - Create and update events are not observed, as tagging is handled by the tagcontent_task.php
+ *   scheduled task, which processes content in batches for better performance and scalability.
+ * - The catch-all event (*) is commented out but can be enabled for debugging purposes with proper
+ *   logging configuration.
+ *
+ * Dependencies:
+ * - observer.php: Contains the callback functions for handling the observed events.
+ */
 $observers = [
-    [
-        'eventname' => '\core\event\course_module_created',
-        'callback' => 'filter_autotranslate\observer::course_module_created',
-        'priority' => 0,
-        'internal' => false,
-    ],
-    [
-        'eventname' => '\core\event\course_module_updated',
-        'callback' => 'filter_autotranslate\observer::course_module_updated',
-        'priority' => 0,
-        'internal' => false,
-    ],
     [
         'eventname' => '\core\event\course_module_deleted',
         'callback' => 'filter_autotranslate\observer::course_module_deleted',
@@ -42,32 +50,8 @@ $observers = [
         'internal' => false,
     ],
     [
-        'eventname' => '\core\event\course_created',
-        'callback' => 'filter_autotranslate\observer::course_created',
-        'priority' => 0,
-        'internal' => false,
-    ],
-    [
-        'eventname' => '\core\event\course_updated',
-        'callback' => 'filter_autotranslate\observer::course_updated',
-        'priority' => 0,
-        'internal' => false,
-    ],
-    [
         'eventname' => '\core\event\course_deleted',
         'callback' => 'filter_autotranslate\observer::course_deleted',
-        'priority' => 0,
-        'internal' => false,
-    ],
-    [
-        'eventname' => '\core\event\course_section_created',
-        'callback' => 'filter_autotranslate\observer::course_section_created',
-        'priority' => 0,
-        'internal' => false,
-    ],
-    [
-        'eventname' => '\core\event\course_section_updated',
-        'callback' => 'filter_autotranslate\observer::course_section_updated',
         'priority' => 0,
         'internal' => false,
     ],
