@@ -16,6 +16,34 @@
 /**
  * Autotranslate Manage Page
  *
+ * Purpose:
+ * This script renders the manage page for the filter_autotranslate plugin, displaying a table of
+ * translations stored in the autotranslate_translations table. It allows administrators to filter
+ * translations by language, human status, review status, and records per page, with support for
+ * pagination, sorting, and editing individual translations. The page also handles right-to-left (RTL)
+ * languages for proper text alignment.
+ *
+ * Design Decisions:
+ * - Uses Moodle's standard page setup (require_login, context_system, set_url) to ensure proper
+ *   integration with Moodle's framework.
+ * - Leverages translation_manager and translation_repository classes for database operations,
+ *   maintaining separation of concerns.
+ * - Implements filtering via manage_form.php, which renders a form with filter buttons for language,
+ *   human status, review status, and records per page.
+ * - Supports RTL languages by applying dir="rtl" and right-aligned text for translated text in the
+ *   Mustache template, using helper::is_rtl_language().
+ * - Uses Moodle's paging_bar for pagination, ensuring a consistent user experience.
+ * - URLs are rewritten at storage time (in tagging_service.php and translation_service.php), so
+ *   no additional URL rewriting is performed here; text is formatted using format_text().
+ * - Error handling is implemented with a try-catch block to catch and log unexpected errors.
+ *
+ * Dependencies:
+ * - translation_manager.php: For fetching paginated translations.
+ * - translation_repository.php: For database operations related to translations.
+ * - helper.php: For utility functions like map_language_to_other() and is_rtl_language().
+ * - manage_form.php: For rendering the filter form.
+ * - manage.mustache: For rendering the table of translations.
+ *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
