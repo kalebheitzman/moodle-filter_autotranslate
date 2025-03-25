@@ -27,6 +27,7 @@ defined('MOODLE_INTERNAL') || die();
 use core\task\scheduled_task;
 use filter_autotranslate\helper;
 use filter_autotranslate\tagging_manager;
+use filter_autotranslate\tagging_service;
 
 class tagcontent_task extends scheduled_task {
 
@@ -45,12 +46,16 @@ class tagcontent_task extends scheduled_task {
     public function execute() {
         global $DB;
 
+        // Treat selectctx as CSV string
         $selectedctx = get_config('filter_autotranslate', 'selectctx') ?: '40,50,70,80';
-        $selectedctx = !empty($selectedctx) ? array_filter(array_map('trim', explode(',', $selectedctx))) : ['40', '50', '70', '80'];
-        $managelimit = get_config('filter_autotranslate', 'managelimit') ?: 20;
+        $selectedctx = array_filter(array_map('trim', explode(',', (string)$selectedctx)));
+        $managelimit = (int)(get_config('filter_autotranslate', 'managelimit') ?: 20);
 
         $batchsize = $managelimit;
         $total_entries_checked = 0;
+
+        // Instantiate tagging_service with the database connection
+        $tagging_service = new tagging_service($DB);
 
         // Get the configured tables and fields
         $tables = \filter_autotranslate\tagging_config::get_default_tables();
@@ -78,74 +83,75 @@ class tagcontent_task extends scheduled_task {
                                 if ($table === 'message') {
                                     $sql = "SELECT m.id AS instanceid, m.$field AS content, 0 AS course
                                             FROM {{$table}} m
-                                            WHERE m.$field IS NOT NULL OR m.$field != ''";
+                                            WHERE m.$field IS NOT NULL AND m.$field != ''";
                                     $params = [];
                                 } elseif ($table === 'block_instances') {
                                     $sql = "SELECT bi.id AS instanceid, bi.$field AS content, COALESCE(c.id, 0) AS course
                                             FROM {{$table}} bi
                                             LEFT JOIN {context} ctx ON ctx.instanceid = bi.id AND ctx.contextlevel = :contextlevel
                                             LEFT JOIN {course} c ON c.id = ctx.instanceid AND ctx.contextlevel = :coursecontextlevel
-                                            WHERE bi.$field IS NOT NULL OR bi.$field != ''";
+                                            WHERE bi.$field IS NOT NULL AND bi.$field != ''";
                                     $params = ['contextlevel' => CONTEXT_BLOCK, 'coursecontextlevel' => CONTEXT_COURSE];
                                 } else {
                                     $sql = "SELECT m.id AS instanceid, m.$field AS content, 0 AS course
                                             FROM {{$table}} m
-                                            WHERE m.$field IS NOT NULL OR m.$field != ''";
+                                            WHERE m.$field IS NOT NULL AND m.$field != ''";
                                     $params = [];
                                 }
                             } elseif ($ctx == CONTEXT_USER) { // Context level 30
                                 $sql = "SELECT uid.id AS instanceid, uid.$field AS content, 0 AS course
                                         FROM {{$table}} uid
                                         JOIN {user} u ON u.id = uid.userid
-                                        WHERE uid.$field IS NOT NULL OR uid.$field != ''";
+                                        WHERE uid.$field IS NOT NULL AND uid.$field != ''";
                                 $params = [];
                             } elseif ($ctx == CONTEXT_COURSECAT) { // Context level 40
                                 $sql = "SELECT cc.id AS instanceid, cc.$field AS content, 0 AS course
                                         FROM {{$table}} cc
-                                        WHERE cc.$field IS NOT NULL OR cc.$field != ''";
+                                        WHERE cc.$field IS NOT NULL AND cc.$field != ''";
                                 $params = [];
                             } elseif ($ctx == CONTEXT_COURSE) { // Context level 50
                                 if ($table === 'course') {
                                     $sql = "SELECT c.id AS instanceid, c.$field AS content, c.id AS course
                                             FROM {course} c
-                                            WHERE c.$field IS NOT NULL OR c.$field != ''";
+                                            WHERE c.$field IS NOT NULL AND c.$field != ''";
                                     $params = [];
                                 } elseif ($table === 'course_sections') {
                                     $sql = "SELECT cs.id AS instanceid, cs.$field AS content, cs.course
                                             FROM {course_sections} cs
                                             JOIN {course} c ON c.id = cs.course
-                                            WHERE cs.$field IS NOT NULL OR cs.$field != ''";
+                                            WHERE cs.$field IS NOT NULL AND cs.$field != ''";
                                     $params = [];
                                 } else {
                                     $sql = "SELECT m.id AS instanceid, m.$field AS content, cm.course, cm.id AS cmid
                                             FROM {" . $table . "} m
                                             JOIN {course_modules} cm ON cm.instance = m.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                            WHERE m.$field IS NOT NULL OR m.$field != ''";
+                                            WHERE m.$field IS NOT NULL AND m.$field != ''";
                                     $params = ['modulename' => $table];
                                 }
                             } elseif ($ctx == CONTEXT_MODULE) { // Context level 70
                                 $sql = "SELECT m.id AS instanceid, m.$field AS content, cm.course, cm.id AS cmid
                                         FROM {" . $table . "} m
                                         JOIN {course_modules} cm ON cm.instance = m.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                        WHERE m.$field IS NOT NULL OR m.$field != ''";
+                                        WHERE m.$field IS NOT NULL AND m.$field != ''";
                                 $params = ['modulename' => $table];
                             } elseif ($ctx == CONTEXT_BLOCK) { // Context level 80
                                 $sql = "SELECT bi.id AS instanceid, bi.$field AS content, COALESCE(c.id, 0) AS course
                                         FROM {{$table}} bi
                                         LEFT JOIN {context} ctx ON ctx.instanceid = bi.id AND ctx.contextlevel = :contextlevel
                                         LEFT JOIN {course} c ON c.id = ctx.instanceid AND ctx.contextlevel = :coursecontextlevel
-                                        WHERE bi.$field IS NOT NULL OR bi.$field != ''";
-                                $params = ['contextlevel' => CONTEXT_BLOCK, 'coursecontextlevel' => CONTEXT_COURSE];
+                                        WHERE bi.$field IS NOT NULL AND bi.$field != ''";
+                                    $params = ['contextlevel' => CONTEXT_BLOCK, 'coursecontextlevel' => CONTEXT_COURSE];
                             } else {
                                 $sql = "SELECT m.id AS instanceid, m.$field AS content, 0 AS course
                                         FROM {{$table}} m
-                                        WHERE m.$field IS NOT NULL OR m.$field != ''";
+                                        WHERE m.$field IS NOT NULL AND m.$field != ''";
                                 $params = [];
                             }
 
                             $records = $DB->get_records_sql($sql, $params, $offset, $batchsize);
                             $count = count($records);
                             $total_entries_checked += $count;
+                            mtrace("Fetched $count records for table $table, field $field at offset $offset");
 
                             if ($count > 0) {
                                 $firstrecord = reset($records);
@@ -155,6 +161,7 @@ class tagcontent_task extends scheduled_task {
                                 } else {
                                     $context = \context_system::instance(); // Fallback
                                 }
+                                mtrace("First record: " . json_encode($firstrecord));
                             } else {
                                 $context = \context_system::instance(); // Fallback for no records
                             }
@@ -172,10 +179,12 @@ class tagcontent_task extends scheduled_task {
                                     mtrace("Error: Record missing id field after renaming for table $table, field $field");
                                     continue;
                                 }
-                                $updated = \filter_autotranslate\tagging_manager::tag_fields($table, $record, [$field], $context, $record->course);
+                                // Use instantiated tagging_service
+                                $updated = $tagging_service->tag_content($table, $record, [$field], $context, $record->course);
                                 if ($updated) {
                                     mtrace("Tagged content in table $table, field $field, instanceid {$record->id}: " . substr($record->$field, 0, 50) . "...");
-                                    \filter_autotranslate\helper::mark_translations_for_revision($table, $record->id, [$field], $context);
+                                    // Corrected to use tagging_service method
+                                    $tagging_service->mark_translations_for_revision($table, $record->id, [$field], $context);
                                 }
                             }
 
@@ -387,10 +396,11 @@ class tagcontent_task extends scheduled_task {
                                             mtrace("Error: Secondary record missing id field after renaming for table $secondary_table, field $field");
                                             continue;
                                         }
-                                        $updated = \filter_autotranslate\tagging_manager::tag_fields($secondary_table, $field_record, [$field], $context, $field_record->course);
+                                        $updated = $tagging_service->tag_content($secondary_table, $field_record, [$field], $context, $field_record->course);
                                         if ($updated) {
                                             mtrace("Tagged content in table $secondary_table, field $field, instanceid {$field_record->id}: " . substr($field_record->$field, 0, 50) . "...");
-                                            \filter_autotranslate\helper::mark_translations_for_revision($secondary_table, $field_record->id, [$field], $context);
+                                            // Corrected to use tagging_service method
+                                            $tagging_service->mark_translations_for_revision($secondary_table, $field_record->id, [$field], $context);
                                         }
                                     }
                                 }

@@ -200,7 +200,7 @@ class tagging_config {
                         'fields' => ['name', 'questiontext', 'generalfeedback'], // Quiz questions
                     ],
                     'question_answers' => [
-                        'fk' => 'question', // Links to question.id
+                        'fk' => 'question najbli', // Links to question.id
                         'parent_table' => 'question', // Parent table for relationship
                         'parent_fk' => 'questionid', // Links question to quiz_slots.questionid
                         'grandparent_table' => 'quiz_slots', // Grandparent table for relationship
@@ -276,14 +276,11 @@ class tagging_config {
      * @return array The configured tables and fields, or the default if not set.
      */
     public static function get_tagging_config() {
-        $config = get_config('filter_autotranslate', 'tagging_config');
+        $config = get_config('filter_autotranslate', 'tagging_config') ?: '';
         if (!empty($config)) {
-            $configured_tables = json_decode($config, true);
-            if (is_array($configured_tables)) {
-                return $configured_tables;
-            }
+            return array_map('trim', explode(',', (string)$config));
         }
-        return self::$default_tables;
+        return array_keys(self::flatten_default_tables());
     }
 
     /**
@@ -343,5 +340,29 @@ class tagging_config {
             }
         }
         return null;
+    }
+
+    /**
+     * Helper function to flatten default tables for settings default.
+     *
+     * @return array Flattened array of configuration keys (e.g., 'ctx50_course_fullname').
+     */
+    private static function flatten_default_tables() {
+        $flat = [];
+        foreach (self::$default_tables as $ctx => $tables) {
+            foreach ($tables as $table => $config) {
+                foreach ($config['fields'] as $field) {
+                    $flat["ctx{$ctx}_{$table}_{$field}"] = true;
+                }
+                if (isset($config['secondary'])) {
+                    foreach ($config['secondary'] as $sec_table => $sec_config) {
+                        foreach ($sec_config['fields'] as $field) {
+                            $flat["ctx{$ctx}_{$sec_table}_{$field}"] = true;
+                        }
+                    }
+                }
+            }
+        }
+        return $flat;
     }
 }

@@ -64,31 +64,17 @@ class tagging_manager {
      * @return array The list of fields to tag.
      */
     public static function get_fields_to_tag($table_name, $context_level) {
-        $selectedctx = get_config('filter_autotranslate', 'selectctx');
-        $selectedctx = $selectedctx ? array_map('trim', explode(',', $selectedctx)) : ['40', '50', '70', '80'];
+        $selectedctx = get_config('filter_autotranslate', 'selectctx') ?: '40,50,70,80';
+        $selectedctx = array_map('trim', explode(',', (string)$selectedctx));
         if (!in_array((string)$context_level, $selectedctx)) {
             return [];
         }
 
         // Get the configured tables and fields
         $tables = \filter_autotranslate\tagging_config::get_default_tables();
-        $tagging_options_raw = get_config('filter_autotranslate', 'tagging_config');
-
-        // Convert the tagging options to an array of selected options
-        $tagging_options = [];
-        if ($tagging_options_raw !== false && $tagging_options_raw !== null && $tagging_options_raw !== '') {
-            if (is_string($tagging_options_raw)) {
-                $tagging_options = array_map('trim', explode(',', $tagging_options_raw));
-            } elseif (is_array($tagging_options_raw)) {
-                $tagging_options = $tagging_options_raw;
-            }
-        }
-
-        // Convert the array of selected options into a key-value map for easier lookup
-        $tagging_options_map = [];
-        foreach ($tagging_options as $option) {
-            $tagging_options_map[$option] = true;
-        }
+        $tagging_options_raw = get_config('filter_autotranslate', 'tagging_config') ?: '';
+        $tagging_options = $tagging_options_raw ? array_map('trim', explode(',', (string)$tagging_options_raw)) : [];
+        $tagging_options_map = array_fill_keys($tagging_options, true);
 
         // Check if the context level and table exist in the default tables
         if (!isset($tables[$context_level]) || !isset($tables[$context_level][$table_name])) {
@@ -100,7 +86,7 @@ class tagging_manager {
         $filtered_fields = [];
         foreach ($fields as $field) {
             $key = "ctx{$context_level}_{$table_name}_{$field}";
-            if (empty($tagging_options_map) || isset($tagging_options_map[$key])) {
+            if (empty($tagging_options) || isset($tagging_options_map[$key])) {
                 $filtered_fields[] = $field;
             }
         }
@@ -119,31 +105,17 @@ class tagging_manager {
      * @return array Array of secondary tables and their fields.
      */
     public static function get_secondary_tables($primary_table, $context_level) {
-        $selectedctx = get_config('filter_autotranslate', 'selectctx');
-        $selectedctx = $selectedctx ? array_map('trim', explode(',', $selectedctx)) : ['40', '50', '70', '80'];
+        $selectedctx = get_config('filter_autotranslate', 'selectctx') ?: '40,50,70,80';
+        $selectedctx = array_map('trim', explode(',', (string)$selectedctx));
         if (!in_array((string)$context_level, $selectedctx)) {
             return [];
         }
 
         // Get the configured tables and fields
         $tables = \filter_autotranslate\tagging_config::get_default_tables();
-        $tagging_options_raw = get_config('filter_autotranslate', 'tagging_config');
-
-        // Convert the tagging options to an array of selected options
-        $tagging_options = [];
-        if ($tagging_options_raw !== false && $tagging_options_raw !== null && $tagging_options_raw !== '') {
-            if (is_string($tagging_options_raw)) {
-                $tagging_options = array_map('trim', explode(',', $tagging_options_raw));
-            } elseif (is_array($tagging_options_raw)) {
-                $tagging_options = $tagging_options_raw;
-            }
-        }
-
-        // Convert the array of selected options into a key-value map for easier lookup
-        $tagging_options_map = [];
-        foreach ($tagging_options as $option) {
-            $tagging_options_map[$option] = true;
-        }
+        $tagging_options_raw = get_config('filter_autotranslate', 'tagging_config') ?: '';
+        $tagging_options = $tagging_options_raw ? array_map('trim', explode(',', (string)$tagging_options_raw)) : [];
+        $tagging_options_map = array_fill_keys($tagging_options, true);
 
         // Check if the context level and primary table exist in the default tables
         if (!isset($tables[$context_level]) || !isset($tables[$context_level][$primary_table])) {
@@ -157,7 +129,7 @@ class tagging_manager {
             $filtered_fields = [];
             foreach ($secondary_fields as $field) {
                 $key = "ctx{$context_level}_{$secondary_table}_{$field}";
-                if (empty($tagging_options_map) || isset($tagging_options_map[$key])) {
+                if (empty($tagging_options) || isset($tagging_options_map[$key])) {
                     $filtered_fields[] = $field;
                 }
             }
