@@ -43,7 +43,6 @@ class tagcontent_task extends scheduled_task {
     /**
      * Executes the scheduled task to tag untagged text and process mlang tags.
      */
-    // Your execute() method here (unchanged from your last post)
     public function execute() {
         global $DB;
 
@@ -197,6 +196,7 @@ class tagcontent_task extends scheduled_task {
                     } while ($count >= $batchsize);
                 }
 
+                // Process secondary tables for module contexts
                 if ($ctx == CONTEXT_MODULE) {
                     $secondary_tables = \filter_autotranslate\tagging_manager::get_secondary_tables($table, $ctx);
                     foreach ($secondary_tables as $secondary_table => $secondary_fields) {
@@ -401,11 +401,11 @@ class tagcontent_task extends scheduled_task {
                                 }
 
                                 $offset += $batchsize;
-                            } while ($count >= $batchsize);
-                        } catch (\dml_exception $e) {
-                            mtrace("Error executing query for table $secondary_table: " . $e->getMessage());
-                            break;
-                        }
+                            } catch (\dml_exception $e) {
+                                mtrace("Error executing query for table $secondary_table: " . $e->getMessage());
+                                break;
+                            }
+                        } while ($count >= $batchsize);
                     }
                 }
             }
@@ -729,16 +729,16 @@ class tagcontent_task extends scheduled_task {
                                 }
 
                                 $offset += $batchsize;
-                            } while ($count >= $batchsize);
-                        } catch (\dml_exception $e) {
-                            mtrace("Error executing query for secondary table $secondary_table: " . $e->getMessage());
-                            break;
-                        }
+                            } catch (\dml_exception $e) {
+                                mtrace("Error executing query for table $secondary_table: " . $e->getMessage());
+                                break;
+                            }
+                        } while ($count >= $batchsize);
                     }
                 }
             }
         }
 
-        mtrace("Rebuild completed for course ID $courseid. Total entries checked: $total_entries_checked");
+        mtrace("Auto Translate task completed. Total entries checked: $total_entries_checked");
     }
 }
