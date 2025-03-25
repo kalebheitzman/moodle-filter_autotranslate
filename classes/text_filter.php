@@ -108,12 +108,16 @@ class text_filter extends \core_filters\text_filter {
             $hash = $match[2]; // Group 2 is the hash
             $source_text = trim($match[1]); // Group 1 is the source text
 
-            // Fetch the translation for the user's language
+            // Fetch the translation for the user's language, mapping site language to 'other'
             $userlang = current_language();
-            $translation = $this->translation_repository->get_translation($hash, $userlang);
+            $sitelang = get_config('core', 'lang') ?: 'en';
+            $effective_lang = ($userlang === $sitelang) ? 'other' : $userlang;
+            $translation = $this->translation_repository->get_translation($hash, $effective_lang);
             if (!$translation) {
-                // Log if the hash is invalid or not found
-                debugging("Translation not found for hash '$hash' and language '$userlang' in context {$this->context->id}", DEBUG_DEVELOPER);
+                $debug_enabled = get_config('filter_autotranslate', 'debugtranslations');
+                if ($debug_enabled) {
+                    debugging("Translation not found for hash '$hash' and language '$effective_lang' in context {$this->context->id}. Source text: " . substr($source_text, 0, 50) . "...", DEBUG_DEVELOPER);
+                }
                 $display_text = $this->get_fallback_text($hash, $source_text);
             } else {
                 $display_text = $translation->translated_text;
