@@ -84,6 +84,7 @@ $string['taggingconfig'] = 'Tagging Configuration';
 $string['taggingconfig_desc'] = 'Configure which tables and fields should be tagged with {t:hash} tags for translation by the Autotranslate filter.';
 $string['taggingconfig_options'] = 'Tables and Fields to Tag';
 $string['taggingconfig_options_desc'] = 'Select the tables and fields to be tagged with {t:hash} tags for translation. By default, commonly used tables (e.g., course, course_sections, page, assign, forum, quiz, resource, folder) are selected. Uncheck any fields you do not want to be processed.';
+$string['purgemappingstask'] = 'Purge hash-course mappings';
 
 /**
  * Context Selection

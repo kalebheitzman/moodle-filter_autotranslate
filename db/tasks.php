@@ -12,10 +12,39 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <http://www.gnu.org/licenses>.
 
 /**
- * Task schedule configuration for filter_autotranslate.
+ * Task Schedule Configuration for filter_autotranslate
+ *
+ * Purpose:
+ * This file defines the scheduled tasks for the filter_autotranslate plugin. These tasks handle
+ * background processes such as tagging content for translation, fetching translations from external
+ * services, and purging orphaned hash-course mappings to keep the database clean.
+ *
+ * Structure:
+ * The $tasks array contains definitions for each scheduled task, with the following properties:
+ * - 'classname': The fully qualified class name of the task (e.g., 'filter_autotranslate\task\tagcontent_task').
+ * - 'blocking': Whether the task is blocking (0 for non-blocking, 1 for blocking). All tasks are non-blocking.
+ * - 'minute', 'hour', 'day', 'month', 'dayofweek': The cron schedule for the task, using standard cron syntax.
+ *   - 'minute': Minute of the hour (e.g., '*\/15' for every 15 minutes, '0' for the start of the hour).
+ *   - 'hour': Hour of the day (e.g., '*' for every hour, '0' for midnight).
+ *   - 'day': Day of the month (e.g., '*' for every day).
+ *   - 'month': Month of the year (e.g., '*' for every month).
+ *   - 'dayofweek': Day of the week (e.g., '*' for every day, '0' for Sunday).
+ *
+ * Design Decisions:
+ * - Tasks are scheduled to run at regular intervals to balance performance and timeliness:
+ *   - tagcontent_task runs every 15 minutes to tag new or updated content for translation.
+ *   - fetchtranslation_task runs every 30 minutes to fetch translations from external services.
+ *   - purgemappings_task runs daily at midnight to clean up orphaned mappings, as this is a less frequent operation.
+ * - All tasks are non-blocking to ensure they do not interfere with other Moodle cron processes.
+ * - Schedules can be adjusted in Moodle's admin interface (Site administration > Server > Scheduled tasks).
+ *
+ * Dependencies:
+ * - tagcontent_task.php: Handles tagging of content for translation.
+ * - fetchtranslation_task.php: Fetches translations from external services.
+ * - purgemappings_task.php: Purges orphaned hash-course mappings.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -26,6 +55,8 @@ defined('MOODLE_INTERNAL') || die();
 
 $tasks = [
     [
+        // Task to tag content for translation by adding {t:hash} tags.
+        // Runs every 15 minutes to process new or updated content.
         'classname' => 'filter_autotranslate\task\tagcontent_task',
         'blocking' => 0,
         'minute' => '*/15',
@@ -35,6 +66,8 @@ $tasks = [
         'dayofweek' => '*',
     ],
     [
+        // Task to fetch translations from external services for tagged content.
+        // Runs every 30 minutes to balance load and ensure timely translation updates.
         'classname' => 'filter_autotranslate\task\fetchtranslation_task',
         'blocking' => 0,
         'minute' => '*/30',
@@ -42,5 +75,16 @@ $tasks = [
         'day' => '*',
         'dayofweek' => '*',
         'month' => '*',
+    ],
+    [
+        // Task to purge orphaned hash-course mappings from autotranslate_hid_cids.
+        // Runs daily at midnight, as cleanup is a less frequent operation.
+        'classname' => 'filter_autotranslate\task\purgemappings_task',
+        'blocking' => 0,
+        'minute' => '0',
+        'hour' => '0',
+        'day' => '*',
+        'month' => '*',
+        'dayofweek' => '*',
     ],
 ];
