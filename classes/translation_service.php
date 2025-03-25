@@ -39,6 +39,8 @@ defined('MOODLE_INTERNAL') || die();
  * - Function names use snake_case (e.g., update_translation) to follow Moodle's coding style.
  * - The store_translation function ensures translations are either inserted or updated, handling
  *   both new translations and updates to existing ones.
+ * - Rewrites @@PLUGINFILE@@ URLs in the translated text before storing it in autotranslate_translations,
+ *   ensuring the stored text has fully resolved URLs and eliminating the need for rewriting at display time.
  *
  * Dependencies:
  * - None (interacts directly with the Moodle database).
@@ -98,6 +100,13 @@ class translation_service {
         // Ensure translated_text is a string
         $translated_text = is_array($translated_text) ? implode(' ', $translated_text) : (string)$translated_text;
 
+        // Fetch the context for the translation (based on contextlevel and hash)
+        $context = $this->get_context_for_hash($hash, $contextlevel);
+        if ($context) {
+            // Rewrite @@PLUGINFILE@@ URLs in the translated text
+            $translated_text = $this->rewrite_pluginfile_urls($translated_text, $context, $hash);
+        }
+
         // Check if a translation already exists for this hash and lang
         $existing = $this->db->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
         if ($existing) {
@@ -125,5 +134,133 @@ class translation_service {
 
             $this->db->insert_record('autotranslate_translations', $record);
         }
+    }
+
+    /**
+     * Fetches the context for a hash based on its context level and course mapping.
+     *
+     * This function retrieves the context associated with a hash by looking up the course ID
+     * in autotranslate_hid_cids and determining the context level from autotranslate_translations.
+     *
+     * @param string $hash The hash to look up.
+     * @param int $contextlevel The context level from the translation record.
+     * @return \context|null The context object, or null if not found.
+     */
+    private function get_context_for_hash($hash, $contextlevel) {
+        // Fetch the course ID from autotranslate_hid_cids
+        $courseid = $this->db->get_field('autotranslate_hid_cids', 'courseid', ['hash' => $hash]);
+        if (!$courseid) {
+            return null;
+        }
+
+        try {
+            if ($contextlevel == CONTEXT_COURSE) {
+                return \context_course::instance($courseid);
+            } elseif ($contextlevel == CONTEXT_MODULE) {
+                // Fetch the course module ID (requires joining with course_modules)
+                $sql = "SELECT cm.id
+                        FROM {course_modules} cm
+                        JOIN {autotranslate_hid_cids} hc ON hc.courseid = cm.course
+                        WHERE hc.hash = :hash";
+                $cmid = $this->db->get_field_sql($sql, ['hash' => $hash]);
+                if ($cmid) {
+                    return \context_module::instance($cmid);
+                }
+            } elseif ($contextlevel == CONTEXT_BLOCK) {
+                $sql = "SELECT bi.id
+                        FROM {block_instances} bi
+                        JOIN {context} ctx ON ctx.instanceid = bi.id AND ctx.contextlevel = :contextlevel
+                        JOIN {autotranslate_hid_cids} hc ON hc.courseid = ctx.instanceid
+                        WHERE hc.hash = :hash";
+                $blockid = $this->db->get_field_sql($sql, ['hash' => $hash, 'contextlevel' => CONTEXT_BLOCK]);
+                if ($blockid) {
+                    return \context_block::instance($blockid);
+                }
+            } elseif ($contextlevel == CONTEXT_SYSTEM) {
+                return \context_system::instance();
+            } elseif ($contextlevel == CONTEXT_USER) {
+                $sql = "SELECT u.id
+                        FROM {user} u
+                        JOIN {autotranslate_hid_cids} hc ON hc.courseid = 0
+                        WHERE hc.hash = :hash";
+                $userid = $this->db->get_field_sql($sql, ['hash' => $hash]);
+                if ($userid) {
+                    return \context_user::instance($userid);
+                }
+            } elseif ($contextlevel == CONTEXT_COURSECAT) {
+                $sql = "SELECT cc.id
+                        FROM {course_categories} cc
+                        JOIN {autotranslate_hid_cids} hc ON hc.courseid = 0
+                        WHERE hc.hash = :hash";
+                $catid = $this->db->get_field_sql($sql, ['hash' => $hash]);
+                if ($catid) {
+                    return \context_coursecat::instance($catid);
+                }
+            }
+        } catch (\dml_exception $e) {
+            debugging("Failed to fetch context for hash '$hash': " . $e->getMessage(), DEBUG_DEVELOPER);
+        }
+
+        return null;
+    }
+
+    /**
+     * Rewrites @@PLUGINFILE@@ URLs in content based on the context.
+     *
+     * This function rewrites @@PLUGINFILE@@ URLs in the translated text before storing it,
+     * using the context to determine the correct component, filearea, and itemid.
+     *
+     * @param string $content The content to rewrite.
+     * @param \context $context The context object for the content.
+     * @param string $hash The hash of the translation (used to fetch itemid if needed).
+     * @return string The content with rewritten URLs.
+     */
+    private function rewrite_pluginfile_urls($content, $context, $hash) {
+        $component = '';
+        $filearea = '';
+        $itemid = 0;
+
+        // Determine the component, filearea, and itemid based on the context
+        if ($context->contextlevel == CONTEXT_COURSE) {
+            $component = 'course';
+            $filearea = 'summary'; // Default for course context
+            $itemid = $context->instanceid;
+        } elseif ($context->contextlevel == CONTEXT_MODULE) {
+            $cm = get_coursemodule_from_id('', $context->instanceid);
+            if ($cm) {
+                $component = 'mod_' . $cm->modname;
+                $filearea = 'intro'; // Default for module context
+                $itemid = $cm->instance;
+            }
+        } elseif ($context->contextlevel == CONTEXT_BLOCK) {
+            $component = 'block_instances';
+            $filearea = 'content';
+            $itemid = $context->instanceid;
+        } elseif ($context->contextlevel == CONTEXT_SYSTEM) {
+            $component = 'core';
+            $filearea = 'content';
+            $itemid = 0;
+        } elseif ($context->contextlevel == CONTEXT_USER) {
+            $component = 'user';
+            $filearea = 'profile';
+            $itemid = $context->instanceid;
+        } elseif ($context->contextlevel == CONTEXT_COURSECAT) {
+            $component = 'coursecat';
+            $filearea = 'description';
+            $itemid = $context->instanceid;
+        }
+
+        if ($component && $filearea) {
+            $content = \file_rewrite_pluginfile_urls(
+                $content,
+                'pluginfile.php',
+                $context->id,
+                $component,
+                $filearea,
+                $itemid
+            );
+        }
+
+        return $content;
     }
 }

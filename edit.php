@@ -28,6 +28,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->libdir . '/weblib.php'); // For file_rewrite_pluginfile_urls()
+require_once($CFG->dirroot . '/filter/autotranslate/classes/helper.php');
 require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_repository.php');
 require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_service.php');
 
@@ -48,10 +49,11 @@ require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_service.
  * - Dynamically determines whether to use a WYSIWYG editor based on the presence of HTML in the
  *   translated text (not the source text), ensuring the editor matches the content's needs.
  * - Includes a language switcher to allow quick navigation between translations for the same hash.
- * - The @@PLUGINFILE@@ URL rewriting is not implemented for the source text, as the correct component
- *   and filearea are context-dependent and require further implementation.
+ * - @@PLUGINFILE@@ URLs are rewritten when translations are stored (in tagging_service.php and
+ *   translation_service.php), so no rewriting is needed here at display time.
  *
  * Dependencies:
+ * - helper.php: For utility functions (e.g., map_language_to_other).
  * - translation_repository.php: For fetching translation data.
  * - translation_service.php: For updating translations.
  * - edit_form.php: For the edit form.
@@ -82,12 +84,8 @@ if (empty($tlang)) {
     exit();
 }
 
-// Get the site language
-$sitelang = get_config('core', 'lang') ?: 'en'; // Default to 'en' if not set
-$sitelang = strtolower(trim($sitelang));
-
-// Map site language to 'other' if they match
-$queried_tlang = ($tlang === $sitelang) ? 'other' : $tlang;
+// Map the language to 'other' if it matches the site language
+$queried_tlang = helper::map_language_to_other($tlang);
 
 // Prevent editing the 'other' language record through this interface
 if ($tlang === 'other' || $queried_tlang === 'other') {
@@ -119,8 +117,7 @@ if (!$source_text || $source_text === 'N/A') {
     $source_text = 'N/A'; // Fallback if no source text is found
 }
 
-// Rewrite @@PLUGINFILE@@ placeholders in source text (TODO: Implement correct component and filearea)
-// For now, just format the text as HTML
+// URLs are already rewritten when stored, so just format the text for display
 $source_text = format_text($source_text, FORMAT_HTML);
 
 // Determine if the translated text contains HTML to decide on editor type
@@ -177,6 +174,7 @@ echo '</div>';
 $all_langs = $repository->get_all_languages($hash);
 
 // Add language switcher as buttons, mapping 'other' to site language for display
+$sitelang = get_config('core', 'lang') ?: 'en';
 $lang_buttons = [];
 foreach ($all_langs as $lang) {
     if ($lang === 'other') {

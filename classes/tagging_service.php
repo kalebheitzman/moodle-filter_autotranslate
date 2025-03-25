@@ -41,6 +41,9 @@ require_once($CFG->dirroot . '/filter/autotranslate/classes/helper.php');
  * - The tag_content function handles MLang tags by processing them via helper.php and storing
  *   the resulting translations in autotranslate_translations.
  * - Ensures hashes are reused for identical strings (after trimming) to limit database growth.
+ * - Rewrites @@PLUGINFILE@@ URLs in the source text and translations before storing them in
+ *   autotranslate_translations, ensuring the stored text has fully resolved URLs and eliminating
+ *   the need for rewriting at display time.
  *
  * Dependencies:
  * - helper.php: Provides utility functions for tag detection, hash extraction, and MLang tag processing.
@@ -101,6 +104,9 @@ class tagging_service {
                 $hash = $existing ? $existing->hash : helper::generate_unique_hash();
 
                 if (!$existing) {
+                    // Rewrite @@PLUGINFILE@@ URLs in the source text before storing
+                    $source_text = $this->rewrite_pluginfile_urls($source_text, $context, $table, $field, $record->id);
+
                     // Store the source text
                     $record_data = new \stdClass();
                     $record_data->hash = $hash;
@@ -113,8 +119,9 @@ class tagging_service {
                     $record_data->human = 1;
                     $this->db->insert_record('autotranslate_translations', $record_data);
 
-                    // Store translations from MLang tags
+                    // Rewrite @@PLUGINFILE@@ URLs in translations before storing
                     foreach ($translations as $lang => $translated_text) {
+                        $translated_text = $this->rewrite_pluginfile_urls($translated_text, $context, $table, $field, $record->id);
                         $trans_record = new \stdClass();
                         $trans_record->hash = $hash;
                         $trans_record->lang = $lang;
@@ -134,7 +141,8 @@ class tagging_service {
                 $taggedcontent = helper::tag_content($content, $context);
                 $hash = helper::extract_hash($taggedcontent);
 
-                // Store the source text
+                // Rewrite @@PLUGINFILE@@ URLs in the source text before storing
+                $content = $this->rewrite_pluginfile_urls($content, $context, $table, $field, $record->id);
                 $this->create_or_update_source_translation($taggedcontent, $context->contextlevel);
             }
 
@@ -270,5 +278,75 @@ class tagging_service {
                 AND lang != 'other'";
         $params = array_merge([time(), time()], array_keys($hashes), [$context->contextlevel]);
         $this->db->execute($sql, $params);
+    }
+
+    /**
+     * Rewrites @@PLUGINFILE@@ URLs in content based on the context and table.
+     *
+     * This function determines the correct component, filearea, and itemid for the content
+     * and rewrites @@PLUGINFILE@@ URLs to their proper form before storing the translation.
+     *
+     * @param string $content The content to rewrite.
+     * @param \context $context The context object for the content.
+     * @param string $table The table name (e.g., 'course', 'book_chapters').
+     * @param string $field The field name (e.g., 'summary', 'content').
+     * @param int $itemid The item ID (e.g., record ID).
+     * @return string The content with rewritten URLs.
+     */
+    private function rewrite_pluginfile_urls($content, $context, $table, $field, $itemid) {
+        $component = '';
+        $filearea = '';
+
+        // Determine the component and filearea based on the table and context
+        if ($context->contextlevel == CONTEXT_COURSE) {
+            if ($table === 'course') {
+                $component = 'course';
+                $filearea = ($field === 'summary') ? 'summary' : $field;
+            } elseif ($table === 'course_sections') {
+                $component = 'course';
+                $filearea = ($field === 'summary') ? 'section' : $field;
+            }
+        } elseif ($context->contextlevel == CONTEXT_MODULE) {
+            $cm = get_coursemodule_from_id('', $context->instanceid);
+            if ($cm) {
+                $component = 'mod_' . $cm->modname;
+                $filearea = ($field === 'intro') ? 'intro' : $field;
+            }
+        } elseif ($context->contextlevel == CONTEXT_BLOCK) {
+            $component = 'block_' . $table;
+            $filearea = 'content';
+        } elseif ($context->contextlevel == CONTEXT_SYSTEM) {
+            // System context (e.g., messages, blocks)
+            if ($table === 'message') {
+                $component = 'message';
+                $filearea = 'message';
+            } elseif ($table === 'block_instances') {
+                $component = 'block_instances';
+                $filearea = 'content';
+            }
+        } elseif ($context->contextlevel == CONTEXT_USER) {
+            if ($table === 'user_info_data') {
+                $component = 'user';
+                $filearea = 'profile';
+            }
+        } elseif ($context->contextlevel == CONTEXT_COURSECAT) {
+            if ($table === 'course_categories') {
+                $component = 'coursecat';
+                $filearea = 'description';
+            }
+        }
+
+        if ($component && $filearea) {
+            $content = \file_rewrite_pluginfile_urls(
+                $content,
+                'pluginfile.php',
+                $context->id,
+                $component,
+                $filearea,
+                $itemid
+            );
+        }
+
+        return $content;
     }
 }

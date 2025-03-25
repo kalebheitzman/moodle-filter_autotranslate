@@ -22,6 +22,11 @@
  */
 namespace filter_autotranslate;
 
+// Import global functions
+use function get_config;
+use function get_string_manager;
+use function random_int;
+
 defined('MOODLE_INTERNAL') || die();
 
 /**
@@ -29,8 +34,8 @@ defined('MOODLE_INTERNAL') || die();
  *
  * Purpose:
  * This class contains pure utility functions for string manipulation, hash generation,
- * tag detection, and MLang tag processing. It is designed to handle common operations
- * that do not involve database interactions, ensuring a clear separation of concerns.
+ * tag detection, MLang tag processing, and language mapping. It is designed to handle common
+ * operations that do not involve database interactions, ensuring a clear separation of concerns.
  * Database operations (e.g., storing translations, updating hash-course mappings) are
  * handled by dedicated service classes (tagging_service.php, translation_service.php).
  *
@@ -300,5 +305,19 @@ class helper {
         // This requires access to the language pack's langconfig.php, which is not directly accessible
         // For now, rely on the predefined list above
         return false;
+    }
+
+    /**
+     * Maps a language code to 'other' if it matches the site language.
+     *
+     * This function ensures consistent language handling across the plugin by mapping the site
+     * language to 'other', as stored in autotranslate_translations.
+     *
+     * @param string $lang The language code to map (e.g., 'en', 'es').
+     * @return string The mapped language code ('other' if it matches the site language, otherwise the original code).
+     */
+    public static function map_language_to_other($lang) {
+        $sitelang = get_config('core', 'lang') ?: 'en';
+        return ($lang === $sitelang) ? 'other' : $lang;
     }
 }
