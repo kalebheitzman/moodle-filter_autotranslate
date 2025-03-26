@@ -21,7 +21,7 @@
  * the webservice.
  *
  * @package    filter_autotranslate
- * @copyright  2024 Kaleb Heitzman <kaleb@jamfire.io>
+ * @copyright  20245Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @see        https://docs.moodle.org/dev/Access_API
  */
@@ -30,11 +30,21 @@ defined('MOODLE_INTERNAL') || die();
 
 // Translator Capabilities.
 $capabilities = [
-    'filter/autotranslate:translate' => [
+    'filter/autotranslate:manage' => [
         'captype' => 'write',
-        'riskbitmaskt' => 'RISK_CONFIG',
         'contextlevel' => CONTEXT_SYSTEM,
         'archetypes' => [
+            'manager' => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW,
+        ],
+        'clonepermissionsfrom' => 'moodle/site:manageblocks',
+    ],
+    'filter/autotranslate:edit' => [
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_COURSE,
+        'archetypes' => [
+            'teacher' => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW,
             'manager' => CAP_ALLOW,
         ],
     ],

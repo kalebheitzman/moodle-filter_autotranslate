@@ -12,10 +12,10 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Autotranslate filter extended libs
+ * Autotranslate filter libs
  *
  * @package      filter_autotranslate
  * @copyright    2022 Kaleb Heitzman <kaleb@jamfire.io>
@@ -23,52 +23,49 @@
  */
 
 /**
- * Add Translate Course to course settings menu.
+ * Add Manage Autotranslations to course settings menu.
  *
  * @package      filter_autotranslate
- * @param object $navigation
- * @param object $course
+ * @param object $navigation The navigation node to extend
+ * @param object $course The course object
+ * @param context $context The course context
  * @return void
  */
-function filter_autotranslate_extend_navigation_course($navigation, $course) {
+function filter_autotranslate_extend_navigation_course($navigation, $course, $context) {
+    global $CFG;
 
-    // Get langs.
-    $sitelang = get_config('core', 'lang');
+    // Check if the user has the required capability.
+    if (!has_capability('filter/autotranslate:manage', $context)) {
+        return;
+    }
+
+    // Debugging to confirm the function is called
+    // debugging('filter_autotranslate_extend_navigation_course called for course ' . $course->id, DEBUG_DEVELOPER);.
+
+    // Get the site language and current language.
+    $sitelang = get_config('core', 'lang') ?: 'en';
     $currentlang = current_language();
+    $filterlang = ($currentlang === $sitelang) ? 'other' : $currentlang;
 
-    // Build a moodle url.
-    $manageurl = new moodle_url(
-        "/filter/autotranslate/manage.php?targetlang=$currentlang&limit=500&instanceid=$course->id"
-    );
+    // Build a moodle URL for Manage Autotranslations.
+    $manageurl = new moodle_url('/filter/autotranslate/manage.php', [
+        'courseid' => $course->id,
+        'filter_lang' => $filterlang,
+        'perpage' => 250,
+    ]);
 
-    // Get title of translate page for navigation menu.
-    $managetitle = get_string('manage_title', 'filter_autotranslate');
+    // Get title of Manage Autotranslations page for navigation menu.
+    $managetitle = get_string('manageautotranslations', 'filter_autotranslate');
 
-    // Navigation node.
+    // Navigation node for Manage Autotranslations.
     $managecontent = navigation_node::create(
         $managetitle,
         $manageurl,
-        navigation_node::TYPE_CUSTOM,
+        navigation_node::TYPE_SETTING,
         $managetitle,
-        'autotranslate',
+        'autotranslatemanage',
+        new pix_icon('i/settings', '')
     );
     $navigation->add_node($managecontent);
-
-    // Build a moodle url.
-    $glossaryurl = new moodle_url(
-        "/filter/autotranslate/glossary.php"
-    );
-
-    // Get title of glossary page for navigation menu.
-    $glossarytitle = get_string('glossary_title', 'filter_autotranslate');
-
-    // Navigation node.
-    $glossarycontent = navigation_node::create(
-        $glossarytitle,
-        $glossaryurl,
-        navigation_node::TYPE_CUSTOM,
-        $glossarytitle,
-        'autotranslate',
-    );
-    $navigation->add_node($glossarycontent);
+    $managecontent->showinsecondarynavigation = true; // Force into More menu.
 }

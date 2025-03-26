@@ -15,16 +15,18 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * File only retained to prevent fatal errors in code that tries to require/include this.
+ * Search areas for the filter_autotranslate plugin.
  *
- * @todo MDL-82708 delete this file as part of Moodle 6.0 development.
- * @deprecated This file is no longer required in Moodle 4.5+.
- * @package filter_autotranslate
+ * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
- * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-// The actual implementation is under classes/text_filter.php
-// This file is just a workaround to make the filter work
-// in Moodle versions below 4.5.
-class_alias(\filter_autotranslate\text_filter::class, \filter_autotranslate::class);
+defined('MOODLE_INTERNAL') || die();
+
+$searchareas = [
+    'filter_autotranslate-translation' => [
+        'class' => 'filter_autotranslate\\search\\translation',
+        'file' => '/filter/autotranslate/classes/search/translation.php',
+    ],
+];

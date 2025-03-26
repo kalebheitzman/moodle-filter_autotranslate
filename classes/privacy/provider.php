@@ -12,13 +12,13 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Privacy Subsystem implementation for filter_autotranslate.
  *
  * @package    filter_autotranslate
- * @copyright  2024 Kaleb Heitzman <kaleb@jamfire.io>
+ * @copyright  20245Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
@@ -27,7 +27,7 @@ namespace filter_autotranslate\privacy;
 /**
  * Privacy Subsystem for filter_autotranslate implementing null_provider.
  *
- * @copyright  2024 Kaleb Heitzman <kaleb@jamfire.io>
+ * @copyright  20245Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class provider implements \core_privacy\local\metadata\null_provider {

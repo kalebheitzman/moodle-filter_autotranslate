@@ -1,111 +1,39 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="filter/autotranslate/db" VERSION="20240127" COMMENT="XMLDB file for Moodle filter/autotranslate"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:noNamespaceSchemaLocation="../../../lib/xmldb/xmldb.xsd"
->
-  <TABLES>
-    <TABLE NAME="filter_autotranslate" COMMENT="Autotranslate stored translations">
-      <FIELDS>
-        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="hash" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="lang" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
-        <FIELD NAME="text" TYPE="text" NOTNULL="false" SEQUENCE="false"/>
-        <!-- 0 = auto, 1 = verified, 2 = source -->
-        <FIELD NAME="status" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" />
-        <FIELD NAME="created_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Created time of translation"/>
-        <FIELD NAME="modified_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Last modified time of translation"/>
-      </FIELDS>
-      <KEYS>
-        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-      </KEYS>
-      <INDEXES>
-        <INDEX NAME="lang_index" UNIQUE="false" FIELDS="lang" COMMENT="Translation language index"/>
-        <INDEX NAME="hash_index" UNIQUE="false" FIELDS="hash" COMMENT="Translation hash index" />
-        <INDEX NAME="status_index" UNIQUE="false" FIELDS="status" COMMENT="Translation status index" />
-      </INDEXES>
-    </TABLE>
-    <TABLE NAME="filter_autotranslate_jobs" COMMENT="Autotranslate jobs">
-      <FIELDS>
-        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="hash" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="lang" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
-        <FIELD NAME="fetched" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" />
-        <FIELD NAME="source" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" />
-        <!-- 20240227002 -->
-        <FIELD NAME="created_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Created time of job"/>
-        <FIELD NAME="modified_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Last modified time of job"/>
-      </FIELDS>
-      <KEYS>
-        <KEY NAME="primary" TYPE="primary" FIELDS="id" />
-      </KEYS>
-      <INDEXES>
-        <INDEX NAME="lang_index" UNIQUE="false" FIELDS="lang" COMMENT="Translation language index"/>
-        <INDEX NAME="hash_index" UNIQUE="false" FIELDS="hash" COMMENT="Translation hash index" />
-        <INDEX NAME="source_index" UNIQUE="false" FIELDS="source" COMMENT="Translation source index" />
-      </INDEXES>
-    </TABLE>
-    <TABLE NAME="filter_autotranslate_ctx" COMMENT="Autotranslate index by content ids">
-      <FIELDS>
-        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="hash" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="lang" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
-        <FIELD NAME="contextid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false"/>
-        <!-- New fields 2024013000 -->
-        <FIELD NAME="contextlevel" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Context level"/>
-        <FIELD NAME="instanceid" TYPE="int" LENGTH="10" NOTNULL="false" SEQUENCE="false" COMMENT="Instance ID"/>
-      </FIELDS>
-      <KEYS>
-        <KEY NAME="primary" TYPE="primary" FIELDS="id" />
-      </KEYS>
-      <INDEXES>
-        <INDEX NAME="lang_index" UNIQUE="false" FIELDS="lang" COMMENT="Translation language index"/>
-        <INDEX NAME="hash_index" UNIQUE="false" FIELDS="hash" COMMENT="Translation hash index" />
-        <INDEX NAME="contextid_index" UNIQUE="false" FIELDS="contextid" COMMENT="Translation hash index" />
-        <!-- New indexes 2024013000 -->
-        <INDEX NAME="contextlevel_index" UNIQUE="false" FIELDS="contextlevel" COMMENT="Context level index"/>
-        <INDEX NAME="instanceid_index" UNIQUE="false" FIELDS="instanceid" COMMENT="Instance ID index"/>
-      </INDEXES>
-    </TABLE>
-    <!-- New glossary table 2024021200 -->
-    <TABLE NAME="filter_autotranslate_gterms" COMMENT="Autotranslate glossary terms">
-      <FIELDS>
-        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="hash" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="text" TYPE="text"  NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="lang" TYPE="char" LENGTH="30" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
-        <FIELD NAME="created_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Created time of entry"/>
-        <FIELD NAME="modified_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Last modified time of entry"/>
-      </FIELDS>
-      <KEYS>
-        <KEY NAME="primary" TYPE="primary" FIELDS="id" />
-      </KEYS>
-      <INDEXES>
-        <INDEX NAME="lang_index" UNIQUE="false" FIELDS="lang" COMMENT="Glossary language index"/>
-        <INDEX NAME="hash_index" UNIQUE="false" FIELDS="hash" COMMENT="Glossary hash index" />
-      </INDEXES>
-    </TABLE>
-    <!-- glossary jobs and ids tables 2024021700 -->
-    <TABLE NAME="filter_autotranslate_gids" COMMENT="Autotranslate glossary ids">
-      <FIELDS>
-        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
-        <FIELD NAME="glossary_id" TYPE="char" LENGTH="42" NOTNULL="false" SEQUENCE="false"/>
-        <FIELD NAME="name" TYPE="char" LENGTH="32" NOTNULL="true" SEQUENCE="false"/>
-        <FIELD NAME="ready" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false"/>
-        <FIELD NAME="source_lang" TYPE="char" LENGTH="5" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
-        <FIELD NAME="target_lang" TYPE="char" LENGTH="5" NOTNULL="true" DEFAULT="en" SEQUENCE="false"/>
-        <FIELD NAME="created_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Created time of glossary"/>
-        <FIELD NAME="modifed_at" TYPE="int" LENGTH="11" NOTNULL="true" SEQUENCE="false" COMMENT="Modified time of glossary"/>
-        <FIELD NAME="last_sync" TYPE="int" LENGTH="11" NOTNULL="false" SEQUENCE="false" COMMENT="Last Sync time of glossary"/>
-        <FIELD NAME="entry_count" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0"  SEQUENCE="false" COMMENT="Entrie count in glossary"/>
-      </FIELDS>
-      <KEYS>
-        <KEY NAME="primary" TYPE="primary" FIELDS="id" />
-      </KEYS>
-      <INDEXES>
-        <INDEX NAME="source_lang_index" UNIQUE="false" FIELDS="source_lang" COMMENT="Glossary source language index"/>
-        <INDEX NAME="target_lang_index" UNIQUE="false" FIELDS="target_lang" COMMENT="Glossary target language index"/>
-        <INDEX NAME="name_index" UNIQUE="false" FIELDS="name" COMMENT="Glossary name index" />
-      </INDEXES>
-    </TABLE>
-  </TABLES>
+<XMLDB PATH="filter/autotranslate/db" VERSION="20250315" COMMENT="XMLDB structure for filter_autotranslate">
+    <TABLES>
+        <TABLE NAME="filter_autotranslate_translations" COMMENT="Stores translations for the autotranslate filter">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
+                <FIELD NAME="hash" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Unique 10-character hash for the source text"/>
+                <FIELD NAME="lang" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="Language code (e.g., es, ru)"/>
+                <FIELD NAME="translated_text" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Translated content for the specified language"/>
+                <FIELD NAME="contextlevel" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false" COMMENT="Moodle context level (e.g., 10 for System, 50 for Course, 70 for Module)"/>
+                <FIELD NAME="human" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Flag indicating if the translation was manually edited by a human (0 = automatic, 1 = manual)"/>
+                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp of creation"/>
+                <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp of last modification"/>
+                <FIELD NAME="timereviewed" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Timestamp when the translation was last reviewed"/>            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+                <KEY NAME="hash_lang" TYPE="unique" FIELDS="hash,lang" COMMENT="Ensures one translation per language per hash"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="mdl_autotran_con_ix" UNIQUE="false" FIELDS="contextlevel" COMMENT="Index for context-based recovery"/>
+                <INDEX NAME="mdl_autotran_timereviewed_ix" UNIQUE="false" FIELDS="timereviewed" COMMENT="Index for review tracking"/>            </INDEXES>
+        </TABLE>
+        <TABLE NAME="filter_autotranslate_hid_cids" COMMENT="Maps translation hashes to course IDs">
+            <FIELDS>
+                <FIELD NAME="hash" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Hash of the translatable string"/>
+                <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course ID where the string appears"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="hash,courseid"/>
+                <KEY NAME="hashfk" TYPE="foreign" FIELDS="hash" REFTABLE="filter_autotranslate_translations" REFFIELDS="hash"/>
+                <KEY NAME="courseidfk" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="hash" UNIQUE="false" FIELDS="hash"/>
+                <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
+            </INDEXES>
+        </TABLE>
+    </TABLES>
 </XMLDB>
