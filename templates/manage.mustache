@@ -1,39 +1,42 @@
 {{!
-    Mustache template for rendering the manage page table in the filter_autotranslate plugin.
+    This file is part of Moodle - https://moodle.org/
 
-    Purpose:
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template filter_autotranslate/manage
+
     This template renders a responsive table displaying translations, with filtering and pagination
     controls. It is used by manage.php to display a list of translations with columns for hash,
     language, source text, translated text, human status, context level, review status, and actions.
 
-    Variables:
-    - filter_form: HTML for the filter form (rendered by manage_form.php).
-    - table_headers: Array of table header labels.
-    - table_rows: Array of table rows, each containing:
-        - hash: The translation hash.
-        - lang: The language code.
-        - source_text: The source text (optional, shown if filtering by a specific language).
-        - translated_text: The translated text with appended dates (last modified, last reviewed).
-        - human: The human status (Yes/No).
-        - contextlevel: The context level.
-        - review_status: HTML for the review status indicator (e.g., warning icon if needs review).
-        - show_edit_link: Boolean indicating if the edit link should be shown.
-        - edit_url: URL for the edit link.
-        - edit_label: Label for the edit link.
-        - is_rtl: Boolean indicating if the language is right-to-left.
-    - pagination: HTML for the pagination bar.
-    - has_courseid: Boolean indicating if a courseid is provided (to show the rebuild button).
-    - rebuild_url: URL for the rebuild translations action.
-    - rebuild_label: Label for the rebuild translations button.
+    Classes required for JS:
+    * none
 
-    Design Decisions:
-    - Uses Bootstrap classes (table, table-striped, table-responsive) for responsive styling.
-    - Conditionally displays source_text and translated_text columns based on the filter_lang parameter.
-    - Applies dir="rtl" and right-aligned text for RTL languages to ensure proper text direction.
-    - Includes pagination and filter form placeholders for dynamic content.
-    - Aligns the filter form and rebuild button using a flex container for proper layout.
+    Data attributes required for JS:
+    * none
 
-    @template
+    Context variables required for this template:
+    * filter_form: HTML for the filter form (rendered by manage_form.php).
+    * table_headers: Array of table header labels.
+    * table_rows: Array of table rows (with subfields like hash, lang, etc.).
+    * pagination: HTML for the pagination bar.
+    * has_courseid: Boolean indicating if a courseid is provided.
+    * rebuild_url: URL for the rebuild translations action.
+    * rebuild_label: Label for the rebuild translations button.
+
+    Example context (json):
     {
         "filter_form": "<form>...</form>",
         "table_headers": ["Hash", "Language", "Source Text", "Translated Text", "Human", "Context", "Review", "Actions"],
@@ -50,16 +53,6 @@
                 "edit_url": "https://example.com/edit.php?id=1",
                 "edit_label": "Edit",
                 "is_rtl": true
-            },
-            {
-                "hash": "def456",
-                "lang": "en",
-                "translated_text": "Goodbye world<br>Modified: 2025-03-24",
-                "human": "Yes",
-                "contextlevel": "Module",
-                "review_status": "<span class=\"icon-success\"></span>",
-                "show_edit_link": false,
-                "is_rtl": false
             }
         ],
         "pagination": "<nav>...</nav>",

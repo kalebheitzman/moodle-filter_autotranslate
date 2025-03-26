@@ -1,23 +1,38 @@
 {{!
-    Mustache template for rendering the edit page in the filter_autotranslate plugin.
+    This file is part of Moodle - https://moodle.org/
 
-    Purpose:
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template filter_autotranslate/edit
+
     This template renders the edit page, displaying a form for editing a translation alongside
     the source text for reference. It uses a two-column layout to present the form and source text
     side by side.
 
-    Variables:
-    - form: HTML for the edit form (rendered by edit_form.php).
-    - source_text: The source text (lang = 'other') for the translation.
-    - source_text_label: The label for the source text section (e.g., "Source Text").
+    Classes required for JS:
+    * none
 
-    Design Decisions:
-    - Uses Bootstrap classes (row, col-md-7, col-md-5, card) for a responsive two-column layout.
-    - Places the edit form on the left (7 columns) and the source text on the right (5 columns)
-      to provide context while editing.
-    - Includes card titles for clarity and visual separation.
+    Data attributes required for JS:
+    * none
 
-    @template
+    Context variables required for this template:
+    * form: HTML for the edit form (rendered by edit_form.php).
+    * source_text: The source text (lang = 'other') for the translation.
+    * source_text_label: The label for the source text section (e.g., "Source Text").
+
+    Example context (json):
     {
         "form": "<form action=\"edit.php\" method=\"post\"><input type=\"text\" name=\"translated_text\" value=\"Hello world\" /></form>",
         "source_text": "Hola mundo",
