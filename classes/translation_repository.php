@@ -96,7 +96,12 @@ class translation_repository {
      * @return string The source text, or 'N/A' if not found.
      */
     public function get_source_text(string $hash) {
-        $sourcetext = $this->db->get_field('filter_autotranslate_translations', 'translated_text', ['hash' => $hash, 'lang' => 'other']);
+        $sourcetext = $this->db->get_field(
+            'filter_autotranslate_translations',
+            'translated_text',
+            ['hash' => $hash,
+            'lang' => 'other']
+        );
         return $sourcetext ?: 'N/A';
     }
 
