@@ -50,7 +50,7 @@ class fetchtranslation_task extends scheduled_task {
      */
     private function signal_handler($signo) {
         mtrace("Received signal $signo. Preparing to exit gracefully...");
-        $this->should_exit = true;
+        $this->shouldexit = true;
     }
 
     /**
@@ -232,7 +232,7 @@ class fetchtranslation_task extends scheduled_task {
                 }
 
                 // Check if the task should exit due to a signal.
-                if ($this->should_exit) {
+                if ($this->shouldexit) {
                     mtrace("Task interrupted by signal. Rolling back transaction and exiting.");
                     if ($transaction) {
                         $transaction->rollback(new \Exception("Task interrupted by signal"));
@@ -257,7 +257,7 @@ class fetchtranslation_task extends scheduled_task {
                     }
 
                     // Check again after sleep.
-                    if ($this->should_exit) {
+                    if ($this->shouldexit) {
                         mtrace("Task interrupted by signal after rate limit sleep. Rolling back transaction and exiting.");
                         $transaction->rollback(new \Exception("Task interrupted by signal"));
                         break;
@@ -292,17 +292,17 @@ class fetchtranslation_task extends scheduled_task {
                     );
 
                     // Log response time and API usage.
-                    $responsetime = $this->last_response_time ?? 0;
+                    $responsetime = $this->lastresponsetime ?? 0;
                     $totalresponsetime += $responsetime;
                     mtrace("  Response time: " . number_format($responsetime, 2) . " seconds");
-                    if ($this->last_api_usage) {
+                    if ($this->lastapiusage) {
                         mtrace(
                             "  API Usage: prompt_tokens=" .
-                            $this->last_api_usage['prompt_tokens'] .
+                            $this->lastapiusage['prompt_tokens'] .
                             ", completion_tokens=" .
-                            $this->last_api_usage['completion_tokens'] .
+                            $this->lastapiusage['completion_tokens'] .
                             ", total_tokens=" .
-                            $this->last_api_usage['total_tokens']
+                            $this->lastapiusage['total_tokens']
                         );
                     }
 
@@ -521,8 +521,8 @@ class fetchtranslation_task extends scheduled_task {
                 $data = json_decode($response, true);
                 if ($httpcode == 200 && isset($data['choices'][0]['message']['content'])) {
                     // Store response time and API usage for logging.
-                    $this->last_response_time = $curlinfo['total_time'];
-                    $this->last_api_usage = $data['usage'] ?? null;
+                    $this->lastresponsetime = $curlinfo['total_time'];
+                    $this->lastapiusage = $data['usage'] ?? null;
 
                     $translations = json_decode($data['choices'][0]['message']['content'], true);
                     if (!is_array($translations)) {

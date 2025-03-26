@@ -50,18 +50,20 @@
 
 namespace filter_autotranslate;
 
-defined('MOODLE_INTERNAL') || die();
+use filter_autotranslate\form\edit_form;
+use filter_autotranslate\helper;
+use filter_autotranslate\translation_repository;
+use filter_autotranslate\translation_service;
 
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->libdir . '/weblib.php');
-require_once($CFG->dirroot . '/filter/autotranslate/classes/helper.php');
-require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_repository.php');
-require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_service.php');
+
+defined('MOODLE_INTERNAL') || die();
 
 // Require login and check capability.
 require_login();
-require_capability('filter/autotranslate:manage', context_system::instance());
+require_capability('filter/autotranslate:manage', \context_system::instance());
 
 // Get parameters.
 $hash = required_param('hash', PARAM_ALPHANUMEXT);
@@ -99,7 +101,7 @@ $queriedtlang = helper::map_language_to_other($tlang);
 // Prevent editing the 'other' language record through this interface.
 if ($tlang === 'other' || $queriedtlang === 'other') {
     redirect(
-        new moodle_url('/filter/autotranslate/manage.php'),
+        new \moodle_url('/filter/autotranslate/manage.php'),
         get_string('cannoteditother', 'filter_autotranslate'),
         null,
         \core\output\notification::NOTIFY_ERROR
@@ -109,7 +111,7 @@ if ($tlang === 'other' || $queriedtlang === 'other') {
 
 // Set up the page.
 $PAGE->set_url('/filter/autotranslate/edit.php', ['hash' => $hash, 'tlang' => $tlang, 'contextid' => $contextid]);
-$PAGE->set_context(context_system::instance());
+$PAGE->set_context(\context_system::instance());
 $PAGE->set_title(get_string('edittranslation', 'filter_autotranslate'));
 $PAGE->set_heading(get_string('edittranslation', 'filter_autotranslate'));
 
@@ -147,19 +149,19 @@ if ($translation->translated_text && preg_match('/<[^>]+>/', $translation->trans
 
 // Initialize the form with tlang explicitly passed and set the form action to preserve tlang.
 $mform = new form\edit_form(
-    new moodle_url('/filter/autotranslate/edit.php', ['hash' => $hash, 'tlang' => $tlang, 'contextid' => $contextid]),
+    new \moodle_url('/filter/autotranslate/edit.php', ['hash' => $hash, 'tlang' => $tlang, 'contextid' => $contextid]),
     ['translation' => $translation, 'tlang' => $queriedtlang, 'use_wysiwyg' => $usewysiwyg]
 );
 
 // Handle form submission.
 if ($mform->is_cancelled()) {
-    redirect(new moodle_url('/filter/autotranslate/manage.php'));
+    redirect(new \moodle_url('/filter/autotranslate/manage.php'));
 } else if ($data = $mform->get_data()) {
     try {
         require_sesskey();
     } catch (\moodle_exception $e) {
         redirect(
-            new moodle_url('/filter/autotranslate/manage.php'),
+            new \moodle_url('/filter/autotranslate/manage.php'),
             get_string('invalidsesskey', 'error'),
             null,
             \core\output\notification::NOTIFY_ERROR
@@ -170,7 +172,7 @@ if ($mform->is_cancelled()) {
     $translation = $repository->get_translation($hash, $queriedtlang);
     if (!$translation) {
         redirect(
-            new moodle_url('/filter/autotranslate/manage.php'),
+            new \moodle_url('/filter/autotranslate/manage.php'),
             get_string('notranslationfound', 'filter_autotranslate'),
             null,
             \core\output\notification::NOTIFY_ERROR
@@ -187,7 +189,7 @@ if ($mform->is_cancelled()) {
     $service->update_translation($translation);
 
     redirect(
-        new moodle_url('/filter/autotranslate/manage.php'),
+        new \moodle_url('/filter/autotranslate/manage.php'),
         get_string('translationsaved', 'filter_autotranslate')
     );
 }
@@ -198,7 +200,7 @@ echo $OUTPUT->header();
 // Render the "Manage Translations" link and language switcher.
 echo '<div class="row mb-3">';
 echo '<div class="col-md-6">';
-$manageurl = new moodle_url('/filter/autotranslate/manage.php');
+$manageurl = new \moodle_url('/filter/autotranslate/manage.php');
 echo \html_writer::link(
     $manageurl,
     get_string('managetranslations', 'filter_autotranslate'),
@@ -217,7 +219,7 @@ foreach ($alllangs as $lang) {
         continue; // Skip the 'other' language in the switcher.
     }
     $displaylang = ($lang === 'other') ? $sitelang : $lang;
-    $url = new moodle_url('/filter/autotranslate/edit.php', ['hash' => $hash, 'tlang' => $lang, 'contextid' => $contextid]);
+    $url = new \moodle_url('/filter/autotranslate/edit.php', ['hash' => $hash, 'tlang' => $lang, 'contextid' => $contextid]);
     $class = ($lang === $queriedtlang) ? 'btn btn-primary' : 'btn btn-secondary';
     $langbuttons[] = \html_writer::link($url, strtoupper($displaylang), ['class' => $class . ' mr-1']);
 }
