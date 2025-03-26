@@ -57,7 +57,6 @@ require_once($CFG->dirroot . '/filter/autotranslate/classes/helper.php');
  * - helper.php: Provides utility functions for tag detection, hash generation, and MLang tag processing.
  */
 class text_filter extends \core_filters\text_filter {
-
     /**
      * @var translation_repository The translation repository instance for fetching translations.
      */
@@ -328,7 +327,8 @@ class text_filter extends \core_filters\text_filter {
                             debugging(
                                 "Translation not found for hash '$hash' and language '$effectivelang' " .
                                 "in context {$this->context->id}. Source text: " . substr($sourcetext, 0, 50) .
-                                "...", DEBUG_DEVELOPER
+                                "...",
+                                DEBUG_DEVELOPER
                             );
                         }
                         $displaytext = $this->get_fallback_text($hash, $sourcetext);

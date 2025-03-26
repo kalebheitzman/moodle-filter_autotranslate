@@ -32,7 +32,6 @@ use filter_autotranslate\tagging_service;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class tagcontent_task extends scheduled_task {
-
     /**
      * Returns the name of the scheduled task.
      *
@@ -488,7 +487,8 @@ class tagcontent_task extends scheduled_task {
                                                 mtrace(
                                                     "Tagged content in table $secondarytable, " .
                                                     "field $field, instanceid {$fieldrecord->id}: " .
-                                                    substr($fieldrecord->$field, 0, 50) . "...");
+                                                    substr($fieldrecord->$field, 0, 50) . "..."
+                                                );
                                             }
                                             $taggingservice->mark_translations_for_revision(
                                                 $secondarytable,

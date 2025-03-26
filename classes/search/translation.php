@@ -24,7 +24,6 @@ namespace filter_autotranslate\search;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class translation extends \core_search\base {
-
     /**
      * Returns the recordset of translations to index.
      *
@@ -116,8 +115,10 @@ class translation extends \core_search\base {
                 return false; // Skip if module context is invalid.
             }
         } else {
-            debugging("Non-course context (level {$record->contextlevel}). Using site course ID for courseid.",
-            DEBUG_DEVELOPER);
+            debugging(
+                "Non-course context (level {$record->contextlevel}). Using site course ID for courseid.",
+                DEBUG_DEVELOPER
+            );
         }
         $doc->set('courseid', $courseid);
 
@@ -148,8 +149,10 @@ class translation extends \core_search\base {
             }
         } catch (\moodle_exception $e) {
             // Log the error but return a fallback context if instanceid is invalid.
-            debugging("Invalid context mapping for contextlevel $contextlevel, instanceid $instanceid: " . $e->getMessage(),
-            DEBUG_DEVELOPER);
+            debugging(
+                "Invalid context mapping for contextlevel $contextlevel, instanceid $instanceid: " . $e->getMessage(),
+                DEBUG_DEVELOPER
+            );
         }
         return \context_system::instance()->id; // Fallback to system context.
     }

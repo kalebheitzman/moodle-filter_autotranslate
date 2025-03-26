@@ -87,7 +87,8 @@ class edit_form extends \moodleform {
             $mform->addElement(
                 'textarea',
                 'translated_text',
-                get_string('translatedtext', 'filter_autotranslate'), 'wrap="virtual" rows="10" cols="50"'
+                get_string('translatedtext', 'filter_autotranslate'),
+                'wrap="virtual" rows="10" cols="50"'
             );
             $mform->setType('translated_text', PARAM_RAW);
             $mform->setDefault('translated_text', $this->_customdata['translation']->translated_text);

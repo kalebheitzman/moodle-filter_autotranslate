@@ -168,7 +168,7 @@ class translation_repository {
                 ['courseid' => $courseid]
             );
             if (!empty($hashes)) {
-                list($insql, $inparams) = $this->db->get_in_or_equal($hashes, SQL_PARAMS_NAMED);
+                [$insql, $inparams] = $this->db->get_in_or_equal($hashes, SQL_PARAMS_NAMED);
                 $where[] = "t.hash $insql";
                 $params = array_merge($params, $inparams);
             } else {

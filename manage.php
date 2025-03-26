@@ -104,8 +104,10 @@ try {
         // Execute the rebuild process for the specified course.
         $rebuilder->execute($courseid);
         // Redirect back to the manage page with a success notification.
-        redirect(new \moodle_url('/filter/autotranslate/manage.php', ['courseid' => $courseid]),
-            get_string('translationsrebuilt', 'filter_autotranslate'));
+        redirect(
+            new \moodle_url('/filter/autotranslate/manage.php', ['courseid' => $courseid]),
+            get_string('translationsrebuilt', 'filter_autotranslate')
+        );
     }
 
     $repository = new translation_repository($DB);

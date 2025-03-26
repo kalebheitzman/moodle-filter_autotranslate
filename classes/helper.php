@@ -51,7 +51,6 @@ use function random_int;
  * - None (pure utility functions).
  */
 class helper {
-
     /**
      * Generates a unique 10-character alphanumeric hash.
      *

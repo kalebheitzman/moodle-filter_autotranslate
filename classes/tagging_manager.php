@@ -53,7 +53,6 @@ require_once($CFG->dirroot . '/filter/autotranslate/classes/tagging_config.php')
  * - tagging_service.php: Handles database operations for tagging (e.g., updating records).
  */
 class tagging_manager {
-
     /**
      * Fetches the fields to tag for a given table and context level from the tagging configuration.
      *
@@ -230,7 +229,7 @@ class tagging_manager {
             // Questions are part of a shared question bank and may be used in multiple quizzes.
             // We join through question_versions, question_bank_entries, question_references, and quiz_slots
             // to determine the associated course ID.
-            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function($f) {
+            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function ($f) {
                 return "s.$f";
             }, $fields)) . ", cm.course, p.id AS primary_instanceid, cm.id AS cmid
                     FROM {{$secondarytable}} s
@@ -244,7 +243,7 @@ class tagging_manager {
                           AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                           JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel";
             }
-            $sql .= " WHERE " . implode(' OR ', array_map(function($f) {
+            $sql .= " WHERE " . implode(' OR ', array_map(function ($f) {
                 return "(s.$f IS NOT NULL AND s.$f != '')";
             }, $fields));
             if ($includecoursemodules) {
@@ -263,7 +262,7 @@ class tagging_manager {
             // Special case: question_answers requires multiple joins due to Moodle's question bank structure.
             // We join through question, question_versions, question_bank_entries, question_references, and quiz_slots
             // to determine the associated course ID.
-            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function($f) {
+            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function ($f) {
                 return "s.$f";
             }, $fields)) . ", cm.course, p.id AS primary_instanceid, cm.id AS cmid
                     FROM {{$secondarytable}} s
@@ -278,7 +277,7 @@ class tagging_manager {
                         AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                           JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel";
             }
-            $sql .= " WHERE " . implode(' OR ', array_map(function($f) {
+            $sql .= " WHERE " . implode(' OR ', array_map(function ($f) {
                 return "(s.$f IS NOT NULL AND s.$f != '')";
             }, $fields));
             if ($includecoursemodules) {
@@ -297,7 +296,7 @@ class tagging_manager {
             // Special case: question_categories requires multiple joins due to Moodle's question bank structure.
             // We join through question_bank_entries, question_references, and quiz_slots
             // to determine the associated course ID.
-            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function($f) {
+            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function ($f) {
                 return "s.$f";
             }, $fields)) . ", cm.course, p.id AS primary_instanceid, cm.id AS cmid
                     FROM {{$secondarytable}} s
@@ -310,7 +309,7 @@ class tagging_manager {
                           AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                           JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel";
             }
-            $sql .= " WHERE " . implode(' OR ', array_map(function($f) {
+            $sql .= " WHERE " . implode(' OR ', array_map(function ($f) {
                 return "(s.$f IS NOT NULL AND s.$f != '')";
             }, $fields));
             if ($includecoursemodules) {
@@ -327,7 +326,7 @@ class tagging_manager {
             }
         } else {
             // General case for simpler secondary tables.
-            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function($f) {
+            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function ($f) {
                 return "s.$f";
             }, $fields)) . ", cm.course, p.id AS primary_instanceid, cm.id AS cmid
                     FROM {{$secondarytable}} s";
@@ -345,7 +344,7 @@ class tagging_manager {
                 $sql .= " JOIN {course_modules} cm ON cm.instance = p.id
                           AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)";
             }
-            $sql .= " WHERE " . implode(' OR ', array_map(function($f) {
+            $sql .= " WHERE " . implode(' OR ', array_map(function ($f) {
                 return "(s.$f IS NOT NULL AND s.$f != '')";
             }, $fields));
             if ($primaryinstanceid > 0) {
@@ -388,7 +387,7 @@ class tagging_manager {
         foreach ($secondarytables as $secondarytable => $fields) {
             $relationship = \filter_autotranslate\tagging_config::get_relationship_details($secondarytable);
 
-            list($sql, $params) = self::build_secondary_table_query(
+            [$sql, $params] = self::build_secondary_table_query(
                 $secondarytable,
                 $fields,
                 $primarytable,

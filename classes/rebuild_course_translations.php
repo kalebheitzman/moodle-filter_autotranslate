@@ -30,7 +30,6 @@ use filter_autotranslate\tagging_service;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class rebuild_course_translations {
-
     /**
      * Executes the tagging task for a specific course.
      *
@@ -118,7 +117,8 @@ class rebuild_course_translations {
                                 if (!isset($record->instanceid)) {
                                     debugging(
                                         "Error: Record missing instanceid for table $table, field $field: " .
-                                        json_encode($record), DEBUG_DEVELOPER
+                                        json_encode($record),
+                                        DEBUG_DEVELOPER
                                     );
                                     continue;
                                 }
@@ -137,7 +137,8 @@ class rebuild_course_translations {
                                 if ($updated) {
                                     debugging(
                                         "Tagged content in table $table, field $field, instanceid {$record->id}: " .
-                                        substr($record->$field, 0, 50) . "...", DEBUG_DEVELOPER
+                                        substr($record->$field, 0, 50) . "...",
+                                        DEBUG_DEVELOPER
                                     );
                                     $taggingservice->mark_translations_for_revision($table, $record->id, [$field], $context);
                                 }
@@ -157,7 +158,8 @@ class rebuild_course_translations {
                     foreach ($secondarytables as $secondarytable => $secondaryfields) {
                         debugging(
                             "Processing secondary table: $secondarytable, Fields: " .
-                            implode(', ', $secondaryfields), DEBUG_DEVELOPER
+                            implode(', ', $secondaryfields),
+                            DEBUG_DEVELOPER
                         );
                         $offset = 0;
 
@@ -269,7 +271,8 @@ class rebuild_course_translations {
                                     if (!isset($record->instanceid)) {
                                         debugging(
                                             "Error: Secondary record missing instanceid for table $secondarytable: " .
-                                            json_encode($record), DEBUG_DEVELOPER
+                                            json_encode($record),
+                                            DEBUG_DEVELOPER
                                         );
                                         continue;
                                     }
@@ -432,7 +435,8 @@ class rebuild_course_translations {
                             } catch (\dml_exception $e) {
                                 debugging(
                                     "Error executing query for secondary table $secondarytable: " .
-                                    $e->getMessage(), DEBUG_DEVELOPER
+                                    $e->getMessage(),
+                                    DEBUG_DEVELOPER
                                 );
                                 break;
                             }

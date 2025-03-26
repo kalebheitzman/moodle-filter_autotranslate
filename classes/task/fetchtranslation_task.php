@@ -27,7 +27,6 @@ use filter_autotranslate\translation_service;
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class fetchtranslation_task extends scheduled_task {
-
     /**
      * Flag to indicate if the task should exit due to a signal.
      *
@@ -140,9 +139,10 @@ class fetchtranslation_task extends scheduled_task {
             $targetlangs = !empty($targetlangs) ? array_filter(array_map('trim', explode(',', $targetlangs))) : [];
             if (empty($targetlangs)) {
                 mtrace(
-                    "No target languages configured. Please configure target languages in the plugin ".
+                    "No target languages configured. Please configure target languages in the plugin " .
                     "settings under Site administration > Plugins > Filters > Autotranslate to " .
-                    "enable translation fetching.");
+                    "enable translation fetching."
+                );
                 return;
             }
 
