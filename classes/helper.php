@@ -23,12 +23,10 @@
  */
 namespace filter_autotranslate;
 
-// Import global functions
+// Import global functions.
 use function get_config;
 use function get_string_manager;
 use function random_int;
-
-defined('MOODLE_INTERNAL') || die();
 
 /**
  * Utility class providing helper functions for the filter_autotranslate plugin.
@@ -70,7 +68,7 @@ class helper {
         $length = 10;
         $max = strlen($characters) - 1;
         $attempts = 0;
-        $max_attempts = 100;
+        $maxattempts = 100;
 
         do {
             $hash = '';
@@ -78,8 +76,8 @@ class helper {
                 $hash .= $characters[random_int(0, $max)];
             }
             $attempts++;
-            if ($attempts >= $max_attempts) {
-                throw new \Exception("Unable to generate a unique hash after $max_attempts attempts.");
+            if ($attempts >= $maxattempts) {
+                throw new \Exception("Unable to generate a unique hash after $maxattempts attempts.");
             }
         } while ($DB->record_exists('autotranslate_translations', ['hash' => $hash]));
 
@@ -103,63 +101,71 @@ class helper {
      */
     public static function process_mlang_tags($text, $context) {
         $sitelang = get_config('core', 'lang') ?: 'en';
-        // Get the list of installed language packs
-        $installed_langs = array_keys(get_string_manager()->get_list_of_translations());
-        $valid_langs = array_merge($installed_langs, ['other']); // Include 'other' as a valid language code
+        // Get the list of installed language packs.
+        $installedlangs = array_keys(get_string_manager()->get_list_of_translations());
+        $validlangs = array_merge($installedlangs, ['other']); // Include 'other' as a valid language code.
 
-        // Normalize valid language codes to lowercase
-        $valid_langs = array_map('strtolower', $valid_langs);
+        // Normalize valid language codes to lowercase.
+        $validlangs = array_map('strtolower', $validlangs);
 
         $translations = [];
-        $source_text = '';
-        $display_text = ''; // To preserve HTML structure
-        $first_content = null; // Store the first language content as a fallback
+        $sourcetext = '';
+        $displaytext = ''; // To preserve HTML structure.
+        $firstcontent = null; // Store the first language content as a fallback.
 
-        // Process old-style <span lang="xx" class="multilang"> tags
-        $text = self::process_span_multilang_tags($text, $context, $translations, $display_text, $valid_langs, $first_content, $source_text);
+        // Process old-style <span lang="xx" class="multilang"> tags.
+        $text = self::process_span_multilang_tags(
+            $text,
+            $context,
+            $translations,
+            $displaytext,
+            $validlangs,
+            $firstcontent,
+            $sourcetext
+        );
 
-        // Process new-style {mlang xx}...{mlang} tags
+        // Process new-style {mlang xx}...{mlang} tags.
         if (preg_match_all('/{mlang\s+([\w]+)}(.+?)(?:{mlang}|$)/s', $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $lang = trim($match[1]);
                 $content = trim($match[2]);
 
-                // Normalize language code to lowercase
+                // Normalize language code to lowercase.
                 $lang = strtolower($lang);
 
-                // Validate the language code
-                if (!in_array($lang, $valid_langs)) {
+                // Validate the language code.
+                if (!in_array($lang, $validlangs)) {
                     continue;
                 }
 
-                if ($first_content === null) {
-                    $first_content = $content; // Store the first content as a fallback
+                if ($firstcontent === null) {
+                    $firstcontent = $content; // Store the first content as a fallback.
                 }
 
                 if ($lang === 'other' || $lang === $sitelang) {
-                    $source_text .= $content . ' ';
-                    $display_text .= $content . ' ';
+                    $sourcetext .= $content . ' ';
+                    $displaytext .= $content . ' ';
                 } else {
                     $translations[$lang] = isset($translations[$lang]) ? $translations[$lang] . ' ' . $content : $content;
                 }
             }
         } else {
-            // If no {mlang} tags, use the text as-is (possibly processed by process_span_multilang_tags)
-            $source_text = $text;
-            $display_text = $text;
+            // If no {mlang} tags, use the text as-is (possibly processed by process_span_multilang_tags).
+            $sourcetext = $text;
+            $displaytext = $text;
         }
 
-        if (!empty($source_text)) {
-            $source_text = trim($source_text);
-        } elseif ($first_content !== null) {
-            // Fallback to the first language content if site language or 'other' is not found
-            $source_text = trim($first_content);
-            $display_text = $first_content;
+        if (!empty($sourcetext)) {
+            $sourcetext = trim($sourcetext);
+        } else if ($firstcontent !== null) {
+            // Fallback to the first language content if site language or 'other' is not found.
+            $sourcetext = trim($firstcontent);
+            $displaytext = $firstcontent;
         }
 
         return [
-            'source_text' => $source_text,
-            'display_text' => $display_text,
+            'source_text' => $sourcetext,
+            'display_text' => $displaytext,
             'translations' => $translations,
         ];
     }
@@ -174,60 +180,68 @@ class helper {
      * @param string $text The content to process.
      * @param \context $context The context object (used for contextlevel in translations).
      * @param array &$translations Array to store translations for other languages.
-     * @param string &$outside_text String to store text outside of multilang tags.
-     * @param array $valid_langs List of valid language codes.
-     * @param string|null &$first_content First language content as a fallback.
-     * @param string &$source_text Source text for translation.
+     * @param string &$outsidetext String to store text outside of multilang tags.
+     * @param array $validlangs List of valid language codes.
+     * @param string|null &$firstcontent First language content as a fallback.
+     * @param string &$sourcetext Source text for translation.
      * @return string The processed content (site language content or original content if no tags).
      */
-    public static function process_span_multilang_tags($text, $context, &$translations, &$outside_text, $valid_langs, &$first_content, &$source_text) {
+    public static function process_span_multilang_tags(
+        $text,
+        $context,
+        &$translations,
+        &$outsidetext,
+        $validlangs,
+        &$firstcontent,
+        &$sourcetext
+    ) {
         $sitelang = get_config('core', 'lang') ?: 'en';
-        $last_pos = 0;
-        $display_text = '';
+        $lastpos = 0;
+        $displaytext = '';
 
-        // Pattern to match <span lang="xx" class="multilang">...</span>
+        // Pattern to match <span lang="xx" class="multilang">...</span>.
         $pattern = '/<span lang="([a-zA-Z-]+)" class="multilang">(.*?)<\/span>/s';
         if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $lang = $match[1];
                 $content = trim($match[2]);
-                $start_pos = strpos($text, $match[0], $last_pos);
-                $outside = substr($text, $last_pos, $start_pos - $last_pos);
+                $startpos = strpos($text, $match[0], $lastpos);
+                $outside = substr($text, $lastpos, $startpos - $lastpos);
                 if (!empty($outside)) {
-                    $outside_text .= $outside;
-                    $display_text .= $outside;
+                    $outsidetext .= $outside;
+                    $displaytext .= $outside;
                 }
-                $last_pos = $start_pos + strlen($match[0]);
+                $lastpos = $startpos + strlen($match[0]);
 
-                // Normalize language code to lowercase
+                // Normalize language code to lowercase.
                 $lang = strtolower($lang);
 
-                // Validate the language code
-                if (!in_array($lang, $valid_langs)) {
+                // Validate the language code.
+                if (!in_array($lang, $validlangs)) {
                     continue;
                 }
 
-                if ($first_content === null) {
-                    $first_content = $content; // Store the first content as a fallback
+                if ($firstcontent === null) {
+                    $firstcontent = $content; // Store the first content as a fallback.
                 }
 
                 if ($lang === $sitelang) {
-                    $source_text .= $content . ' ';
-                    $display_text .= $content . ' ';
+                    $sourcetext .= $content . ' ';
+                    $displaytext .= $content . ' ';
                 } else {
                     $translations[$lang] = isset($translations[$lang]) ? $translations[$lang] . ' ' . $content : $content;
                 }
             }
 
-            $remaining = substr($text, $last_pos);
+            $remaining = substr($text, $lastpos);
             if (!empty($remaining)) {
-                $outside_text .= $remaining;
-                $display_text .= $remaining;
+                $outsidetext .= $remaining;
+                $displaytext .= $remaining;
             }
-            return $display_text;
+            return $displaytext;
         }
 
-        return $text; // Return original content if no span multilang tags found
+        return $text; // Return original content if no span multilang tags found.
     }
 
     /**
@@ -247,7 +261,8 @@ class helper {
 
         $content = trim($text);
         $params = ['lang' => 'other', 'text' => $content];
-        $sql = "SELECT hash FROM {autotranslate_translations} WHERE lang = :lang AND " . $DB->sql_compare_text('translated_text') . " = " . $DB->sql_compare_text(':text');
+        $sql = "SELECT hash FROM {autotranslate_translations}
+                WHERE lang = :lang AND " . $DB->sql_compare_text('translated_text') . " = " . $DB->sql_compare_text(':text');
         $existing = $DB->get_record_sql($sql, $params, IGNORE_MULTIPLE);
 
         $hash = $existing ? $existing->hash : static::generate_unique_hash();
@@ -294,17 +309,17 @@ class helper {
      * @return bool True if the language is RTL, false otherwise.
      */
     public static function is_rtl_language($lang) {
-        // List of known RTL languages in Moodle
-        $rtl_languages = ['ar', 'he', 'fa', 'ur']; // Arabic, Hebrew, Persian, Urdu
+        // List of known RTL languages in Moodle.
+        $rtllanguages = ['ar', 'he', 'fa', 'ur']; // Arabic, Hebrew, Persian, Urdu.
 
-        // Check if the language is in the RTL list
-        if (in_array($lang, $rtl_languages)) {
+        // Check if the language is in the RTL list.
+        if (in_array($lang, $rtllanguages)) {
             return true;
         }
 
         // Optionally, check the language pack's configuration (if available)
         // This requires access to the language pack's langconfig.php, which is not directly accessible
-        // For now, rely on the predefined list above
+        // For now, rely on the predefined list above.
         return false;
     }
 

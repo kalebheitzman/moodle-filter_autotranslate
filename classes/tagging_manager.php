@@ -60,39 +60,39 @@ class tagging_manager {
      * This function retrieves the fields defined in tagging_config.php for a specific table
      * and context level, applying any admin-configured filters (e.g., tagging_config setting).
      *
-     * @param string $table_name The name of the table (e.g., 'course', 'course_sections', 'assign').
-     * @param int $context_level The context level (e.g., 50 for courses, 70 for course modules).
+     * @param string $tablename The name of the table (e.g., 'course', 'course_sections', 'assign').
+     * @param int $contextlevel The context level (e.g., 50 for courses, 70 for course modules).
      * @return array The list of fields to tag.
      */
-    public static function get_fields_to_tag($table_name, $context_level) {
+    public static function get_fields_to_tag($tablename, $contextlevel) {
         $selectedctx = get_config('filter_autotranslate', 'selectctx') ?: '40,50,70,80';
         $selectedctx = array_map('trim', explode(',', (string)$selectedctx));
-        if (!in_array((string)$context_level, $selectedctx)) {
+        if (!in_array((string)$contextlevel, $selectedctx)) {
             return [];
         }
 
-        // Get the configured tables and fields
+        // Get the configured tables and fields.
         $tables = \filter_autotranslate\tagging_config::get_default_tables();
-        $tagging_options_raw = get_config('filter_autotranslate', 'tagging_config') ?: '';
-        $tagging_options = $tagging_options_raw ? array_map('trim', explode(',', (string)$tagging_options_raw)) : [];
-        $tagging_options_map = array_fill_keys($tagging_options, true);
+        $taggingoptionsraw = get_config('filter_autotranslate', 'tagging_config') ?: '';
+        $taggingoptions = $taggingoptionsraw ? array_map('trim', explode(',', (string)$taggingoptionsraw)) : [];
+        $taggingoptionsmap = array_fill_keys($taggingoptions, true);
 
-        // Check if the context level and table exist in the default tables
-        if (!isset($tables[$context_level]) || !isset($tables[$context_level][$table_name])) {
+        // Check if the context level and table exist in the default tables.
+        if (!isset($tables[$contextlevel]) || !isset($tables[$contextlevel][$tablename])) {
             return [];
         }
 
-        // Filter the fields based on the tagging configuration
-        $fields = $tables[$context_level][$table_name]['fields'] ?? [];
-        $filtered_fields = [];
+        // Filter the fields based on the tagging configuration.
+        $fields = $tables[$contextlevel][$tablename]['fields'] ?? [];
+        $filteredfields = [];
         foreach ($fields as $field) {
-            $key = "ctx{$context_level}_{$table_name}_{$field}";
-            if (empty($tagging_options) || isset($tagging_options_map[$key])) {
-                $filtered_fields[] = $field;
+            $key = "ctx{$contextlevel}_{$tablename}_{$field}";
+            if (empty($taggingoptions) || isset($taggingoptionsmap[$key])) {
+                $filteredfields[] = $field;
             }
         }
 
-        return $filtered_fields;
+        return $filteredfields;
     }
 
     /**
@@ -101,45 +101,45 @@ class tagging_manager {
      * This function retrieves the secondary tables (e.g., book_chapters for book) defined in
      * tagging_config.php, along with their fields to tag, applying any admin-configured filters.
      *
-     * @param string $primary_table The name of the primary table (e.g., 'quiz').
-     * @param int $context_level The context level (e.g., 70 for course modules).
+     * @param string $primarytable The name of the primary table (e.g., 'quiz').
+     * @param int $contextlevel The context level (e.g., 70 for course modules).
      * @return array Array of secondary tables and their fields.
      */
-    public static function get_secondary_tables($primary_table, $context_level) {
+    public static function get_secondary_tables($primarytable, $contextlevel) {
         $selectedctx = get_config('filter_autotranslate', 'selectctx') ?: '40,50,70,80';
         $selectedctx = array_map('trim', explode(',', (string)$selectedctx));
-        if (!in_array((string)$context_level, $selectedctx)) {
+        if (!in_array((string)$contextlevel, $selectedctx)) {
             return [];
         }
 
-        // Get the configured tables and fields
+        // Get the configured tables and fields.
         $tables = \filter_autotranslate\tagging_config::get_default_tables();
-        $tagging_options_raw = get_config('filter_autotranslate', 'tagging_config') ?: '';
-        $tagging_options = $tagging_options_raw ? array_map('trim', explode(',', (string)$tagging_options_raw)) : [];
-        $tagging_options_map = array_fill_keys($tagging_options, true);
+        $taggingoptionsraw = get_config('filter_autotranslate', 'tagging_config') ?: '';
+        $taggingoptions = $taggingoptionsraw ? array_map('trim', explode(',', (string)$taggingoptionsraw)) : [];
+        $taggingoptionsmap = array_fill_keys($taggingoptions, true);
 
-        // Check if the context level and primary table exist in the default tables
-        if (!isset($tables[$context_level]) || !isset($tables[$context_level][$primary_table])) {
+        // Check if the context level and primary table exist in the default tables.
+        if (!isset($tables[$contextlevel]) || !isset($tables[$contextlevel][$primarytable])) {
             return [];
         }
 
-        $secondary_tables = [];
-        $secondary_config = $tables[$context_level][$primary_table]['secondary'] ?? [];
-        foreach ($secondary_config as $secondary_table => $config) {
-            $secondary_fields = $config['fields'] ?? [];
-            $filtered_fields = [];
-            foreach ($secondary_fields as $field) {
-                $key = "ctx{$context_level}_{$secondary_table}_{$field}";
-                if (empty($tagging_options) || isset($tagging_options_map[$key])) {
-                    $filtered_fields[] = $field;
+        $secondarytables = [];
+        $secondaryconfig = $tables[$contextlevel][$primarytable]['secondary'] ?? [];
+        foreach ($secondaryconfig as $secondarytable => $config) {
+            $secondaryfields = $config['fields'] ?? [];
+            $filteredfields = [];
+            foreach ($secondaryfields as $field) {
+                $key = "ctx{$contextlevel}_{$secondarytable}_{$field}";
+                if (empty($taggingoptions) || isset($taggingoptionsmap[$key])) {
+                    $filteredfields[] = $field;
                 }
             }
-            if (!empty($filtered_fields)) {
-                $secondary_tables[$secondary_table] = $filtered_fields;
+            if (!empty($filteredfields)) {
+                $secondarytables[$secondarytable] = $filteredfields;
             }
         }
 
-        return $secondary_tables;
+        return $secondarytables;
     }
 
     /**
@@ -167,25 +167,25 @@ class tagging_manager {
 
             $content = $record->$field;
             if (helper::is_tagged($content)) {
-                continue; // Skip already tagged content (database operations handled by caller)
+                continue; // Skip already tagged content (database operations handled by caller).
             }
 
-            // Process MLang tags if present
-            $mlang_result = helper::process_mlang_tags($content, $context);
-            $source_text = $mlang_result['source_text'];
-            $display_text = $mlang_result['display_text'];
-            $translations = $mlang_result['translations'];
+            // Process MLang tags if present.
+            $mlangresult = helper::process_mlang_tags($content, $context);
+            $sourcetext = $mlangresult['source_text'];
+            $displaytext = $mlangresult['display_text'];
+            $translations = $mlangresult['translations'];
 
-            if (!empty($source_text)) {
-                // Tag the content (hash will be generated or reused by tag_content)
-                $taggedcontent = helper::tag_content($source_text, $context);
-                $taggedcontent = str_replace($source_text, $display_text, $taggedcontent);
+            if (!empty($sourcetext)) {
+                // Tag the content (hash will be generated or reused by tag_content).
+                $taggedcontent = helper::tag_content($sourcetext, $context);
+                $taggedcontent = str_replace($sourcetext, $displaytext, $taggedcontent);
             } else {
-                // No MLang tags, tag the content directly
+                // No MLang tags, tag the content directly.
                 $taggedcontent = helper::tag_content($content, $context);
             }
 
-            // Update the record field with the tagged content
+            // Update the record field with the tagged content.
             $record->$field = $taggedcontent;
             $updated = true;
         }
@@ -203,130 +203,157 @@ class tagging_manager {
      * including all fields to tag and the associated course ID. It aligns with the simplified
      * single-query approach used in tagcontent_task.php, avoiding the previous two-step process.
      *
-     * @param string $secondary_table The secondary table name (e.g., 'book_chapters').
+     * @param string $secondarytable The secondary table name (e.g., 'book_chapters').
      * @param array $fields The fields to fetch from the secondary table.
-     * @param string $primary_table The primary table name (e.g., 'book').
-     * @param int $primary_instanceid The primary instance ID (e.g., book ID), 0 to fetch all.
+     * @param string $primarytable The primary table name (e.g., 'book').
+     * @param int $primaryinstanceid The primary instance ID (e.g., book ID), 0 to fetch all.
      * @param array $relationship Relationship details from tagging_config.php.
-     * @param bool $include_course_modules Whether to include JOIN with course_modules (for create/update events).
+     * @param bool $includecoursemodules Whether to include JOIN with course_modules (for create/update events).
      * @return array [SQL query, parameters].
      */
-    public static function build_secondary_table_query($secondary_table, $fields, $primary_table, $primary_instanceid, $relationship, $include_course_modules = true) {
+    public static function build_secondary_table_query(
+        $secondarytable,
+        $fields,
+        $primarytable,
+        $primaryinstanceid,
+        $relationship,
+        $includecoursemodules = true
+    ) {
         $fk = $relationship['fk'];
-        $parent_table = $relationship['parent_table'];
-        $parent_fk = $relationship['parent_fk'];
-        $grandparent_table = $relationship['grandparent_table'];
-        $grandparent_fk = $relationship['grandparent_fk'];
+        $parenttable = $relationship['parent_table'];
+        $parentfk = $relationship['parent_fk'];
+        $grandparenttable = $relationship['grandparent_table'];
+        $grandparentfk = $relationship['grandparent_fk'];
 
-        if ($secondary_table === 'question') {
+        if ($secondarytable === 'question') {
             // Special case: question requires multiple joins due to Moodle's question bank structure.
             // Questions are part of a shared question bank and may be used in multiple quizzes.
             // We join through question_versions, question_bank_entries, question_references, and quiz_slots
             // to determine the associated course ID.
-            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function($f) { return "s.$f"; }, $fields)) . ", cm.course, p.id AS primary_instanceid, cm.id AS cmid
-                    FROM {{$secondary_table}} s
+            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function($f) {
+                return "s.$f";
+            }, $fields)) . ", cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                    FROM {{$secondarytable}} s
                     JOIN {question_versions} qv ON qv.questionid = s.id
                     JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
                     JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
-                    JOIN {{$parent_table}} pt ON pt.id = qr.itemid
-                    JOIN {{$primary_table}} p ON p.id = pt.quizid";
-            if ($include_course_modules) {
-                $sql .= " JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                    JOIN {{$parenttable}} pt ON pt.id = qr.itemid
+                    JOIN {{$primarytable}} p ON p.id = pt.quizid";
+            if ($includecoursemodules) {
+                $sql .= " JOIN {course_modules} cm ON cm.instance = p.id
+                          AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                           JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel";
             }
-            $sql .= " WHERE " . implode(' OR ', array_map(function($f) { return "(s.$f IS NOT NULL AND s.$f != '')"; }, $fields));
-            if ($include_course_modules) {
+            $sql .= " WHERE " . implode(' OR ', array_map(function($f) {
+                return "(s.$f IS NOT NULL AND s.$f != '')";
+            }, $fields));
+            if ($includecoursemodules) {
                 $sql .= " AND qr.usingcontextid = ctx.id
                           AND qr.component = 'mod_quiz'
                           AND qr.questionarea = 'slot'";
             }
-            if ($primary_instanceid > 0) {
+            if ($primaryinstanceid > 0) {
                 $sql .= " AND p.id = :instanceid";
             }
-            $params = $include_course_modules ? ['modulename' => $primary_table, 'contextlevel' => CONTEXT_MODULE] : [];
-            if ($primary_instanceid > 0) {
-                $params['instanceid'] = $primary_instanceid;
+            $params = $includecoursemodules ? ['modulename' => $primarytable, 'contextlevel' => CONTEXT_MODULE] : [];
+            if ($primaryinstanceid > 0) {
+                $params['instanceid'] = $primaryinstanceid;
             }
-        } elseif ($secondary_table === 'question_answers') {
+        } else if ($secondarytable === 'question_answers') {
             // Special case: question_answers requires multiple joins due to Moodle's question bank structure.
             // We join through question, question_versions, question_bank_entries, question_references, and quiz_slots
             // to determine the associated course ID.
-            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function($f) { return "s.$f"; }, $fields)) . ", cm.course, p.id AS primary_instanceid, cm.id AS cmid
-                    FROM {{$secondary_table}} s
-                    JOIN {{$parent_table}} pt ON s.question = pt.id
+            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function($f) {
+                return "s.$f";
+            }, $fields)) . ", cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                    FROM {{$secondarytable}} s
+                    JOIN {{$parenttable}} pt ON s.question = pt.id
                     JOIN {question_versions} qv ON qv.questionid = pt.id
                     JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
                     JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
-                    JOIN {{$grandparent_table}} gpt ON gpt.id = qr.itemid
-                    JOIN {{$primary_table}} p ON p.id = gpt.quizid";
-            if ($include_course_modules) {
-                $sql .= " JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                    JOIN {{$grandparenttable}} gpt ON gpt.id = qr.itemid
+                    JOIN {{$primarytable}} p ON p.id = gpt.quizid";
+            if ($includecoursemodules) {
+                $sql .= " JOIN {course_modules} cm ON cm.instance = p.id
+                        AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                           JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel";
             }
-            $sql .= " WHERE " . implode(' OR ', array_map(function($f) { return "(s.$f IS NOT NULL AND s.$f != '')"; }, $fields));
-            if ($include_course_modules) {
+            $sql .= " WHERE " . implode(' OR ', array_map(function($f) {
+                return "(s.$f IS NOT NULL AND s.$f != '')";
+            }, $fields));
+            if ($includecoursemodules) {
                 $sql .= " AND qr.usingcontextid = ctx.id
                           AND qr.component = 'mod_quiz'
                           AND qr.questionarea = 'slot'";
             }
-            if ($primary_instanceid > 0) {
+            if ($primaryinstanceid > 0) {
                 $sql .= " AND p.id = :instanceid";
             }
-            $params = $include_course_modules ? ['modulename' => $primary_table, 'contextlevel' => CONTEXT_MODULE] : [];
-            if ($primary_instanceid > 0) {
-                $params['instanceid'] = $primary_instanceid;
+            $params = $includecoursemodules ? ['modulename' => $primarytable, 'contextlevel' => CONTEXT_MODULE] : [];
+            if ($primaryinstanceid > 0) {
+                $params['instanceid'] = $primaryinstanceid;
             }
-        } elseif ($secondary_table === 'question_categories') {
+        } else if ($secondarytable === 'question_categories') {
             // Special case: question_categories requires multiple joins due to Moodle's question bank structure.
             // We join through question_bank_entries, question_references, and quiz_slots
             // to determine the associated course ID.
-            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function($f) { return "s.$f"; }, $fields)) . ", cm.course, p.id AS primary_instanceid, cm.id AS cmid
-                    FROM {{$secondary_table}} s
+            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function($f) {
+                return "s.$f";
+            }, $fields)) . ", cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                    FROM {{$secondarytable}} s
                     JOIN {question_bank_entries} qbe ON qbe.questioncategoryid = s.id
                     JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
-                    JOIN {{$grandparent_table}} gpt ON gpt.id = qr.itemid
-                    JOIN {{$primary_table}} p ON p.id = gpt.quizid";
-            if ($include_course_modules) {
-                $sql .= " JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                    JOIN {{$grandparenttable}} gpt ON gpt.id = qr.itemid
+                    JOIN {{$primarytable}} p ON p.id = gpt.quizid";
+            if ($includecoursemodules) {
+                $sql .= " JOIN {course_modules} cm ON cm.instance = p.id
+                          AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                           JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel";
             }
-            $sql .= " WHERE " . implode(' OR ', array_map(function($f) { return "(s.$f IS NOT NULL AND s.$f != '')"; }, $fields));
-            if ($include_course_modules) {
+            $sql .= " WHERE " . implode(' OR ', array_map(function($f) {
+                return "(s.$f IS NOT NULL AND s.$f != '')";
+            }, $fields));
+            if ($includecoursemodules) {
                 $sql .= " AND qr.usingcontextid = ctx.id
                           AND qr.component = 'mod_quiz'
                           AND qr.questionarea = 'slot'";
             }
-            if ($primary_instanceid > 0) {
+            if ($primaryinstanceid > 0) {
                 $sql .= " AND p.id = :instanceid";
             }
-            $params = $include_course_modules ? ['modulename' => $primary_table, 'contextlevel' => CONTEXT_MODULE] : [];
-            if ($primary_instanceid > 0) {
-                $params['instanceid'] = $primary_instanceid;
+            $params = $includecoursemodules ? ['modulename' => $primarytable, 'contextlevel' => CONTEXT_MODULE] : [];
+            if ($primaryinstanceid > 0) {
+                $params['instanceid'] = $primaryinstanceid;
             }
         } else {
-            // General case for simpler secondary tables
-            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function($f) { return "s.$f"; }, $fields)) . ", cm.course, p.id AS primary_instanceid, cm.id AS cmid
-                    FROM {{$secondary_table}} s";
-            if ($grandparent_table) {
-                $sql .= " JOIN {{$parent_table}} pt ON s.$fk = pt.id
-                          JOIN {{$grandparent_table}} gpt ON pt.$parent_fk = gpt.id
-                          JOIN {{$primary_table}} p ON p.id = gpt.$grandparent_fk";
-            } elseif ($parent_table) {
-                $sql .= " JOIN {{$parent_table}} pt ON s.$fk = pt.id
-                          JOIN {{$primary_table}} p ON p.id = pt.$parent_fk";
+            // General case for simpler secondary tables.
+            $sql = "SELECT s.id AS instanceid, " . implode(', ', array_map(function($f) {
+                return "s.$f";
+            }, $fields)) . ", cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                    FROM {{$secondarytable}} s";
+            if ($grandparenttable) {
+                $sql .= " JOIN {{$parenttable}} pt ON s.$fk = pt.id
+                          JOIN {{$grandparenttable}} gpt ON pt.$parentfk = gpt.id
+                          JOIN {{$primarytable}} p ON p.id = gpt.$grandparentfk";
+            } else if ($parenttable) {
+                $sql .= " JOIN {{$parenttable}} pt ON s.$fk = pt.id
+                          JOIN {{$primarytable}} p ON p.id = pt.$parentfk";
             } else {
-                $sql .= " JOIN {{$primary_table}} p ON p.id = s.$fk";
+                $sql .= " JOIN {{$primarytable}} p ON p.id = s.$fk";
             }
-            if ($include_course_modules) {
-                $sql .= " JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)";
+            if ($includecoursemodules) {
+                $sql .= " JOIN {course_modules} cm ON cm.instance = p.id
+                          AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)";
             }
-            $sql .= " WHERE " . implode(' OR ', array_map(function($f) { return "(s.$f IS NOT NULL AND s.$f != '')"; }, $fields));
-            if ($primary_instanceid > 0) {
+            $sql .= " WHERE " . implode(' OR ', array_map(function($f) {
+                return "(s.$f IS NOT NULL AND s.$f != '')";
+            }, $fields));
+            if ($primaryinstanceid > 0) {
                 $sql .= " AND p.id = :instanceid";
             }
-            $params = $include_course_modules ? ['modulename' => $primary_table] : [];
-            if ($primary_instanceid > 0) {
-                $params['instanceid'] = $primary_instanceid;
+            $params = $includecoursemodules ? ['modulename' => $primarytable] : [];
+            if ($primaryinstanceid > 0) {
+                $params['instanceid'] = $primaryinstanceid;
             }
         }
 
@@ -341,25 +368,39 @@ class tagging_manager {
      * It fetches records from secondary tables and coordinates tagging, delegating database updates
      * to tagging_service.php.
      *
-     * @param string $primary_table The primary table name (e.g., 'quiz').
-     * @param int $primary_instanceid The primary instance ID (e.g., quiz ID).
-     * @param array $secondary_tables Array of secondary tables and their fields.
+     * @param string $primarytable The primary table name (e.g., 'quiz').
+     * @param int $primaryinstanceid The primary instance ID (e.g., quiz ID).
+     * @param array $secondarytables Array of secondary tables and their fields.
      * @param \context $context The context object for tagging.
      * @param int $courseid The course ID for hash-course mapping.
-     * @param bool $include_course_modules Whether to include JOIN with course_modules (for create/update events).
+     * @param bool $includecoursemodules Whether to include JOIN with course_modules (for create/update events).
      */
-    public static function process_secondary_tables($primary_table, $primary_instanceid, $secondary_tables, $context, $courseid, $include_course_modules = true) {
+    public static function process_secondary_tables(
+        $primarytable,
+        $primaryinstanceid,
+        $secondarytables,
+        $context,
+        $courseid,
+        $includecoursemodules = true
+    ) {
         global $DB;
 
-        foreach ($secondary_tables as $secondary_table => $fields) {
-            $relationship = \filter_autotranslate\tagging_config::get_relationship_details($secondary_table);
+        foreach ($secondarytables as $secondarytable => $fields) {
+            $relationship = \filter_autotranslate\tagging_config::get_relationship_details($secondarytable);
 
-            list($sql, $params) = self::build_secondary_table_query($secondary_table, $fields, $primary_table, $primary_instanceid, $relationship, $include_course_modules);
+            list($sql, $params) = self::build_secondary_table_query(
+                $secondarytable,
+                $fields,
+                $primarytable,
+                $primaryinstanceid,
+                $relationship,
+                $includecoursemodules
+            );
             $records = $DB->get_records_sql($sql, $params);
             foreach ($records as $record) {
-                $record->course = $courseid; // Ensure courseid is set for hash mapping
-                $result = self::tag_fields($secondary_table, $record, $fields, $context, $courseid);
-                // Caller (e.g., observer.php) is responsible for handling database updates
+                $record->course = $courseid; // Ensure courseid is set for hash mapping.
+                $result = self::tag_fields($secondarytable, $record, $fields, $context, $courseid);
+                // Caller (e.g., observer.php) is responsible for handling database updates.
             }
         }
     }
