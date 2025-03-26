@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Autotranslate filter libs
@@ -34,30 +34,30 @@
 function filter_autotranslate_extend_navigation_course($navigation, $course, $context) {
     global $CFG;
 
-    // Check if the user has the required capability
+    // Check if the user has the required capability.
     if (!has_capability('filter/autotranslate:manage', $context)) {
         return;
     }
 
     // Debugging to confirm the function is called
-    // debugging('filter_autotranslate_extend_navigation_course called for course ' . $course->id, DEBUG_DEVELOPER);
+    // debugging('filter_autotranslate_extend_navigation_course called for course ' . $course->id, DEBUG_DEVELOPER);.
 
-    // Get the site language and current language
+    // Get the site language and current language.
     $sitelang = get_config('core', 'lang') ?: 'en';
     $currentlang = current_language();
-    $filter_lang = ($currentlang === $sitelang) ? 'other' : $currentlang;
+    $filterlang = ($currentlang === $sitelang) ? 'other' : $currentlang;
 
-    // Build a moodle URL for Manage Autotranslations
+    // Build a moodle URL for Manage Autotranslations.
     $manageurl = new moodle_url('/filter/autotranslate/manage.php', [
         'courseid' => $course->id,
-        'filter_lang' => $filter_lang,
-        'perpage' => 250
+        'filter_lang' => $filterlang,
+        'perpage' => 250,
     ]);
 
-    // Get title of Manage Autotranslations page for navigation menu
+    // Get title of Manage Autotranslations page for navigation menu.
     $managetitle = get_string('manageautotranslations', 'filter_autotranslate');
 
-    // Navigation node for Manage Autotranslations
+    // Navigation node for Manage Autotranslations.
     $managecontent = navigation_node::create(
         $managetitle,
         $manageurl,
@@ -67,5 +67,5 @@ function filter_autotranslate_extend_navigation_course($navigation, $course, $co
         new pix_icon('i/settings', '')
     );
     $navigation->add_node($managecontent);
-    $managecontent->showinsecondarynavigation = true; // Force into More menu
+    $managecontent->showinsecondarynavigation = true; // Force into More menu.
 }
