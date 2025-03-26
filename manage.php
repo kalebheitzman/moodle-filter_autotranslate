@@ -12,7 +12,8 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
 /**
  * Autotranslate Manage Page
  *
@@ -75,18 +76,18 @@ try {
     $PAGE->set_title(get_string('managetranslations', 'filter_autotranslate'));
     $PAGE->set_heading(get_string('managetranslations', 'filter_autotranslate'));
 
-    // Include page-specific CSS
+    // Include page-specific CSS.
     $PAGE->requires->css('/filter/autotranslate/css/manage.css');
 
-    // Check capability
+    // Check capability.
     require_capability('filter/autotranslate:manage', $context);
 
-    // Get parameters
+    // Get parameters.
     $courseid = optional_param('courseid', 0, PARAM_INT);
     $action = optional_param('action', '', PARAM_ALPHA);
-    $filter_lang = optional_param('filter_lang', '', PARAM_RAW);
-    $filter_human = optional_param('filter_human', '', PARAM_RAW);
-    $filter_needsreview = optional_param('filter_needsreview', '', PARAM_RAW);
+    $filterlang = optional_param('filter_lang', '', PARAM_RAW);
+    $filterhuman = optional_param('filter_human', '', PARAM_RAW);
+    $filterneedsreview = optional_param('filter_needsreview', '', PARAM_RAW);
     $page = optional_param('page', 0, PARAM_INT);
     $perpage = optional_param('perpage', 20, PARAM_INT);
     $sort = optional_param('sort', 'hash', PARAM_ALPHA);
@@ -94,15 +95,15 @@ try {
 
     global $DB, $OUTPUT;
 
-    // Handle rebuild translations action
+    // Handle rebuild translations action.
     if ($action === 'rebuild' && $courseid > 0) {
-        require_once($CFG->dirroot . '/filter/autotranslate/classes/rebuild_course_translations.php'); // Include the new class
+        require_once($CFG->dirroot . '/filter/autotranslate/classes/rebuild_course_translations.php'); // Include the new class.
         $rebuilder = new \filter_autotranslate\rebuild_course_translations();
-        // Clear existing mappings for this course to ensure a fresh rebuild
+        // Clear existing mappings for this course to ensure a fresh rebuild.
         $DB->delete_records('autotranslate_hid_cids', ['courseid' => $courseid]);
-        // Execute the rebuild process for the specified course
+        // Execute the rebuild process for the specified course.
         $rebuilder->execute($courseid);
-        // Redirect back to the manage page with a success notification
+        // Redirect back to the manage page with a success notification.
         redirect(new \moodle_url('/filter/autotranslate/manage.php', ['courseid' => $courseid]),
             get_string('translationsrebuilt', 'filter_autotranslate'));
     }
@@ -112,11 +113,11 @@ try {
 
     echo $OUTPUT->header();
 
-    // Filter form
+    // Filter form.
     $mform = new \filter_autotranslate\form\manage_form(null, [
-        'filter_lang' => $filter_lang,
-        'filter_human' => $filter_human,
-        'filter_needsreview' => $filter_needsreview,
+        'filter_lang' => $filterlang,
+        'filter_human' => $filterhuman,
+        'filter_needsreview' => $filterneedsreview,
         'perpage' => $perpage,
         'baseurl' => new \moodle_url('/filter/autotranslate/manage.php', [
             'perpage' => $perpage,
@@ -125,104 +126,126 @@ try {
             'courseid' => $courseid,
         ]),
     ]);
-    $filter_form_html = $mform->render();
+    $filterformhtml = $mform->render();
 
-    // Map the filter language to 'other' if it matches the site language
-    $internal_filter_lang = helper::map_language_to_other($filter_lang);
+    // Map the filter language to 'other' if it matches the site language.
+    $internalfilterlang = helper::map_language_to_other($filterlang);
 
-    // Fetch translations with courseid filter
-    $result = $manager->get_paginated_translations($page, $perpage, $internal_filter_lang, $filter_human, $sort, $dir, $courseid, $filter_needsreview);
+    // Fetch translations with courseid filter.
+    $result = $manager->get_paginated_translations(
+        $page,
+        $perpage,
+        $internalfilterlang,
+        $filterhuman,
+        $sort,
+        $dir,
+        $courseid,
+        $filterneedsreview
+    );
     $translations = $result['translations'];
     $total = $result['total'];
 
-    // Prepare table data for Mustache
-    $table_rows = [];
+    // Prepare table data for Mustache.
+    $tablerows = [];
     foreach ($translations as $translation) {
-        // URLs are already rewritten when stored, so just format the text for display
-        $translated_text = format_text($translation->translated_text, FORMAT_HTML);
-        $source_text = $translation->source_text !== 'N/A' ? format_text($translation->source_text, FORMAT_HTML) : 'N/A';
+        // URLs are already rewritten when stored, so just format the text for display.
+        $translatedtext = format_text($translation->translated_text, FORMAT_HTML);
+        $sourcetext = $translation->source_text !== 'N/A' ? format_text($translation->source_text, FORMAT_HTML) : 'N/A';
 
-        // Determine if the translation needs review based on the target language record
-        $needs_review = $translation->timereviewed < $translation->timemodified;
-        $review_status = $needs_review ? $OUTPUT->pix_icon('i/warning', get_string('needsreview', 'filter_autotranslate'), 'moodle', ['class' => 'text-danger align-middle']) : '';
+        // Determine if the translation needs review based on the target language record.
+        $needsreview = $translation->timereviewed < $translation->timemodified;
+        $reviewstatus = $needsreview ? $OUTPUT->pix_icon(
+            'i/warning',
+            get_string('needsreview', 'filter_autotranslate'),
+            'moodle',
+            ['class' => 'text-danger align-middle']
+        ) : '';
 
-        // Format the dates as small text to append below the translated text
-        $dates_html = '<small class="text-muted" dir="ltr">' .
+        // Format the dates as small text to append below the translated text.
+        $dateshtml = '<small class="text-muted" dir="ltr">' .
                       get_string('last_modified', 'filter_autotranslate') . ': ' . userdate($translation->timemodified) . '<br>' .
                       get_string('last_reviewed', 'filter_autotranslate') . ': ' . userdate($translation->timereviewed) .
                       '</small>';
 
-        // Append the dates below the translated text
-        $translated_text_with_dates = $translated_text . '<br>' . $dates_html;
+        // Append the dates below the translated text.
+        $translatedtextwithdates = $translatedtext . '<br>' . $dateshtml;
 
-        // Determine if the "Edit" link should be shown
-        $show_edit_link = ($translation->lang !== 'other' && $internal_filter_lang !== 'other');
+        // Determine if the "Edit" link should be shown.
+        $showeditlink = ($translation->lang !== 'other' && $internalfilterlang !== 'other');
 
-        // Determine if the language is RTL
-        $is_rtl = helper::is_rtl_language($translation->lang);
+        // Determine if the language is RTL.
+        $isrtl = helper::is_rtl_language($translation->lang);
 
         $row = [
             'hash' => $translation->hash,
             'lang' => $translation->lang,
-            'translated_text' => $translated_text_with_dates,
+            'translated_text' => $translatedtextwithdates,
             'human' => $translation->human ? get_string('yes') : get_string('no'),
             'contextlevel' => $translation->contextlevel,
-            'review_status' => $review_status,
-            'show_edit_link' => $show_edit_link,
-            'edit_url' => (new \moodle_url('/filter/autotranslate/edit.php', ['hash' => $translation->hash, 'tlang' => $translation->lang]))->out(false),
+            'review_status' => $reviewstatus,
+            'show_edit_link' => $showeditlink,
+            'edit_url' => (new \moodle_url(
+                '/filter/autotranslate/edit.php',
+                ['hash' => $translation->hash,
+                'tlang' => $translation->lang]
+            ))->out(false),
             'edit_label' => get_string('edit'),
-            'is_rtl' => $is_rtl,
+            'is_rtl' => $isrtl,
         ];
-        if (!empty($internal_filter_lang) && $internal_filter_lang !== 'all' && $internal_filter_lang !== 'other') {
-            $row['source_text'] = $source_text;
+        if (!empty($internalfilterlang) && $internalfilterlang !== 'all' && $internalfilterlang !== 'other') {
+            $row['source_text'] = $sourcetext;
         }
-        $table_rows[] = $row;
+        $tablerows[] = $row;
     }
 
-    // Prepare table headers
-    $table_headers = [
+    // Prepare table headers.
+    $tableheaders = [
         get_string('hash', 'filter_autotranslate'),
-        get_string('language', 'filter_autotranslate')
+        get_string('language', 'filter_autotranslate'),
     ];
-    if (!empty($internal_filter_lang) && $internal_filter_lang !== 'all' && $internal_filter_lang !== 'other') {
-        $table_headers[] = 'Source Text';
-        $table_headers[] = 'Translated Text';
+    if (!empty($internalfilterlang) && $internalfilterlang !== 'all' && $internalfilterlang !== 'other') {
+        $tableheaders[] = 'Source Text';
+        $tableheaders[] = 'Translated Text';
     } else {
-        $table_headers[] = get_string('translatedtext', 'filter_autotranslate');
+        $tableheaders[] = get_string('translatedtext', 'filter_autotranslate');
     }
-    $table_headers[] = get_string('humanreviewed', 'filter_autotranslate');
-    $table_headers[] = get_string('contextlevel', 'filter_autotranslate');
-    $table_headers[] = get_string('reviewstatus', 'filter_autotranslate');
-    $table_headers[] = get_string('actions', 'filter_autotranslate');
+    $tableheaders[] = get_string('humanreviewed', 'filter_autotranslate');
+    $tableheaders[] = get_string('contextlevel', 'filter_autotranslate');
+    $tableheaders[] = get_string('reviewstatus', 'filter_autotranslate');
+    $tableheaders[] = get_string('actions', 'filter_autotranslate');
 
-    // Prepare pagination
+    // Prepare pagination.
     $baseurl = new \moodle_url($PAGE->url, [
         'perpage' => $perpage,
         'sort' => $sort,
         'dir' => $dir,
-        'filter_lang' => $filter_lang,
-        'filter_human' => $filter_human,
-        'filter_needsreview' => $filter_needsreview,
+        'filter_lang' => $filterlang,
+        'filter_human' => $filterhuman,
+        'filter_needsreview' => $filterneedsreview,
         'courseid' => $courseid,
     ]);
-    $pagination_html = $OUTPUT->paging_bar($total, $page, $perpage, $baseurl);
+    $paginationhtml = $OUTPUT->paging_bar($total, $page, $perpage, $baseurl);
 
-    // Prepare data for the template, including the filter form and rebuild button
+    // Prepare data for the template, including the filter form and rebuild button.
     $data = [
-        'filter_form' => $filter_form_html,
-        'table_headers' => $table_headers,
-        'table_rows' => $table_rows,
-        'pagination' => $pagination_html,
-        'has_courseid' => $courseid > 0, // Flag to show the rebuild button
-        'rebuild_url' => $courseid > 0 ? (new \moodle_url('/filter/autotranslate/manage.php', ['courseid' => $courseid, 'action' => 'rebuild']))->out(false) : '',
+        'filter_form' => $filterformhtml,
+        'table_headers' => $tableheaders,
+        'table_rows' => $tablerows,
+        'pagination' => $paginationhtml,
+        'has_courseid' => $courseid > 0, // Flag to show the rebuild button.
+        'rebuild_url' => $courseid > 0 ? (new \moodle_url(
+            '/filter/autotranslate/manage.php',
+            ['courseid' => $courseid,
+            'action' => 'rebuild']
+        ))->out(false) : '',
         'rebuild_label' => get_string('rebuildtranslations', 'filter_autotranslate'),
     ];
 
-    // Render the template
+    // Render the template.
     echo $OUTPUT->render_from_template('filter_autotranslate/manage', $data);
 
     echo $OUTPUT->footer();
 } catch (\Exception $e) {
-    error_log("Fatal error in manage.php: " . $e->getMessage());
+    debugging("Fatal error in manage.php: " . $e->getMessage());
     echo "An error occurred: " . $e->getMessage();
 }
