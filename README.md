@@ -14,6 +14,7 @@ The **Moodle Autotranslate Filter** plugin automatically translates content acro
 - **Course-Specific Rebuild**: Manually rebuild translations for a specific course using the "Rebuild Translations" button.
 - **Customizable**: Works with any translation service following the OpenAI API specification.
 - **Context Awareness**: Organizes translations by Moodle context (e.g., course, module).
+- **Multilang Processing**: Extracts and stores translations from `<span>` and `{mlang}` multilang tags, replacing them with `{t:hash}` tags.
 - [ ] **Search Integration**: Indexes translations for multilingual search results (work in progress).
 
 ## Installation
@@ -123,6 +124,14 @@ The plugin tags content with `CONTENT {t:hash}`:
 - Spanish (`es`): “Enviar”
 - The hash ensures translations are reusable across identical text site-wide.
 
+### Multilang Processing
+
+The plugin processes existing multilang content in both `<span>` and `{mlang}` formats:
+
+- **Extraction**: Extracts translations from `<span>` tags (e.g., `<span lang="es" class="multilang">Hola</span>`) and `{mlang}` tags (e.g., `{mlang es}Hola{mlang}`), storing them in the `mdl_autotranslate_translations` table.
+- **Replacement**: Removes the multilang tags and replaces them with a single `{t:hash}` tag, linking to the stored translations.
+- **Destructive Action**: This process is destructive and non-reversible, as the original multilang tags are removed. A future script could potentially restore them, but this is not currently implemented.
+
 ### Translation Display
 
 The filter processes text on page load:
@@ -137,6 +146,7 @@ Two tasks handle translation management:
 
 1. **`autotranslate_task`** (runs **every 15 minutes**):
    - Scans fields (e.g., course summaries, activity intros) for untagged text.
+   - Processes existing multilang tags (`<span>` and `{mlang}`), extracts translations, and replaces them with `{t:hash}` tags.
    - Assigns a unique hash and tags the content with `CONTENT {t:aBcDeFgHiJ}`.
    - Stores the source text in the database with `lang = 'other'`.
 
@@ -171,6 +181,7 @@ The plugin is designed to enhance Moodle’s global search, but this feature is 
 - **Database Growth**: Storing translations increases database size.
 - **Performance**: Scheduled tasks may impact busy sites. Adjust task frequency or batch sizes (`managelimit`) as needed.
 - **Content Alteration**: Tags like `{t:aBcDeFgHiJ}` modify text fields. Disabling or uninstalling without cleanup may expose raw tags, affecting readability.
+- **Multilang Tag Removal**: The plugin removes `<span>` and `{mlang}` multilang tags, replacing them with `{t:hash}` tags. This is a destructive, non-reversible action, and the original multilang tags cannot be restored without a custom script (not currently implemented).
 - **Hash Sensitivity**: Editing tagged text or hashes manually can break translation links.
 - **Translation Quality**: Auto-translations vary by service/model; human review may be required.
 - **Rebuild Performance**: The "Rebuild Translations" operation is synchronous and may take time for large courses. Consider adjusting the batch size (`managelimit`) for better performance.
@@ -183,7 +194,7 @@ To remove the plugin:
 2. Delete the plugin files from the `filter` directory.
 3. Optionally, remove translation data from `mdl_autotranslate_translations` and `mdl_autotranslate_hid_cids`, and clean tagged content by removing `{t:hash}` tags.
 
-**⚠️ Warning**: Without cleanup, raw tags may remain in content. Always back up your database first.
+**⚠️ Warning**: Without cleanup, raw tags may remain in content, and original multilang tags (`<span>` or `{mlang}`) cannot be restored. Always back up your database first.
 
 ## Support and Issues
 
