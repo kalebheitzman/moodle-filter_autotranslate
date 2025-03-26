@@ -178,21 +178,21 @@ class helper {
      *
      * @param string $text The content to process containing multilang span tags.
      * @param \context $context The context object used to determine contextlevel in translations.
-     * @param array &$translations Reference to an array where translations for other languages are stored.
-     * @param string &$outsidetext Reference to a string where text outside of multilang tags is accumulated.
+     * @param array $translations Reference to an array where translations for other languages are stored.
+     * @param string $outsidetext Reference to a string where text outside of multilang tags is accumulated.
      * @param array $validlangs List of valid language codes to filter translations.
-     * @param string|null &$firstcontent Reference to the first language content as a fallback, or null if not set.
-     * @param string &$sourcetext Reference to the source text for translation in the site language.
+     * @param string|null $firstcontent Reference to the first language content as a fallback, or null if not set.
+     * @param string $sourcetext Reference to the source text for translation in the site language.
      * @return string The processed content, either site language content or original content if no tags are found.
      */
     public static function process_span_multilang_tags(
         $text,
         $context,
-        &$translations,
-        &$outsidetext,
+        $translations,
+        $outsidetext,
         $validlangs,
-        &$firstcontent,
-        &$sourcetext
+        $firstcontent,
+        $sourcetext
     ) {
         $sitelang = get_config('core', 'lang') ?: 'en';
         $lastpos = 0;
