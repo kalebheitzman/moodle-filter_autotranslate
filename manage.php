@@ -83,6 +83,7 @@ try {
 
     // Get parameters
     $courseid = optional_param('courseid', 0, PARAM_INT);
+    $action = optional_param('action', '', PARAM_ALPHA);
     $filter_lang = optional_param('filter_lang', '', PARAM_RAW);
     $filter_human = optional_param('filter_human', '', PARAM_RAW);
     $filter_needsreview = optional_param('filter_needsreview', '', PARAM_RAW);
@@ -92,18 +93,24 @@ try {
     $dir = optional_param('dir', 'ASC', PARAM_ALPHA);
 
     global $DB, $OUTPUT;
+
+    // Handle rebuild translations action
+    if ($action === 'rebuild' && $courseid > 0) {
+        require_once($CFG->dirroot . '/filter/autotranslate/classes/rebuild_course_translations.php'); // Include the new class
+        $rebuilder = new \filter_autotranslate\rebuild_course_translations();
+        // Clear existing mappings for this course to ensure a fresh rebuild
+        $DB->delete_records('autotranslate_hid_cids', ['courseid' => $courseid]);
+        // Execute the rebuild process for the specified course
+        $rebuilder->execute($courseid);
+        // Redirect back to the manage page with a success notification
+        redirect(new \moodle_url('/filter/autotranslate/manage.php', ['courseid' => $courseid]),
+            get_string('translationsrebuilt', 'filter_autotranslate'));
+    }
+
     $repository = new translation_repository($DB);
     $manager = new translation_manager($repository);
 
     echo $OUTPUT->header();
-
-    // Map the filter language to 'other' if it matches the site language
-    $internal_filter_lang = helper::map_language_to_other($filter_lang);
-
-    // Fetch translations with courseid filter
-    $result = $manager->get_paginated_translations($page, $perpage, $internal_filter_lang, $filter_human, $sort, $dir, $courseid, $filter_needsreview);
-    $translations = $result['translations'];
-    $total = $result['total'];
 
     // Filter form
     $mform = new \filter_autotranslate\form\manage_form(null, [
@@ -119,6 +126,14 @@ try {
         ]),
     ]);
     $filter_form_html = $mform->render();
+
+    // Map the filter language to 'other' if it matches the site language
+    $internal_filter_lang = helper::map_language_to_other($filter_lang);
+
+    // Fetch translations with courseid filter
+    $result = $manager->get_paginated_translations($page, $perpage, $internal_filter_lang, $filter_human, $sort, $dir, $courseid, $filter_needsreview);
+    $translations = $result['translations'];
+    $total = $result['total'];
 
     // Prepare table data for Mustache
     $table_rows = [];
@@ -192,13 +207,18 @@ try {
     ]);
     $pagination_html = $OUTPUT->paging_bar($total, $page, $perpage, $baseurl);
 
-    // Render the template
+    // Prepare data for the template, including the filter form and rebuild button
     $data = [
         'filter_form' => $filter_form_html,
         'table_headers' => $table_headers,
         'table_rows' => $table_rows,
         'pagination' => $pagination_html,
+        'has_courseid' => $courseid > 0, // Flag to show the rebuild button
+        'rebuild_url' => $courseid > 0 ? (new \moodle_url('/filter/autotranslate/manage.php', ['courseid' => $courseid, 'action' => 'rebuild']))->out(false) : '',
+        'rebuild_label' => get_string('rebuildtranslations', 'filter_autotranslate'),
     ];
+
+    // Render the template
     echo $OUTPUT->render_from_template('filter_autotranslate/manage', $data);
 
     echo $OUTPUT->footer();

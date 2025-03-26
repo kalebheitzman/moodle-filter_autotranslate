@@ -14,70 +14,52 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses>.
 /**
- * Autotranslate Tag Content Task
+ * Autotranslate Course-Specific Rebuild
  *
- * This scheduled task tags untagged text and processes mlang tags across configured contexts.
+ * This class handles the rebuilding of translations for a specific course,
+ * triggered manually via CLI or the "Rebuild Translations" button in the manage page.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-namespace filter_autotranslate\task;
+namespace filter_autotranslate;
 
 defined('MOODLE_INTERNAL') || die();
 
-use core\task\scheduled_task;
-use filter_autotranslate\helper;
 use filter_autotranslate\tagging_manager;
 use filter_autotranslate\tagging_service;
 
-class tagcontent_task extends scheduled_task {
+class rebuild_course_translations {
 
     /**
-     * Returns the name of the scheduled task.
+     * Executes the tagging task for a specific course.
      *
-     * @return string
+     * This method processes only the content related to the specified course ID,
+     * limiting the scope to CONTEXT_COURSE (50) and CONTEXT_MODULE (70).
+     *
+     * @param int $courseid The ID of the course to rebuild translations for.
      */
-    public function get_name() {
-        return 'Auto Translate Text Tagging';
-    }
-
-    /**
-     * Executes the scheduled task to tag untagged text and process mlang tags.
-     */
-    public function execute() {
+    public function execute($courseid) {
         global $DB;
 
-        // Check if called from CLI with a courseid argument
-        if (defined('CLI_SCRIPT') && !empty($argv) && count($argv) > 1 && is_numeric($argv[1])) {
-            $courseid = (int)$argv[1];
-            // Delegate to the course-specific rebuild class
-            $rebuilder = new \filter_autotranslate\task\rebuild_course_translations();
-            $rebuilder->execute($courseid);
+        // Ensure the course exists
+        if (!$DB->record_exists('course', ['id' => $courseid])) {
+            debugging("Error: Course ID $courseid does not exist.", DEBUG_DEVELOPER);
             return;
         }
 
-        // Treat selectctx as CSV string
-        $selectedctx = get_config('filter_autotranslate', 'selectctx') ?: '40,50,70,80';
-        $selectedctx = array_filter(array_map('trim', explode(',', (string)$selectedctx)));
-        $managelimit = (int)(get_config('filter_autotranslate', 'managelimit') ?: 20);
-
-        $batchsize = $managelimit;
-        $total_entries_checked = 0;
-
-        // Instantiate tagging_service with the database connection
-        $tagging_service = new tagging_service($DB);
-
-        // Get the configured tables and fields
+        $tagging_service = new \filter_autotranslate\tagging_service($DB);
         $tables = \filter_autotranslate\tagging_config::get_default_tables();
+        $total_entries_checked = 0;
+        $batchsize = (int)(get_config('filter_autotranslate', 'managelimit') ?: 20);
 
-        // Only output mtrace in CLI context to avoid browser output in web context
-        if (defined('CLI_SCRIPT')) {
-            mtrace("Starting Auto Translate task with contexts: " . implode(', ', $selectedctx));
-        }
+        debugging("Rebuilding translations for course ID: $courseid", DEBUG_DEVELOPER);
 
+        // Limit to course-related contexts
+        $relevant_contexts = [CONTEXT_COURSE, CONTEXT_MODULE];
         foreach ($tables as $ctx => $table_list) {
-            if (!in_array((string)$ctx, $selectedctx)) {
+            if (!in_array($ctx, $relevant_contexts)) {
                 continue;
             }
 
@@ -87,110 +69,52 @@ class tagcontent_task extends scheduled_task {
                     continue;
                 }
 
-                if (defined('CLI_SCRIPT')) {
-                    mtrace("Processing table: $table, Fields: " . implode(', ', $fields));
-                }
+                debugging("Processing table: $table, Fields: " . implode(', ', $fields), DEBUG_DEVELOPER);
                 foreach ($fields as $field) {
                     $offset = 0;
 
                     do {
                         try {
-                            if ($ctx == CONTEXT_SYSTEM) {
-                                if ($table === 'message') {
-                                    $sql = "SELECT m.id AS instanceid, m.$field AS content, 0 AS course
-                                            FROM {{$table}} m
-                                            WHERE m.$field IS NOT NULL AND m.$field != ''";
-                                    $params = [];
-                                } elseif ($table === 'block_instances') {
-                                    $sql = "SELECT bi.id AS instanceid, bi.$field AS content, COALESCE(c.id, 0) AS course
-                                            FROM {{$table}} bi
-                                            LEFT JOIN {context} ctx ON ctx.instanceid = bi.id AND ctx.contextlevel = :contextlevel
-                                            LEFT JOIN {course} c ON c.id = ctx.instanceid AND ctx.contextlevel = :coursecontextlevel
-                                            WHERE bi.$field IS NOT NULL AND bi.$field != ''";
-                                    $params = ['contextlevel' => CONTEXT_BLOCK, 'coursecontextlevel' => CONTEXT_COURSE];
-                                } else {
-                                    $sql = "SELECT m.id AS instanceid, m.$field AS content, 0 AS course
-                                            FROM {{$table}} m
-                                            WHERE m.$field IS NOT NULL AND m.$field != ''";
-                                    $params = [];
-                                }
-                            } elseif ($ctx == CONTEXT_USER) {
-                                $sql = "SELECT uid.id AS instanceid, uid.$field AS content, 0 AS course
-                                        FROM {{$table}} uid
-                                        JOIN {user} u ON u.id = uid.userid
-                                        WHERE uid.$field IS NOT NULL AND uid.$field != ''";
-                                $params = [];
-                            } elseif ($ctx == CONTEXT_COURSECAT) {
-                                $sql = "SELECT cc.id AS instanceid, cc.$field AS content, 0 AS course
-                                        FROM {{$table}} cc
-                                        WHERE cc.$field IS NOT NULL AND cc.$field != ''";
-                                $params = [];
-                            } elseif ($ctx == CONTEXT_COURSE) {
+                            if ($ctx == CONTEXT_COURSE) {
                                 if ($table === 'course') {
                                     $sql = "SELECT c.id AS instanceid, c.$field AS content, c.id AS course
                                             FROM {course} c
-                                            WHERE c.$field IS NOT NULL AND c.$field != ''";
-                                    $params = [];
+                                            WHERE c.id = :courseid AND c.$field IS NOT NULL AND c.$field != ''";
+                                    $params = ['courseid' => $courseid];
                                 } elseif ($table === 'course_sections') {
                                     $sql = "SELECT cs.id AS instanceid, cs.$field AS content, cs.course
                                             FROM {course_sections} cs
-                                            JOIN {course} c ON c.id = cs.course
-                                            WHERE cs.$field IS NOT NULL AND cs.$field != ''";
-                                    $params = [];
+                                            WHERE cs.course = :courseid AND cs.$field IS NOT NULL AND cs.$field != ''";
+                                    $params = ['courseid' => $courseid];
                                 } else {
-                                    $sql = "SELECT m.id AS instanceid, m.$field AS content, cm.course, cm.id AS cmid
-                                            FROM {" . $table . "} m
-                                            JOIN {course_modules} cm ON cm.instance = m.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                            WHERE m.$field IS NOT NULL AND m.$field != ''";
-                                    $params = ['modulename' => $table];
+                                    continue; // Skip non-course tables in this context
                                 }
                             } elseif ($ctx == CONTEXT_MODULE) {
                                 $sql = "SELECT m.id AS instanceid, m.$field AS content, cm.course, cm.id AS cmid
-                                        FROM {" . $table . "} m
-                                        JOIN {course_modules} cm ON cm.instance = m.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                        WHERE m.$field IS NOT NULL AND m.$field != ''";
-                                $params = ['modulename' => $table];
-                            } elseif ($ctx == CONTEXT_BLOCK) {
-                                $sql = "SELECT bi.id AS instanceid, bi.$field AS content, COALESCE(c.id, 0) AS course
-                                        FROM {{$table}} bi
-                                        LEFT JOIN {context} ctx ON ctx.instanceid = bi.id AND ctx.contextlevel = :contextlevel
-                                        LEFT JOIN {course} c ON c.id = ctx.instanceid AND ctx.contextlevel = :coursecontextlevel
-                                        WHERE bi.$field IS NOT NULL AND bi.$field != ''";
-                                $params = ['contextlevel' => CONTEXT_BLOCK, 'coursecontextlevel' => CONTEXT_COURSE];
-                            } else {
-                                $sql = "SELECT m.id AS instanceid, m.$field AS content, 0 AS course
                                         FROM {{$table}} m
-                                        WHERE m.$field IS NOT NULL AND m.$field != ''";
-                                $params = [];
+                                        JOIN {course_modules} cm ON cm.instance = m.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                        WHERE cm.course = :courseid AND m.$field IS NOT NULL AND m.$field != ''";
+                                $params = ['modulename' => $table, 'courseid' => $courseid];
+                            } else {
+                                continue; // Shouldn’t reach here due to context filter
                             }
 
                             $records = $DB->get_records_sql($sql, $params, $offset, $batchsize);
                             $count = count($records);
                             $total_entries_checked += $count;
-                            if (defined('CLI_SCRIPT')) {
-                                mtrace("Fetched $count records for table $table, field $field at offset $offset");
-                            }
+                            debugging("Fetched $count records for table $table, field $field at offset $offset", DEBUG_DEVELOPER);
 
                             if ($count > 0) {
                                 $firstrecord = reset($records);
-                                $context = null;
-                                if (isset($firstrecord->cmid)) {
-                                    $context = \context_module::instance($firstrecord->cmid);
-                                } else {
-                                    $context = \context_system::instance(); // Fallback
-                                }
-                                if (defined('CLI_SCRIPT')) {
-                                    mtrace("First record: " . json_encode($firstrecord));
-                                }
+                                $context = isset($firstrecord->cmid) ? \context_module::instance($firstrecord->cmid) : \context_course::instance($courseid);
+                                debugging("First record: " . json_encode($firstrecord), DEBUG_DEVELOPER);
                             } else {
-                                $context = \context_system::instance(); // Fallback for no records
+                                $context = \context_course::instance($courseid); // Fallback
                             }
 
                             foreach ($records as $record) {
                                 if (!isset($record->instanceid)) {
-                                    if (defined('CLI_SCRIPT')) {
-                                        mtrace("Error: Record missing instanceid for table $table, field $field: " . json_encode($record));
-                                    }
+                                    debugging("Error: Record missing instanceid for table $table, field $field: " . json_encode($record), DEBUG_DEVELOPER);
                                     continue;
                                 }
                                 $record->id = $record->instanceid;
@@ -198,25 +122,19 @@ class tagcontent_task extends scheduled_task {
                                 $record->$field = $record->content;
                                 unset($record->content);
                                 if (!isset($record->id)) {
-                                    if (defined('CLI_SCRIPT')) {
-                                        mtrace("Error: Record missing id field after renaming for table $table, field $field");
-                                    }
+                                    debugging("Error: Record missing id field after renaming for table $table, field $field", DEBUG_DEVELOPER);
                                     continue;
                                 }
                                 $updated = $tagging_service->tag_content($table, $record, [$field], $context, $record->course);
                                 if ($updated) {
-                                    if (defined('CLI_SCRIPT')) {
-                                        mtrace("Tagged content in table $table, field $field, instanceid {$record->id}: " . substr($record->$field, 0, 50) . "...");
-                                    }
+                                    debugging("Tagged content in table $table, field $field, instanceid {$record->id}: " . substr($record->$field, 0, 50) . "...", DEBUG_DEVELOPER);
                                     $tagging_service->mark_translations_for_revision($table, $record->id, [$field], $context);
                                 }
                             }
 
                             $offset += $batchsize;
                         } catch (\dml_exception $e) {
-                            if (defined('CLI_SCRIPT')) {
-                                mtrace("Error executing query for table $table, field $field: " . $e->getMessage());
-                            }
+                            debugging("Error executing query for table $table, field $field: " . $e->getMessage(), DEBUG_DEVELOPER);
                             break;
                         }
                     } while ($count >= $batchsize);
@@ -226,9 +144,7 @@ class tagcontent_task extends scheduled_task {
                 if ($ctx == CONTEXT_MODULE) {
                     $secondary_tables = \filter_autotranslate\tagging_manager::get_secondary_tables($table, $ctx);
                     foreach ($secondary_tables as $secondary_table => $secondary_fields) {
-                        if (defined('CLI_SCRIPT')) {
-                            mtrace("Processing table: $secondary_table, Fields: " . implode(', ', $secondary_fields));
-                        }
+                        debugging("Processing secondary table: $secondary_table, Fields: " . implode(', ', $secondary_fields), DEBUG_DEVELOPER);
                         $offset = 0;
 
                         do {
@@ -250,10 +166,11 @@ class tagcontent_task extends scheduled_task {
                                             JOIN {{$table}} p ON p.id = pt.quizid
                                             JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                                             JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
-                                            WHERE qr.usingcontextid = ctx.id
+                                            WHERE cm.course = :courseid
+                                            AND qr.usingcontextid = ctx.id
                                             AND qr.component = 'mod_quiz'
                                             AND qr.questionarea = 'slot'";
-                                    $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE];
+                                    $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE, 'courseid' => $courseid];
                                 } elseif ($secondary_table === 'question_answers') {
                                     $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id AS primary_instanceid, cm.id AS cmid
                                             FROM {{$secondary_table}} s
@@ -265,10 +182,11 @@ class tagcontent_task extends scheduled_task {
                                             JOIN {{$table}} p ON p.id = gpt.quizid
                                             JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                                             JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
-                                            WHERE qr.usingcontextid = ctx.id
+                                            WHERE cm.course = :courseid
+                                            AND qr.usingcontextid = ctx.id
                                             AND qr.component = 'mod_quiz'
                                             AND qr.questionarea = 'slot'";
-                                    $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE];
+                                    $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE, 'courseid' => $courseid];
                                 } elseif ($secondary_table === 'question_categories') {
                                     $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id AS primary_instanceid, cm.id AS cmid
                                             FROM {{$secondary_table}} s
@@ -278,10 +196,11 @@ class tagcontent_task extends scheduled_task {
                                             JOIN {{$table}} p ON p.id = gpt.quizid
                                             JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                                             JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
-                                            WHERE qr.usingcontextid = ctx.id
+                                            WHERE cm.course = :courseid
+                                            AND qr.usingcontextid = ctx.id
                                             AND qr.component = 'mod_quiz'
                                             AND qr.questionarea = 'slot'";
-                                    $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE];
+                                    $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE, 'courseid' => $courseid];
                                 } else {
                                     if ($grandparent_table) {
                                         $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id AS primary_instanceid, cm.id AS cmid
@@ -289,46 +208,41 @@ class tagcontent_task extends scheduled_task {
                                                 JOIN {{$parent_table}} pt ON s.$fk = pt.id
                                                 JOIN {{$grandparent_table}} gpt ON pt.$parent_fk = gpt.id
                                                 JOIN {{$table}} p ON p.id = gpt.$grandparent_fk
-                                                JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)";
+                                                JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                                WHERE cm.course = :courseid";
                                     } elseif ($parent_table) {
                                         $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id AS primary_instanceid, cm.id AS cmid
                                                 FROM {{$secondary_table}} s
                                                 JOIN {{$parent_table}} pt ON s.$fk = pt.id
                                                 JOIN {{$table}} p ON p.id = pt.$parent_fk
-                                                JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)";
+                                                JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                                WHERE cm.course = :courseid";
                                     } else {
                                         $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id AS primary_instanceid, cm.id AS cmid
                                                 FROM {{$secondary_table}} s
                                                 JOIN {{$table}} p ON p.id = s.$fk
-                                                JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)";
+                                                JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
+                                                WHERE cm.course = :courseid";
                                     }
-                                    $params = ['modulename' => $table];
+                                    $params = ['modulename' => $table, 'courseid' => $courseid];
                                 }
 
                                 $records = $DB->get_records_sql($sql, $params, $offset, $batchsize);
                                 $count = count($records);
                                 $total_entries_checked += $count;
-                                if (defined('CLI_SCRIPT')) {
-                                    mtrace("Fetched $count records for table $secondary_table at offset $offset");
-                                }
+                                debugging("Fetched $count records for table $secondary_table at offset $offset", DEBUG_DEVELOPER);
 
                                 if ($count > 0) {
                                     $firstrecord = reset($records);
-                                    $context = null;
-                                    if (isset($firstrecord->cmid)) {
-                                        $context = \context_module::instance($firstrecord->cmid);
-                                    } else {
-                                        $context = \context_system::instance(); // Fallback
-                                    }
+                                    $context = isset($firstrecord->cmid) ? \context_module::instance($firstrecord->cmid) : \context_course::instance($courseid);
+                                    debugging("First record: " . json_encode($firstrecord), DEBUG_DEVELOPER);
                                 } else {
-                                    $context = \context_system::instance(); // Fallback for no records
+                                    $context = \context_course::instance($courseid); // Fallback
                                 }
 
                                 foreach ($records as $record) {
                                     if (!isset($record->instanceid)) {
-                                        if (defined('CLI_SCRIPT')) {
-                                            mtrace("Error: Secondary record missing instanceid for table $secondary_table: " . json_encode($record));
-                                        }
+                                        debugging("Error: Secondary record missing instanceid for table $secondary_table: " . json_encode($record), DEBUG_DEVELOPER);
                                         continue;
                                     }
                                     $instanceid = $record->instanceid;
@@ -344,12 +258,12 @@ class tagcontent_task extends scheduled_task {
                                                     JOIN {{$table}} p ON p.id = pt.quizid
                                                     JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                                                     JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
-                                                    WHERE s.id = :instanceid
+                                                    WHERE s.id = :instanceid AND cm.course = :courseid
                                                     AND s.$field IS NOT NULL AND s.$field != ''
                                                     AND qr.usingcontextid = ctx.id
                                                     AND qr.component = 'mod_quiz'
                                                     AND qr.questionarea = 'slot'";
-                                            $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE, 'instanceid' => $instanceid];
+                                            $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE, 'instanceid' => $instanceid, 'courseid' => $courseid];
                                         } elseif ($secondary_table === 'question_answers') {
                                             $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
                                                     FROM {{$secondary_table}} s
@@ -361,12 +275,12 @@ class tagcontent_task extends scheduled_task {
                                                     JOIN {{$table}} p ON p.id = gpt.quizid
                                                     JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                                                     JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
-                                                    WHERE s.id = :instanceid
+                                                    WHERE s.id = :instanceid AND cm.course = :courseid
                                                     AND s.$field IS NOT NULL AND s.$field != ''
                                                     AND qr.usingcontextid = ctx.id
                                                     AND qr.component = 'mod_quiz'
                                                     AND qr.questionarea = 'slot'";
-                                            $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE, 'instanceid' => $instanceid];
+                                            $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE, 'instanceid' => $instanceid, 'courseid' => $courseid];
                                         } elseif ($secondary_table === 'question_categories') {
                                             $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
                                                     FROM {{$secondary_table}} s
@@ -376,12 +290,12 @@ class tagcontent_task extends scheduled_task {
                                                     JOIN {{$table}} p ON p.id = gpt.quizid
                                                     JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
                                                     JOIN {context} ctx ON ctx.instanceid = cm.id AND ctx.contextlevel = :contextlevel
-                                                    WHERE s.id = :instanceid
+                                                    WHERE s.id = :instanceid AND cm.course = :courseid
                                                     AND s.$field IS NOT NULL AND s.$field != ''
                                                     AND qr.usingcontextid = ctx.id
                                                     AND qr.component = 'mod_quiz'
                                                     AND qr.questionarea = 'slot'";
-                                            $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE, 'instanceid' => $instanceid];
+                                            $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE, 'instanceid' => $instanceid, 'courseid' => $courseid];
                                         } else {
                                             if ($grandparent_table) {
                                                 $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
@@ -390,7 +304,7 @@ class tagcontent_task extends scheduled_task {
                                                         JOIN {{$grandparent_table}} gpt ON pt.$parent_fk = gpt.id
                                                         JOIN {{$table}} p ON p.id = gpt.$grandparent_fk
                                                         JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                                        WHERE s.id = :instanceid
+                                                        WHERE s.id = :instanceid AND cm.course = :courseid
                                                         AND s.$field IS NOT NULL AND s.$field != ''";
                                             } elseif ($parent_table) {
                                                 $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
@@ -398,17 +312,17 @@ class tagcontent_task extends scheduled_task {
                                                         JOIN {{$parent_table}} pt ON s.$fk = pt.id
                                                         JOIN {{$table}} p ON p.id = pt.$parent_fk
                                                         JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                                        WHERE s.id = :instanceid
+                                                        WHERE s.id = :instanceid AND cm.course = :courseid
                                                         AND s.$field IS NOT NULL AND s.$field != ''";
                                             } else {
                                                 $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id AS primary_instanceid, cm.id AS cmid
                                                         FROM {{$secondary_table}} s
                                                         JOIN {{$table}} p ON p.id = s.$fk
                                                         JOIN {course_modules} cm ON cm.instance = p.id AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                                        WHERE s.id = :instanceid
+                                                        WHERE s.id = :instanceid AND cm.course = :courseid
                                                         AND s.$field IS NOT NULL AND s.$field != ''";
                                             }
-                                            $params = ['modulename' => $table, 'instanceid' => $instanceid];
+                                            $params = ['modulename' => $table, 'instanceid' => $instanceid, 'courseid' => $courseid];
                                         }
 
                                         $field_record = $DB->get_record_sql($sql, $params);
@@ -421,16 +335,12 @@ class tagcontent_task extends scheduled_task {
                                         $field_record->$field = $field_record->content;
                                         unset($field_record->content);
                                         if (!isset($field_record->id)) {
-                                            if (defined('CLI_SCRIPT')) {
-                                                mtrace("Error: Secondary record missing id field after renaming for table $secondary_table, field $field");
-                                            }
+                                            debugging("Error: Secondary record missing id field after renaming for table $secondary_table, field $field", DEBUG_DEVELOPER);
                                             continue;
                                         }
                                         $updated = $tagging_service->tag_content($secondary_table, $field_record, [$field], $context, $field_record->course);
                                         if ($updated) {
-                                            if (defined('CLI_SCRIPT')) {
-                                                mtrace("Tagged content in table $secondary_table, field $field, instanceid {$field_record->id}: " . substr($field_record->$field, 0, 50) . "...");
-                                            }
+                                            debugging("Tagged content in table $secondary_table, field $field, instanceid {$field_record->id}: " . substr($field_record->$field, 0, 50) . "...", DEBUG_DEVELOPER);
                                             $tagging_service->mark_translations_for_revision($secondary_table, $field_record->id, [$field], $context);
                                         }
                                     }
@@ -438,9 +348,7 @@ class tagcontent_task extends scheduled_task {
 
                                 $offset += $batchsize;
                             } catch (\dml_exception $e) {
-                                if (defined('CLI_SCRIPT')) {
-                                    mtrace("Error executing query for table $secondary_table: " . $e->getMessage());
-                                }
+                                debugging("Error executing query for secondary table $secondary_table: " . $e->getMessage(), DEBUG_DEVELOPER);
                                 break;
                             }
                         } while ($count >= $batchsize);
@@ -449,8 +357,6 @@ class tagcontent_task extends scheduled_task {
             }
         }
 
-        if (defined('CLI_SCRIPT')) {
-            mtrace("Auto Translate task completed. Total entries checked: $total_entries_checked");
-        }
+        debugging("Rebuild completed for course ID $courseid. Total entries checked: $total_entries_checked", DEBUG_DEVELOPER);
     }
 }

@@ -44,7 +44,6 @@
  * Dependencies:
  * - tagcontent_task.php: Handles tagging of content for translation.
  * - fetchtranslation_task.php: Fetches translations from external services.
- * - purgemappings_task.php: Purges orphaned hash-course mappings.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -75,16 +74,5 @@ $tasks = [
         'day' => '*',
         'dayofweek' => '*',
         'month' => '*',
-    ],
-    [
-        // Task to purge orphaned hash-course mappings from autotranslate_hid_cids.
-        // Runs daily at midnight, as cleanup is a less frequent operation.
-        'classname' => 'filter_autotranslate\task\purgemappings_task',
-        'blocking' => 0,
-        'minute' => '0',
-        'hour' => '0',
-        'day' => '*',
-        'month' => '*',
-        'dayofweek' => '*',
     ],
 ];
