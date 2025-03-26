@@ -249,7 +249,7 @@ class tagging_config {
                 ],
             ],
             'workshop' => [
-                'fields' => ['name', 'intro'], // Workshop module details
+                'fields' => ['name', 'intro', 'instructauthors', 'instructreviewers', 'conclusion'], // Workshop module details
                 'secondary' => [
                     'workshop_submissions' => [
                         'fk' => 'workshopid', // Links to workshop.id
@@ -260,6 +260,10 @@ class tagging_config {
                         'parent_table' => 'workshop_submissions', // Parent table for relationship
                         'parent_fk' => 'workshopid', // Links workshop_submissions to workshop.id
                         'fields' => ['feedbackauthor', 'feedbackreviewer'], // Workshop assessments
+                    ],
+                    'workshopform_accumulative' => [
+                        'fk' => 'workshopid', // Links to workshop.id
+                        'fields' => ['description'], // Accumulative grading strategy descriptions
                     ],
                 ],
             ],
