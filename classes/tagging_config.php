@@ -236,16 +236,16 @@ class tagging_config {
                         'fk' => 'subwikiid', // Links to wiki_subwikis.id
                         'parent_table' => 'wiki_subwikis', // Parent table for relationship
                         'parent_fk' => 'wikiid', // Links wiki_subwikis to wiki.id
-                        'fields' => ['title'], // Wiki pages
+                        'fields' => ['title', 'cachedcontent'], // Wiki pages
                     ],
-                    'wiki_versions' => [
-                        'fk' => 'pageid', // Links to wiki_pages.id
-                        'parent_table' => 'wiki_pages', // Parent table for relationship
-                        'parent_fk' => 'subwikiid', // Links wiki_pages to wiki_subwikis.id
-                        'grandparent_table' => 'wiki_subwikis', // Grandparent table for relationship
-                        'grandparent_fk' => 'wikiid', // Links wiki_subwikis to wiki.id
-                        'fields' => ['content'], // Wiki page versions
-                    ],
+                    // 'wiki_versions' => [
+                    //     'fk' => 'pageid', // Links to wiki_pages.id
+                    //     'parent_table' => 'wiki_pages', // Parent table for relationship
+                    //     'parent_fk' => 'subwikiid', // Links wiki_pages to wiki_subwikis.id
+                    //     'grandparent_table' => 'wiki_subwikis', // Grandparent table for relationship
+                    //     'grandparent_fk' => 'wikiid', // Links wiki_subwikis to wiki.id
+                    //     'fields' => ['content'], // Wiki page versions
+                    // ],
                 ],
             ],
             'workshop' => [
