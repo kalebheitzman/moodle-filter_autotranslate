@@ -4,16 +4,17 @@
 
 ## Introduction
 
-The **Moodle Autotranslate Filter** plugin automatically translates content across your Moodle site into multiple languages using any OpenAI-compatible translation service. It’s designed to make your courses, resources, and pages accessible to a global audience, while also supporting human-reviewed translations and integrating with Moodle’s global search. Whether you’re an administrator, teacher, or developer, this plugin provides the tools you need to create a seamless multilingual experience.
+The **Moodle Autotranslate Filter** plugin automatically translates content across your Moodle site into multiple languages using any OpenAI-compatible translation service (e.g., Google Generative AI). It’s designed to make your courses, resources, and pages accessible to a global audience, while also supporting human-reviewed translations. Whether you’re an administrator, teacher, or developer, this plugin provides the tools you need to create a seamless multilingual experience.
 
 ## Key Features
 
 - **Automatic Translation**: Translates content using your chosen OpenAI-compatible service.
 - **Human Translation Support**: Allows manual review or correction of translations.
 - **Global Reuse**: Identical text shares translations site-wide for efficiency.
-- [ ] **Search Integration**: Indexes translations for multilingual search results (work in progress).
+- **Course-Specific Rebuild**: Manually rebuild translations for a specific course using the "Rebuild Translations" button.
 - **Customizable**: Works with any translation service following the OpenAI API specification.
 - **Context Awareness**: Organizes translations by Moodle context (e.g., course, module).
+- [ ] **Search Integration**: Indexes translations for multilingual search results (work in progress).
 
 ## Installation
 
@@ -29,19 +30,19 @@ To install the plugin:
 
 Configure the plugin with your translation service:
 
-1. Sign up for an OpenAI-compatible translation service (e.g., OpenAI, Google Translate, or a custom model).
+1. Sign up for an OpenAI-compatible translation service (e.g., Google Generative AI, OpenAI, or a custom model).
 2. Obtain the following details:
    - **Endpoint**: The API URL (e.g., `https://api.openai.com/v1`).
    - **API Key**: Your authentication key.
-   - **Model**: The translation model (e.g., `gpt-3.5-turbo`).
+   - **Model**: The translation model (e.g., `gemini-1.5-pro` for Google Generative AI).
 3. Go to **Site Administration** > **Plugins** > **Filters** > **Autotranslate settings**.
 4. Enter the **Endpoint**, **API Key**, and **Model**.
 
 ### Example Configuration
 
-- **Endpoint**: `https://api.openai.com/v1`
-- **API Key**: `your-openai-api-key`
-- **Model**: `gpt-3.5-turbo`
+- **Endpoint**: `https://generativelanguage.googleapis.com/v1beta`
+- **API Key**: `your-google-api-key`
+- **Model**: `gemini-1.5-pro`
 
 Check your service’s documentation for specific details.
 
@@ -54,6 +55,7 @@ Here’s how to use the plugin:
 3. Switch languages using Moodle’s language selector (usually top-right).
 4. Wait up to 30 minutes for translations to appear (see Scheduled Tasks below).
 5. Manually manage translations via the plugin's interface at `/filter/autotranslate/manage.php` (requires appropriate capabilities; see [Permissions and Capabilities](#permissions-and-capabilities) below).
+6. Use the "Rebuild Translations" button on the manage page to manually rebuild translations for a specific course (requires `filter/autotranslate:manage` capability).
 
 Teachers can also edit translations within their course contexts for greater control, provided they have the necessary permissions.
 
@@ -62,7 +64,7 @@ Teachers can also edit translations within their course contexts for greater con
 In Moodle, capabilities define what actions users can perform based on their roles. The Autotranslate Filter plugin introduces two capabilities to control access to its features:
 
 - **filter/autotranslate:manage**
-  - **Purpose**: Allows users to manage translations at the system level. This includes configuring plugin settings and overseeing the translation process across the entire Moodle site.
+  - **Purpose**: Allows users to manage translations at the system level. This includes configuring plugin settings, overseeing the translation process across the entire Moodle site, and using the "Rebuild Translations" button to manually rebuild translations for a specific course.
   - **Default roles**: Manager, Editing Teacher
   - **Context**: System-wide
 
@@ -81,55 +83,45 @@ The plugin manages translations through a database, text tagging, and a filter m
 
 ### Database Schema
 
-Translations are stored in the `mdl_autotranslate_translations` table for site-wide reuse. The table includes the following columns:
+#### Table: `mdl_autotranslate_translations`
+- **Purpose**: Stores translations for tagged strings, allowing a single string to have translations in multiple languages.
+- **Fields**:
+  - `id` (BIGINT(10), auto-increment, primary key): Unique identifier for each translation record.
+  - `hash` (VARCHAR(10), not null): A unique 10-character hash representing the source text (e.g., `9UoZ3soJDz`). This hash is embedded in the content as a tag (e.g., `{t:9UoZ3soJDz}`) to mark it for translation.
+  - `lang` (VARCHAR(20), not null): The language code for the translation (e.g., `en` for English, `es` for Spanish, `ru` for Russian). The special value `other` represents the source text in the site’s default language.
+  - `translated_text` (TEXT, not null): The translated content for the specified language. For `lang = 'other'`, this is the source text; for other languages, this is the translated text.
+  - `contextlevel` (INT(2), not null): The Moodle context level where the string is used (e.g., `10` for System, `50` for Course, `70` for Module). Used for context-based recovery or filtering.
+  - `human` (TINYINT(1), not null, default 0): Flag indicating if the translation was manually edited by a human (`0` = automatic, `1` = manual).
+  - `timecreated` (INT(10), not null): Timestamp when the translation record was created.
+  - `timemodified` (INT(10), not null): Timestamp when the translation was last modified.
+  - `timereviewed` (INT(10), not null, default 0): Timestamp when the translation was last reviewed.
+- **Keys**:
+  - Primary key: `id`.
+  - Unique key: `hash, lang` (ensures one translation per language per hash).
+- **Indexes**:
+  - `contextlevel`: For context-based recovery.
+  - `timereviewed`: For review tracking.
 
-- **`id`**:
-  - Type: `BIGINT(10)`
-  - Auto-incrementing primary key.
-
-- **`hash`**:
-  - Type: `VARCHAR(10)`
-  - A unique 10-character hash for the source text (e.g., `aBcDeFgHiJ`).
-  - Used to link source text to translations via tags like `Source Text {t:aBcDeFgHiJ}`.
-
-- **`lang`**:
-  - Type: `VARCHAR(20)`
-  - Language code for the translation (e.g., `es` for Spanish).
-
-- **`human`**:
-  - Type: `TINYINT(1)`
-  - Default: `0`
-  - Indicates if the translation is human-reviewed (`1`) or auto-translated (`0`).
-
-- **`translated_text`**:
-  - Type: `TEXT`
-  - Stores the translated content for the specified language.
-
-- **`contextlevel`**:
-  - Type: `INT(2)`
-  - Represents the Moodle context level (e.g., `10` for System, `50` for Course, `70` for Module).
-
-- **`timecreated`**:
-  - Type: `INT(10)`
-  - Timestamp when the record was created.
-
-- **`timemodified`**:
-  - Type: `INT(10)`
-  - Timestamp when the record was last modified.
-
-- **Unique Key**:
-  - A combination of `hash` and `lang` ensures each hash-language pair is unique.
-
-**Purpose**:  
-This table centralizes translations with a persistent `hash` key, enabling reuse across Moodle while maintaining context awareness and tracking human intervention.
+#### Table: `mdl_autotranslate_hid_cids`
+- **Purpose**: Maps hashes to course IDs to track which courses contain a specific tagged string. This enables the manage page to filter translations by course ID, showing only translations relevant to a specific course.
+- **Fields**:
+  - `hash` (VARCHAR(10), not null): The hash of the translatable string (e.g., `9UoZ3soJDz`).
+  - `courseid` (BIGINT(10), not null): The ID of the course where the string appears (e.g., `5`).
+- **Keys**:
+  - Primary key: `hash, courseid` (ensures one mapping per hash-course pair).
+  - Foreign key (logical): `hash` references `mdl_autotranslate_translations(hash)` (not enforced at the database level).
+  - Foreign key (logical): `courseid` references `mdl_course(id)` (not enforced at the database level).
+- **Indexes**:
+  - `hash`: For efficient lookup by hash.
+  - `courseid`: For efficient lookup by course ID.
 
 ### Text Tagging
 
-The plugin tags content with `CONTENT {t:abcd1234}`:
+The plugin tags content with `CONTENT {t:hash}`:
 
 - Example: `Submit {t:aBcDeFgHiJ}`
 - Spanish (`es`): “Enviar”
-- The hash ensures translations are reusable across identical text.
+- The hash ensures translations are reusable across identical text site-wide.
 
 ### Translation Display
 
@@ -146,32 +138,42 @@ Two tasks handle translation management:
 1. **`autotranslate_task`** (runs **every 15 minutes**):
    - Scans fields (e.g., course summaries, activity intros) for untagged text.
    - Assigns a unique hash and tags the content with `CONTENT {t:aBcDeFgHiJ}`.
-   - Stores the source text in the database with `human = 1`.
+   - Stores the source text in the database with `lang = 'other'`.
 
 2. **`fetchtranslation_task`** (runs **every 30 minutes**):
    - Generates automatic translations for tagged content using your translation service.
    - Stores translations with `human = 0`.
 
-Adjust these schedules in the plugin settings if needed.
+Adjust these schedules in the plugin settings if needed. You can also run these tasks manually via **Site Administration** > **Server** > **Scheduled tasks**.
+
+## Management Interface
+
+The plugin provides a management interface at `/filter/autotranslate/manage.php` for administrators to oversee translations:
+
+- **View Translations**: Displays a table of translations with columns for hash, language, translated text, human status, context level, review status, and actions.
+- **Filter Translations**: Filter by language, human status, review status, and course ID (using `mdl_autotranslate_hid_cids` for course-based filtering).
+- **Edit Translations**: Edit individual translations via a WYSIWYG editor, updating `translated_text`, `human`, and `timereviewed`.
+- **Rebuild Translations**: Manually rebuild translations for a specific course using the "Rebuild Translations" button (requires `filter/autotranslate:manage` capability). This operation is synchronous and redirects with a success message upon completion.
 
 ## Integration with Global Search
 
-The plugin enhances Moodle’s global search:
+The plugin is designed to enhance Moodle’s global search, but this feature is still a work in progress:
 
-- **Indexing**: Source text and translations are indexed for multilingual searches.
-- **Display**: Results appear in the user’s language, falling back to source text if needed.
+- **Indexing**: Source text and translations will be indexed for multilingual searches.
+- **Display**: Results will appear in the user’s language, falling back to source text if needed.
 - **Setup**: Ensure your search engine (e.g., Solr) supports custom fields and reindex after installation.
 
-- [ ] **Note**: This feature is still a work in progress.
+- [ ] **Note**: This feature is not yet fully implemented.
 
 ## Important Considerations and Risks
 
 - **Alpha Stage**: This plugin is under development. **Backup your database** before use.
 - **Database Growth**: Storing translations increases database size.
-- **Performance**: Scheduled tasks may impact busy sites.
+- **Performance**: Scheduled tasks may impact busy sites. Adjust task frequency or batch sizes (`managelimit`) as needed.
 - **Content Alteration**: Tags like `{t:aBcDeFgHiJ}` modify text fields. Disabling or uninstalling without cleanup may expose raw tags, affecting readability.
 - **Hash Sensitivity**: Editing tagged text or hashes manually can break translation links.
 - **Translation Quality**: Auto-translations vary by service/model; human review may be required.
+- **Rebuild Performance**: The "Rebuild Translations" operation is synchronous and may take time for large courses. Consider adjusting the batch size (`managelimit`) for better performance.
 
 ## Uninstallation
 
@@ -179,7 +181,7 @@ To remove the plugin:
 
 1. Disable it in **Site Administration** > **Plugins** > **Filters** > **Manage filters**.
 2. Delete the plugin files from the `filter` directory.
-3. Optionally, remove translation data from `mdl_autotranslate_translations` and clean tagged content.
+3. Optionally, remove translation data from `mdl_autotranslate_translations` and `mdl_autotranslate_hid_cids`, and clean tagged content by removing `{t:hash}` tags.
 
 **⚠️ Warning**: Without cleanup, raw tags may remain in content. Always back up your database first.
 
