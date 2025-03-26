@@ -52,7 +52,7 @@ class rebuild_course_translations {
         $totalentrieschecked = 0;
         $batchsize = (int)(get_config('filter_autotranslate', 'managelimit') ?: 20);
 
-        // debugging("Rebuilding translations for course ID: $courseid", DEBUG_DEVELOPER);
+        debugging("Rebuilding translations for course ID: $courseid", DEBUG_DEVELOPER);
 
         // Limit to course-related contexts.
         $relevantcontexts = [CONTEXT_COURSE, CONTEXT_MODULE];
