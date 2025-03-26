@@ -25,6 +25,7 @@ namespace filter_autotranslate;
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_repository.php');
+require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_service.php');
 
 /**
  * Text filter class for the filter_autotranslate plugin.
@@ -32,11 +33,15 @@ require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_reposito
  * Purpose:
  * This class implements the text filter for the filter_autotranslate plugin, replacing {t:hash}
  * tags in content with the appropriate translation based on the user's language. It operates in a
- * read-only manner, fetching translations from the database and applying them to the text.
+ * read-only manner for fetching translations, but includes write operations to update the source
+ * text (lang = 'other') when it changes in the content.
  *
  * Design Decisions:
- * - Focuses on read-only operations to adhere to the principle of separation of concerns.
- *   Database writes are handled by service classes (e.g., tagging_service.php, translation_service.php).
+ * - Primarily focuses on read-only operations to adhere to the principle of separation of concerns,
+ *   fetching translations via translation_repository.php.
+ * - Breaks the read-only design by updating the source text (lang = 'other') in the database when
+ *   it changes, as a necessary compromise to handle source text updates without using observers.
+ *   Database writes are delegated to translation_service.php to minimize the impact.
  * - Function names use snake_case (e.g., get_fallback_text) to follow Moodle's coding style.
  * - Includes error handling for invalid hashes, logging a message to aid debugging.
  * - The get_file_params function for handling @@PLUGINFILE@@ URLs is currently commented out,
@@ -45,6 +50,7 @@ require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_reposito
  *
  * Dependencies:
  * - translation_repository.php: Provides read-only access to translation data for fetching translations.
+ * - translation_service.php: Handles database writes for updating translations.
  */
 class text_filter extends \core_filters\text_filter {
 
@@ -54,9 +60,19 @@ class text_filter extends \core_filters\text_filter {
     private $translation_repository;
 
     /**
+     * @var translation_service The translation service instance for updating translations.
+     */
+    private $translation_service;
+
+    /**
+     * @var array Cache of hashes processed in the current request to avoid redundant updates.
+     */
+    private $processed_hashes = [];
+
+    /**
      * Constructor for the text filter.
      *
-     * Initializes the translation repository for fetching translations.
+     * Initializes the translation repository and service for fetching and updating translations.
      *
      * @param \context $context The context in which the filter is applied.
      * @param array $options Filter options.
@@ -65,6 +81,7 @@ class text_filter extends \core_filters\text_filter {
         parent::__construct($context, $options);
         global $DB;
         $this->translation_repository = new translation_repository($DB);
+        $this->translation_service = new translation_service($DB);
     }
 
     /**
@@ -72,8 +89,8 @@ class text_filter extends \core_filters\text_filter {
      *
      * This function processes the input text, identifying {t:hash} tags and replacing them with
      * the appropriate translation based on the user's language. If no translation is available,
-     * it falls back to the source text (lang = 'other'). It also adds an indicator for auto-translated
-     * content if applicable.
+     * it falls back to the source text (lang = 'other'). It also updates the source text in the
+     * database if it has changed, and adds an indicator for auto-translated content if applicable.
      *
      * @param string $text The text to filter.
      * @param array $options Filter options (e.g., 'noclean' to allow HTML).
@@ -108,23 +125,65 @@ class text_filter extends \core_filters\text_filter {
             $hash = $match[2]; // Group 2 is the hash
             $source_text = trim($match[1]); // Group 1 is the source text
 
-            // Fetch the translation for the user's language, mapping site language to 'other'
-            $userlang = current_language();
-            $sitelang = get_config('core', 'lang') ?: 'en';
-            $effective_lang = ($userlang === $sitelang) ? 'other' : $userlang;
-            $translation = $this->translation_repository->get_translation($hash, $effective_lang);
-            if (!$translation) {
-                $debug_enabled = get_config('filter_autotranslate', 'debugtranslations');
-                if ($debug_enabled) {
-                    debugging("Translation not found for hash '$hash' and language '$effective_lang' in context {$this->context->id}. Source text: " . substr($source_text, 0, 50) . "...", DEBUG_DEVELOPER);
-                }
-                $display_text = $this->get_fallback_text($hash, $source_text);
+            // Skip if we've already processed this hash in the current request
+            if (isset($this->processed_hashes[$hash])) {
+                $display_text = $this->processed_hashes[$hash]['display_text'];
+                $is_autotranslated = $this->processed_hashes[$hash]['is_autotranslated'];
             } else {
-                $display_text = $translation->translated_text;
+                // Fetch the current source text from the database (lang = 'other')
+                $db_source = $this->translation_repository->get_translation($hash, 'other');
+                $db_source_text = $db_source ? $db_source->translated_text : 'N/A';
+
+                // Compare the source text from the content with the database (preserve HTML, only trim whitespace)
+                $trimmed_content_text = trim($source_text);
+                $trimmed_db_text = ($db_source_text !== 'N/A') ? trim($db_source_text) : '';
+
+                // Update the source text if it has changed and is not empty
+                if ($trimmed_content_text !== '' && $trimmed_content_text !== $trimmed_db_text) {
+                    if ($db_source_text === 'N/A') {
+                        // Insert a new record for lang = 'other'
+                        $this->translation_service->store_translation($hash, 'other', $source_text, $this->context->contextlevel);
+                    } else {
+                        // Update the existing record
+                        $translation = new \stdClass();
+                        $translation->id = $db_source->id; // Include the ID
+                        $translation->hash = $hash;
+                        $translation->lang = 'other';
+                        $translation->translated_text = $source_text;
+                        $translation->contextlevel = $db_source->contextlevel;
+                        $translation->human = 1; // Source text is considered human-edited
+                        $translation->timecreated = $db_source->timecreated;
+                        $translation->timemodified = time();
+                        $translation->timereviewed = $db_source->timereviewed;
+                        $this->translation_service->update_translation($translation);
+                    }
+                }
+
+                // Fetch the translation for the user's language, mapping site language to 'other'
+                $userlang = current_language();
+                $sitelang = get_config('core', 'lang') ?: 'en';
+                $effective_lang = ($userlang === $sitelang) ? 'other' : $userlang;
+                $translation = $this->translation_repository->get_translation($hash, $effective_lang);
+                if (!$translation) {
+                    $debug_enabled = get_config('filter_autotranslate', 'debugtranslations');
+                    if ($debug_enabled) {
+                        debugging("Translation not found for hash '$hash' and language '$effective_lang' in context {$this->context->id}. Source text: " . substr($source_text, 0, 50) . "...", DEBUG_DEVELOPER);
+                    }
+                    $display_text = $this->get_fallback_text($hash, $source_text);
+                } else {
+                    $display_text = $translation->translated_text;
+                }
+
+                // Check if the translation is auto-translated (human = 0)
+                $is_autotranslated = $translation ? $translation->human === 0 : false; // Default to auto if no record
+
+                // Cache the result for this hash
+                $this->processed_hashes[$hash] = [
+                    'display_text' => $display_text,
+                    'is_autotranslated' => $is_autotranslated,
+                ];
             }
 
-            // Check if the translation is auto-translated (human = 0)
-            $is_autotranslated = $translation ? $translation->human === 0 : false; // Default to auto if no record
             $autotranslated_indicator = $is_autotranslated ? $this->get_autotranslate_indicator() : '';
 
             $allowhtml = !empty($options['noclean']) || ($this->context->contextlevel !== CONTEXT_COURSE && $this->context->contextlevel !== CONTEXT_MODULE);

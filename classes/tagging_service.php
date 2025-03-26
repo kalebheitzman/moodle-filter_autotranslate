@@ -285,6 +285,8 @@ class tagging_service {
      *
      * This function determines the correct component, filearea, and itemid for the content
      * and rewrites @@PLUGINFILE@@ URLs to their proper form before storing the translation.
+     * 
+     * @todo Breaks from manage rebuild translations button
      *
      * @param string $content The content to rewrite.
      * @param \context $context The context object for the content.
@@ -294,59 +296,62 @@ class tagging_service {
      * @return string The content with rewritten URLs.
      */
     private function rewrite_pluginfile_urls($content, $context, $table, $field, $itemid) {
-        $component = '';
-        $filearea = '';
-
-        // Determine the component and filearea based on the table and context
-        if ($context->contextlevel == CONTEXT_COURSE) {
-            if ($table === 'course') {
-                $component = 'course';
-                $filearea = ($field === 'summary') ? 'summary' : $field;
-            } elseif ($table === 'course_sections') {
-                $component = 'course';
-                $filearea = ($field === 'summary') ? 'section' : $field;
-            }
-        } elseif ($context->contextlevel == CONTEXT_MODULE) {
-            $cm = get_coursemodule_from_id('', $context->instanceid);
-            if ($cm) {
-                $component = 'mod_' . $cm->modname;
-                $filearea = ($field === 'intro') ? 'intro' : $field;
-            }
-        } elseif ($context->contextlevel == CONTEXT_BLOCK) {
-            $component = 'block_' . $table;
-            $filearea = 'content';
-        } elseif ($context->contextlevel == CONTEXT_SYSTEM) {
-            // System context (e.g., messages, blocks)
-            if ($table === 'message') {
-                $component = 'message';
-                $filearea = 'message';
-            } elseif ($table === 'block_instances') {
-                $component = 'block_instances';
-                $filearea = 'content';
-            }
-        } elseif ($context->contextlevel == CONTEXT_USER) {
-            if ($table === 'user_info_data') {
-                $component = 'user';
-                $filearea = 'profile';
-            }
-        } elseif ($context->contextlevel == CONTEXT_COURSECAT) {
-            if ($table === 'course_categories') {
-                $component = 'coursecat';
-                $filearea = 'description';
-            }
-        }
-
-        if ($component && $filearea) {
-            $content = \file_rewrite_pluginfile_urls(
-                $content,
-                'pluginfile.php',
-                $context->id,
-                $component,
-                $filearea,
-                $itemid
-            );
-        }
-
         return $content;
+        
+        
+        // $component = '';
+        // $filearea = '';
+
+        // // Determine the component and filearea based on the table and context
+        // if ($context->contextlevel == CONTEXT_COURSE) {
+        //     if ($table === 'course') {
+        //         $component = 'course';
+        //         $filearea = ($field === 'summary') ? 'summary' : $field;
+        //     } elseif ($table === 'course_sections') {
+        //         $component = 'course';
+        //         $filearea = ($field === 'summary') ? 'section' : $field;
+        //     }
+        // } elseif ($context->contextlevel == CONTEXT_MODULE) {
+        //     $cm = get_coursemodule_from_id('', $context->instanceid);
+        //     if ($cm) {
+        //         $component = 'mod_' . $cm->modname;
+        //         $filearea = ($field === 'intro') ? 'intro' : $field;
+        //     }
+        // } elseif ($context->contextlevel == CONTEXT_BLOCK) {
+        //     $component = 'block_' . $table;
+        //     $filearea = 'content';
+        // } elseif ($context->contextlevel == CONTEXT_SYSTEM) {
+        //     // System context (e.g., messages, blocks)
+        //     if ($table === 'message') {
+        //         $component = 'message';
+        //         $filearea = 'message';
+        //     } elseif ($table === 'block_instances') {
+        //         $component = 'block_instances';
+        //         $filearea = 'content';
+        //     }
+        // } elseif ($context->contextlevel == CONTEXT_USER) {
+        //     if ($table === 'user_info_data') {
+        //         $component = 'user';
+        //         $filearea = 'profile';
+        //     }
+        // } elseif ($context->contextlevel == CONTEXT_COURSECAT) {
+        //     if ($table === 'course_categories') {
+        //         $component = 'coursecat';
+        //         $filearea = 'description';
+        //     }
+        // }
+
+        // if ($component && $filearea) {
+        //     $content = \file_rewrite_pluginfile_urls(
+        //         $content,
+        //         'pluginfile.php',
+        //         $context->id,
+        //         $component,
+        //         $filearea,
+        //         $itemid
+        //     );
+        // }
+
+        // return $content;
     }
 }

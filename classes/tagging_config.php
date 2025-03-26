@@ -122,7 +122,9 @@ class tagging_config {
                 'secondary' => [
                     'data_content' => [
                         'fk' => 'recordid', // Links to data_records.id
-                        'fields' => ['content', 'content1', 'content2', 'content3', 'content4'], // Database content
+                        'fields' => ['content'], // Database content
+                        // @todo see if content1-content5 can be supported without
+                        // messing up the metadata
                     ],
                     'data_fields' => [
                         'fk' => 'dataid', // Links to data.id
@@ -180,7 +182,7 @@ class tagging_config {
                         'fk' => 'pageid', // Links to lesson_pages.id
                         'parent_table' => 'lesson_pages', // Parent table for relationship
                         'parent_fk' => 'lessonid', // Links lesson_pages to lesson.id
-                        'fields' => ['answer'], // Lesson answers
+                        'fields' => ['answer', 'response'], // Lesson answers
                     ],
                 ],
             ],
@@ -200,7 +202,7 @@ class tagging_config {
                         'fields' => ['name', 'questiontext', 'generalfeedback'], // Quiz questions
                     ],
                     'question_answers' => [
-                        'fk' => 'question najbli', // Links to question.id
+                        'fk' => 'question', // Links to question.id
                         'parent_table' => 'question', // Parent table for relationship
                         'parent_fk' => 'questionid', // Links question to quiz_slots.questionid
                         'grandparent_table' => 'quiz_slots', // Grandparent table for relationship
@@ -214,6 +216,10 @@ class tagging_config {
                         'grandparent_table' => 'quiz_slots', // Grandparent table for relationship
                         'grandparent_fk' => 'quizid', // Links quiz_slots to quiz.id
                         'fields' => ['name', 'info'], // Quiz question categories
+                    ],
+                    'quiz_sections' => [
+                        'fk' => 'quizid', // Links to quiz.id
+                        'fields' => ['heading'], // Quiz section headings
                     ],
                 ],
             ],
