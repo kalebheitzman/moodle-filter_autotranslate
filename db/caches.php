@@ -12,17 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses>.
-
-/**
- * Cache definitions for the filter_autotranslate plugin.
- *
- * @package    filter_autotranslate
- * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-
-defined('MOODLE_INTERNAL') || die();
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Cache definitions for the filter_autotranslate plugin.
@@ -59,7 +49,14 @@ defined('MOODLE_INTERNAL') || die();
  *
  * Dependencies:
  * - None (pure cache definition file).
+ *
+ * @package    filter_autotranslate
+ * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+defined('MOODLE_INTERNAL') || die();
+
 $definitions = [
     'taggedcontent' => [
         // Cache mode: Application-level caching, shared across all users and sessions.
