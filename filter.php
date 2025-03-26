@@ -12,7 +12,7 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * File only retained to prevent fatal errors in code that tries to require/include this.
@@ -23,7 +23,6 @@
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-defined('MOODLE_INTERNAL') || die();
 
 // The actual implementation is under classes/text_filter.php
 // This file is just a workaround to make the filter work
