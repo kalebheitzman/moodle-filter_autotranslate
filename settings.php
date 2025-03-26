@@ -12,18 +12,12 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
 /**
  * Autotranslate Settings
  *
- * @package    filter_autotranslate
- * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
- * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- */
-defined('MOODLE_INTERNAL') || die();
-
-/**
- * Defines the admin settings for the filter_autotranslate plugin.
+ *  * Defines the admin settings for the filter_autotranslate plugin.
  *
  * Purpose:
  * This file sets up the configuration options for the filter_autotranslate plugin, allowing
@@ -50,12 +44,18 @@ defined('MOODLE_INTERNAL') || die();
  *
  * Dependencies:
  * - tagging_config.php: Used to generate the tagging_config multicheckbox options.
+ *
+ * @package    filter_autotranslate
+ * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+defined('MOODLE_INTERNAL') || die();
+
 if ($hassiteconfig) {
     if ($ADMIN->fulltree) {
         require_once($CFG->dirroot . '/filter/autotranslate/classes/tagging_config.php');
 
-        // Section: API Configuration
+        // Section: API Configuration.
         $settings->add(
             new admin_setting_heading(
                 'filter_autotranslate_apiconfig',
@@ -64,28 +64,28 @@ if ($hassiteconfig) {
             )
         );
 
-        // Enable Automatic Fetching of Translations
+        // Enable Automatic Fetching of Translations.
         $settings->add(
             new admin_setting_configcheckbox(
                 'filter_autotranslate/enableautofetch',
                 get_string('enableautofetch', 'filter_autotranslate'),
                 get_string('enableautofetch_desc', 'filter_autotranslate'),
-                0 // Default to off
+                0 // Default to off.
             )
         );
 
-        // API Endpoint (Base URL)
+        // API Endpoint (Base URL).
         $settings->add(
             new admin_setting_configtext(
                 'filter_autotranslate/apiendpoint',
                 get_string('apiendpoint', 'filter_autotranslate'),
                 get_string('apiendpoint_desc', 'filter_autotranslate'),
-                'https://generativelanguage.googleapis.com/v1beta/openai', // Default to Google Generative AI API
+                'https://generativelanguage.googleapis.com/v1beta/openai', // Default to Google Generative AI API.
                 PARAM_URL
             )
         );
 
-        // API Key
+        // API Key.
         $settings->add(
             new admin_setting_configtext(
                 'filter_autotranslate/apikey',
@@ -97,18 +97,18 @@ if ($hassiteconfig) {
             )
         );
 
-        // API Model
+        // API Model.
         $settings->add(
             new admin_setting_configtext(
                 'filter_autotranslate/apimodel',
                 get_string('apimodel', 'filter_autotranslate'),
                 get_string('apimodel_desc', 'filter_autotranslate'),
-                'gemini-1.5-pro-latest', // Default to Google Generative AI model
+                'gemini-1.5-pro-latest', // Default to Google Generative AI model.
                 PARAM_TEXT
             )
         );
 
-        // Section: Translation Settings
+        // Section: Translation Settings.
         $settings->add(
             new admin_setting_heading(
                 'filter_autotranslate_translationsettings',
@@ -117,10 +117,10 @@ if ($hassiteconfig) {
             )
         );
 
-        // Target languages for translation (checkboxes of enabled languages, excluding site language)
+        // Target languages for translation (checkboxes of enabled languages, excluding site language).
         $enabledlangs = get_string_manager()->get_list_of_translations();
-        $sitelang = get_config('core', 'lang') ?: 'en'; // Get site language, default to 'en'
-        unset($enabledlangs[$sitelang]); // Remove site language from the list
+        $sitelang = get_config('core', 'lang') ?: 'en'; // Get site language, default to 'en'.
+        unset($enabledlangs[$sitelang]); // Remove site language from the list.
 
         if (empty($enabledlangs)) {
             $settings->add(
@@ -131,11 +131,11 @@ if ($hassiteconfig) {
                 )
             );
         } else {
-            // Define default languages (Spanish, French, German)
+            // Define default languages (Spanish, French, German).
             $defaultlangs = ['es' => 1, 'fr' => 1, 'de' => 1];
-            // Ensure defaults only include enabled languages
+            // Ensure defaults only include enabled languages.
             $defaultlangs = array_intersect_key($defaultlangs, $enabledlangs);
-            // If no defaults match enabled languages, select none by default
+            // If no defaults match enabled languages, select none by default.
             if (empty($defaultlangs)) {
                 $defaultlangs = [];
             }
@@ -150,7 +150,7 @@ if ($hassiteconfig) {
             );
         }
 
-        // System Instructions (Glossary and Translation Instructions)
+        // System Instructions (Glossary and Translation Instructions).
         $settings->add(
             new admin_setting_configtextarea(
                 'filter_autotranslate/systeminstructions',
@@ -161,7 +161,7 @@ if ($hassiteconfig) {
             )
         );
 
-        // Batch Size for Translation
+        // Batch Size for Translation.
         $settings->add(
             new admin_setting_configtext(
                 'filter_autotranslate/batchsize',
@@ -172,7 +172,7 @@ if ($hassiteconfig) {
             )
         );
 
-        // Section: Task Configuration
+        // Section: Task Configuration.
         $settings->add(
             new admin_setting_heading(
                 'filter_autotranslate_taskconfig',
@@ -181,7 +181,7 @@ if ($hassiteconfig) {
             )
         );
 
-        // Fetch translation task limit
+        // Fetch translation task limit.
         $settings->add(
             new admin_setting_configtext(
                 'filter_autotranslate/fetchlimit',
@@ -192,7 +192,7 @@ if ($hassiteconfig) {
             )
         );
 
-        // Maximum retry attempts for API calls
+        // Maximum retry attempts for API calls.
         $settings->add(
             new admin_setting_configtext(
                 'filter_autotranslate/maxattempts',
@@ -203,7 +203,7 @@ if ($hassiteconfig) {
             )
         );
 
-        // Rate limit threshold for API calls
+        // Rate limit threshold for API calls.
         $settings->add(
             new admin_setting_configtext(
                 'filter_autotranslate/ratelimitthreshold',
@@ -214,35 +214,36 @@ if ($hassiteconfig) {
             )
         );
 
-        // Records per run for tagcontent_task
+        // Records per run for tagcontent_task.
         $settings->add(
             new admin_setting_configtext(
                 'filter_autotranslate/recordsperrun',
                 get_string('recordsperrun', 'filter_autotranslate'),
                 get_string('recordsperrun_desc', 'filter_autotranslate'),
-                1000, // Default to 1000 records per table per run
+                1000, // Default to 1000 records per table per run.
                 PARAM_INT
             )
         );
 
-        // Manage limit for tagcontent_task
+        // Manage limit for tagcontent_task.
         $settings->add(
             new admin_setting_configtext(
                 'filter_autotranslate/managelimit',
                 get_string('managelimit', 'filter_autotranslate', null, true) ?: 'Manage Limit',
-                get_string('managelimit_desc', 'filter_autotranslate', null, true) ?: 'The maximum number of records to process in a single batch for the tagcontent_task.',
-                20, // Default to 20 records per batch
+                get_string('managelimit_desc', 'filter_autotranslate', null, true) ?:
+                'The maximum number of records to process in a single batch for the tagcontent_task.',
+                20, // Default to 20 records per batch.
                 PARAM_INT
             )
         );
 
-        // Select context levels for autotranslation
+        // Select context levels for autotranslation.
         $settings->add(
             new admin_setting_configmulticheckbox(
                 'filter_autotranslate/selectctx',
                 get_string('selectctx', 'filter_autotranslate'),
                 get_string('selectctx_desc', 'filter_autotranslate'),
-                ['40', '50', '70', '80'], // Default to Course Category, Course, Module, Block
+                ['40', '50', '70', '80'], // Default to Course Category, Course, Module, Block.
                 [
                     '10' => get_string('ctx_system', 'filter_autotranslate'),
                     '30' => get_string('ctx_user', 'filter_autotranslate'),
@@ -254,18 +255,18 @@ if ($hassiteconfig) {
             )
         );
 
-        // Task frequency (in minutes)
+        // Task frequency (in minutes).
         $settings->add(
             new admin_setting_configtext(
                 'filter_autotranslate/taskfrequency',
                 get_string('taskfrequency', 'filter_autotranslate'),
                 get_string('taskfrequency_desc', 'filter_autotranslate'),
-                60, // Default to hourly
+                60, // Default to hourly.
                 PARAM_INT
             )
         );
 
-        // Manual trigger option
+        // Manual trigger option.
         $settings->add(
             new admin_setting_configcheckbox(
                 'filter_autotranslate/enablemanualtrigger',
@@ -275,7 +276,7 @@ if ($hassiteconfig) {
             )
         );
 
-        // Section: Tagging Configuration
+        // Section: Tagging Configuration.
         $settings->add(
             new admin_setting_heading(
                 'filter_autotranslate_taggingconfig',
@@ -284,43 +285,43 @@ if ($hassiteconfig) {
             )
         );
 
-        // Build the form elements for selecting tables and fields
-        $default_tables = \filter_autotranslate\tagging_config::get_default_tables();
-        $tagging_options = [];
-        foreach ($default_tables as $contextlevel => $tables) {
-            $context_name = get_string("ctx_{$contextlevel}", 'filter_autotranslate');
+        // Build the form elements for selecting tables and fields.
+        $defaulttables = \filter_autotranslate\tagging_config::get_default_tables();
+        $taggingoptions = [];
+        foreach ($defaulttables as $contextlevel => $tables) {
+            $contextname = get_string("ctx_{$contextlevel}", 'filter_autotranslate');
             foreach ($tables as $table => $config) {
-                // Handle primary table fields
+                // Handle primary table fields.
                 $fields = $config['fields'] ?? [];
                 foreach ($fields as $field) {
                     $key = "ctx{$contextlevel}_{$table}_{$field}";
-                    $label = "$context_name: $table.$field";
-                    $tagging_options[$key] = $label;
+                    $label = "$contextname: $table.$field";
+                    $taggingoptions[$key] = $label;
                 }
 
-                // Handle secondary table fields
+                // Handle secondary table fields.
                 if (isset($config['secondary'])) {
-                    foreach ($config['secondary'] as $secondary_table => $secondary_config) {
-                        $secondary_fields = $secondary_config['fields'] ?? [];
-                        foreach ($secondary_fields as $field) {
-                            $key = "ctx{$contextlevel}_{$secondary_table}_{$field}";
-                            $label = "$context_name: $secondary_table.$field";
-                            $tagging_options[$key] = $label;
+                    foreach ($config['secondary'] as $secondarytable => $secondaryconfig) {
+                        $secondaryfields = $secondaryconfig['fields'] ?? [];
+                        foreach ($secondaryfields as $field) {
+                            $key = "ctx{$contextlevel}_{$secondarytable}_{$field}";
+                            $label = "$contextname: $secondarytable.$field";
+                            $taggingoptions[$key] = $label;
                         }
                     }
                 }
             }
         }
 
-        // Define default selected options (selective to include commonly used activities)
-        $default_tagging = [
-            // Course context
+        // Define default selected options (selective to include commonly used activities).
+        $defaulttagging = [
+            // Course context.
             'ctx50_course_fullname' => 1,
             'ctx50_course_shortname' => 1,
             'ctx50_course_summary' => 1,
             'ctx50_course_sections_name' => 1,
             'ctx50_course_sections_summary' => 1,
-            // Module context (commonly used activities: page, assign, forum, quiz, resource, folder)
+            // Module context (commonly used activities: page, assign, forum, quiz, resource, folder).
             'ctx70_page_name' => 1,
             'ctx70_page_intro' => 1,
             'ctx70_page_content' => 1,
@@ -350,8 +351,8 @@ if ($hassiteconfig) {
                 'filter_autotranslate/tagging_config',
                 get_string('taggingconfig_options', 'filter_autotranslate'),
                 get_string('taggingconfig_options_desc', 'filter_autotranslate'),
-                $default_tagging, // Default to commonly used tables
-                $tagging_options
+                $defaulttagging, // Default to commonly used tables.
+                $taggingoptions
             )
         );
     }
