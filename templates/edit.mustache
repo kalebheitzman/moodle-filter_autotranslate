@@ -16,12 +16,19 @@
     - Places the edit form on the left (7 columns) and the source text on the right (5 columns)
       to provide context while editing.
     - Includes card titles for clarity and visual separation.
+
+    @template
+    {
+        "form": "<form action=\"edit.php\" method=\"post\"><input type=\"text\" name=\"translated_text\" value=\"Hello world\" /></form>",
+        "source_text": "Hola mundo",
+        "source_text_label": "Source Text"
+    }
 }}
 <div class="row mb-3">
     <div class="col-md-7">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title" role="heading" aria-level="2">{{#str}}translation, filter_autotranslate{{/str}}</h5>
+                <h5 class="card-title">{{#str}}translation, filter_autotranslate{{/str}}</h5>
                 {{{form}}}
             </div>
         </div>
@@ -29,7 +36,7 @@
     <div class="col-md-5">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title" role="heading" aria-level="2">{{source_text_label}}</h5>
+                <h5 class="card-title">{{source_text_label}}{{^source_text_label}}{{#str}}sourcetext, filter_autotranslate{{/str}}{{/source_text_label}}</h5>
                 <div class="card-text">
                     {{{source_text}}}
                 </div>

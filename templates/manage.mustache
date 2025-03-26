@@ -32,6 +32,41 @@
     - Applies dir="rtl" and right-aligned text for RTL languages to ensure proper text direction.
     - Includes pagination and filter form placeholders for dynamic content.
     - Aligns the filter form and rebuild button using a flex container for proper layout.
+
+    @template
+    {
+        "filter_form": "<form>...</form>",
+        "table_headers": ["Hash", "Language", "Source Text", "Translated Text", "Human", "Context", "Review", "Actions"],
+        "table_rows": [
+            {
+                "hash": "abc123",
+                "lang": "ar",
+                "source_text": "Hello world",
+                "translated_text": "مرحبا بالعالم<br>Modified: 2025-03-25<br>Reviewed: 2025-03-25",
+                "human": "No",
+                "contextlevel": "Course",
+                "review_status": "<span class=\"icon-warning\"></span>",
+                "show_edit_link": true,
+                "edit_url": "https://example.com/edit.php?id=1",
+                "edit_label": "Edit",
+                "is_rtl": true
+            },
+            {
+                "hash": "def456",
+                "lang": "en",
+                "translated_text": "Goodbye world<br>Modified: 2025-03-24",
+                "human": "Yes",
+                "contextlevel": "Module",
+                "review_status": "<span class=\"icon-success\"></span>",
+                "show_edit_link": false,
+                "is_rtl": false
+            }
+        ],
+        "pagination": "<nav>...</nav>",
+        "has_courseid": true,
+        "rebuild_url": "https://example.com/rebuild.php?courseid=1",
+        "rebuild_label": "Rebuild Translations"
+    }
 }}
 {{! Create a flex container to align the filter form and rebuild button }}
 <div class="d-flex justify-content-between align-items-start mb-3">
