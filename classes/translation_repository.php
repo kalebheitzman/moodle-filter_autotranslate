@@ -23,8 +23,6 @@
  */
 namespace filter_autotranslate;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Database access layer for translations in the filter_autotranslate plugin.
  *
@@ -45,6 +43,9 @@ defined('MOODLE_INTERNAL') || die();
  * - None (interacts directly with the Moodle database).
  */
 class translation_repository {
+    /**
+     * @var \moodle_database The Moodle database instance.
+     */
     private $db;
 
     /**
@@ -78,7 +79,7 @@ class translation_repository {
      * @param string|null $lang The language code (e.g., 'es', 'fr'), or null to fetch by ID.
      * @return object|null The translation record, or null if not found.
      */
-    public function get_translation(string $hash, string $lang = null) {
+    public function get_translation(string $hash, ?string $lang = null) {
         if ($lang) {
             return $this->db->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
         }
@@ -95,8 +96,8 @@ class translation_repository {
      * @return string The source text, or 'N/A' if not found.
      */
     public function get_source_text(string $hash) {
-        $source_text = $this->db->get_field('autotranslate_translations', 'translated_text', ['hash' => $hash, 'lang' => 'other']);
-        return $source_text ?: 'N/A';
+        $sourcetext = $this->db->get_field('autotranslate_translations', 'translated_text', ['hash' => $hash, 'lang' => 'other']);
+        return $sourcetext ?: 'N/A';
     }
 
     /**
@@ -121,19 +122,29 @@ class translation_repository {
      *
      * @param int $page The current page number.
      * @param int $perpage The number of records per page.
-     * @param string $filter_lang The language to filter by (or 'all').
-     * @param string $filter_human The human status to filter by ('' for all, '1' for human, '0' for machine).
+     * @param string $filterlang The language to filter by (or 'all').
+     * @param string $filterhuman The human status to filter by ('' for all, '1' for human, '0' for machine).
      * @param string $sort The column to sort by (e.g., 'hash', 'lang').
      * @param string $dir The sort direction ('ASC' or 'DESC').
      * @param string $sitelang The site language (e.g., 'en').
      * @param int $courseid The course ID to filter by (0 for all).
-     * @param string $filter_needsreview Filter by needs review status ('' for all, '1' for needs review, '0' for reviewed).
+     * @param string $filterneedsreview Filter by needs review status ('' for all, '1' for needs review, '0' for reviewed).
      * @return array An array containing:
      *               - 'translations': The paginated translation records.
      *               - 'total': The total number of matching records.
      */
-    public function get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir, $sitelang, $courseid = 0, $filter_needsreview = '') {
-        $internal_filter_lang = ($filter_lang === $sitelang) ? 'other' : $filter_lang;
+    public function get_paginated_translations(
+        $page,
+        $perpage,
+        $filterlang,
+        $filterhuman,
+        $sort,
+        $dir,
+        $sitelang,
+        $courseid = 0,
+        $filterneedsreview = ''
+    ) {
+        $internalfilterlang = ($filterlang === $sitelang) ? 'other' : $filterlang;
 
         $sql = "SELECT t.*, t2.translated_text AS source_text
                 FROM {autotranslate_translations} t
@@ -141,28 +152,33 @@ class translation_repository {
         $params = [];
 
         $where = [];
-        if (!empty($internal_filter_lang) && $internal_filter_lang !== 'all') {
+        if (!empty($internalfilterlang) && $internalfilterlang !== 'all') {
             $where[] = "t.lang = :lang";
-            $params['lang'] = $internal_filter_lang;
+            $params['lang'] = $internalfilterlang;
         }
-        if ($filter_human !== '') {
+        if ($filterhuman !== '') {
             $where[] = "t.human = :human";
-            $params['human'] = (int)$filter_human;
+            $params['human'] = (int)$filterhuman;
         }
         if ($courseid > 0) {
-            $hashes = $this->db->get_fieldset_select('autotranslate_hid_cids', 'hash', 'courseid = :courseid', ['courseid' => $courseid]);
+            $hashes = $this->db->get_fieldset_select(
+                'autotranslate_hid_cids',
+                'hash',
+                'courseid = :courseid',
+                ['courseid' => $courseid]
+            );
             if (!empty($hashes)) {
                 list($insql, $inparams) = $this->db->get_in_or_equal($hashes, SQL_PARAMS_NAMED);
                 $where[] = "t.hash $insql";
                 $params = array_merge($params, $inparams);
             } else {
-                $where[] = '1=0'; // No matches if no hashes for courseid
+                $where[] = '1=0'; // No matches if no hashes for courseid.
             }
         }
-        if ($filter_needsreview !== '') {
-            if ($filter_needsreview == '1') {
+        if ($filterneedsreview !== '') {
+            if ($filterneedsreview == '1') {
                 $where[] = "t.timereviewed < t.timemodified";
-            } elseif ($filter_needsreview == '0') {
+            } else if ($filterneedsreview == '0') {
                 $where[] = "t.timereviewed >= t.timemodified";
             }
         }
@@ -171,13 +187,14 @@ class translation_repository {
             $sql .= " WHERE " . implode(" AND ", $where);
         }
 
-        $valid_sorts = ['hash', 'lang', 'translated_text', 'human', 'contextlevel', 'timereviewed', 'timemodified'];
-        $sort = in_array($sort, $valid_sorts) ? $sort : 'hash';
+        $validsorts = ['hash', 'lang', 'translated_text', 'human', 'contextlevel', 'timereviewed', 'timemodified'];
+        $sort = in_array($sort, $validsorts) ? $sort : 'hash';
         $dir = strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC';
         $sql .= " ORDER BY t.$sort $dir";
 
-        $count_sql = "SELECT COUNT(*) FROM {autotranslate_translations} t" . (empty($where) ? "" : " WHERE " . implode(" AND ", $where));
-        $total = $this->db->count_records_sql($count_sql, $params);
+        $countsql = "SELECT COUNT(*) FROM {autotranslate_translations} t" .
+            (empty($where) ? "" : " WHERE " . implode(" AND ", $where));
+        $total = $this->db->count_records_sql($countsql, $params);
         $translations = $this->db->get_records_sql($sql, $params, $page * $perpage, $perpage);
 
         return ['translations' => $translations, 'total' => $total];

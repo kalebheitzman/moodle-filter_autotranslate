@@ -23,8 +23,6 @@
  */
 namespace filter_autotranslate;
 
-defined('MOODLE_INTERNAL') || die();
-
 /**
  * Service class for handling translation-related database operations in the filter_autotranslate plugin.
  *
@@ -47,6 +45,9 @@ defined('MOODLE_INTERNAL') || die();
  * - None (interacts directly with the Moodle database).
  */
 class translation_service {
+    /**
+     * @var \moodle_database The Moodle database instance.
+     */
     private $db;
 
     /**
@@ -54,7 +55,7 @@ class translation_service {
      *
      * @param \moodle_database $db The Moodle database instance.
      */
-    public function __construct(\moodle_database $db = null) {
+    public function __construct(?\moodle_database $db = null) {
         global $DB;
         $this->db = $db ?? $DB;
     }
@@ -94,44 +95,44 @@ class translation_service {
      *
      * @param string $hash The unique hash of the translation.
      * @param string $lang The language code (e.g., 'es', 'fr').
-     * @param string|array $translated_text The translated text (string or array to handle potential API responses).
+     * @param string|array $translatedtext The translated text (string or array to handle potential API responses).
      * @param int $contextlevel The context level for the translation.
      */
-    public function store_translation($hash, $lang, $translated_text, $contextlevel) {
-        // Ensure translated_text is a string
-        $translated_text = is_array($translated_text) ? implode(' ', $translated_text) : (string)$translated_text;
+    public function store_translation($hash, $lang, $translatedtext, $contextlevel) {
+        // Ensure translated_text is a string.
+        $translatedtext = is_array($translatedtext) ? implode(' ', $translatedtext) : (string)$translatedtext;
 
-        // Fetch the context for the translation (based on contextlevel and hash)
+        // Fetch the context for the translation (based on contextlevel and hash).
         $context = $this->get_context_for_hash($hash, $contextlevel);
         if ($context) {
-            // Rewrite @@PLUGINFILE@@ URLs in the translated text
-            $translated_text = $this->rewrite_pluginfile_urls($translated_text, $context, $hash);
+            // Rewrite @@PLUGINFILE@@ URLs in the translated text.
+            $translatedtext = $this->rewrite_pluginfile_urls($translatedtext, $context, $hash);
         }
 
-        // Check if a translation already exists for this hash and lang
+        // Check if a translation already exists for this hash and lang.
         $existing = $this->db->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
         if ($existing) {
-            // Update the existing record
+            // Update the existing record.
             $record = new \stdClass();
             $record->id = $existing->id;
-            $record->translated_text = $translated_text;
+            $record->translated_text = $translatedtext;
             $record->contextlevel = $contextlevel;
             $record->timemodified = time();
             $record->timereviewed = time();
-            $record->human = 0; // Machine-generated translation
+            $record->human = 0; // Machine-generated translation.
 
             $this->db->update_record('autotranslate_translations', $record);
         } else {
-            // Insert a new record
+            // Insert a new record.
             $record = new \stdClass();
             $record->hash = $hash;
             $record->lang = $lang;
-            $record->translated_text = $translated_text;
+            $record->translated_text = $translatedtext;
             $record->contextlevel = $contextlevel;
             $record->timecreated = time();
             $record->timemodified = time();
             $record->timereviewed = time();
-            $record->human = 0; // Machine-generated translation
+            $record->human = 0; // Machine-generated translation.
 
             $this->db->insert_record('autotranslate_translations', $record);
         }
@@ -148,7 +149,7 @@ class translation_service {
      * @return \context|null The context object, or null if not found.
      */
     private function get_context_for_hash($hash, $contextlevel) {
-        // Fetch the course ID from autotranslate_hid_cids
+        // Fetch the course ID from autotranslate_hid_cids.
         $courseid = $this->db->get_field('autotranslate_hid_cids', 'courseid', ['hash' => $hash]);
         if (!$courseid) {
             return null;
@@ -157,8 +158,8 @@ class translation_service {
         try {
             if ($contextlevel == CONTEXT_COURSE) {
                 return \context_course::instance($courseid);
-            } elseif ($contextlevel == CONTEXT_MODULE) {
-                // Fetch the course module ID (requires joining with course_modules)
+            } else if ($contextlevel == CONTEXT_MODULE) {
+                // Fetch the course module ID (requires joining with course_modules).
                 $sql = "SELECT cm.id
                         FROM {course_modules} cm
                         JOIN {autotranslate_hid_cids} hc ON hc.courseid = cm.course
@@ -167,7 +168,7 @@ class translation_service {
                 if ($cmid) {
                     return \context_module::instance($cmid);
                 }
-            } elseif ($contextlevel == CONTEXT_BLOCK) {
+            } else if ($contextlevel == CONTEXT_BLOCK) {
                 $sql = "SELECT bi.id
                         FROM {block_instances} bi
                         JOIN {context} ctx ON ctx.instanceid = bi.id AND ctx.contextlevel = :contextlevel
@@ -177,9 +178,9 @@ class translation_service {
                 if ($blockid) {
                     return \context_block::instance($blockid);
                 }
-            } elseif ($contextlevel == CONTEXT_SYSTEM) {
+            } else if ($contextlevel == CONTEXT_SYSTEM) {
                 return \context_system::instance();
-            } elseif ($contextlevel == CONTEXT_USER) {
+            } else if ($contextlevel == CONTEXT_USER) {
                 $sql = "SELECT u.id
                         FROM {user} u
                         JOIN {autotranslate_hid_cids} hc ON hc.courseid = 0
@@ -188,7 +189,7 @@ class translation_service {
                 if ($userid) {
                     return \context_user::instance($userid);
                 }
-            } elseif ($contextlevel == CONTEXT_COURSECAT) {
+            } else if ($contextlevel == CONTEXT_COURSECAT) {
                 $sql = "SELECT cc.id
                         FROM {course_categories} cc
                         JOIN {autotranslate_hid_cids} hc ON hc.courseid = 0
@@ -221,31 +222,31 @@ class translation_service {
         $filearea = '';
         $itemid = 0;
 
-        // Determine the component, filearea, and itemid based on the context
+        // Determine the component, filearea, and itemid based on the context.
         if ($context->contextlevel == CONTEXT_COURSE) {
             $component = 'course';
-            $filearea = 'summary'; // Default for course context
+            $filearea = 'summary'; // Default for course context.
             $itemid = $context->instanceid;
-        } elseif ($context->contextlevel == CONTEXT_MODULE) {
+        } else if ($context->contextlevel == CONTEXT_MODULE) {
             $cm = get_coursemodule_from_id('', $context->instanceid);
             if ($cm) {
                 $component = 'mod_' . $cm->modname;
-                $filearea = 'intro'; // Default for module context
+                $filearea = 'intro'; // Default for module context.
                 $itemid = $cm->instance;
             }
-        } elseif ($context->contextlevel == CONTEXT_BLOCK) {
+        } else if ($context->contextlevel == CONTEXT_BLOCK) {
             $component = 'block_instances';
             $filearea = 'content';
             $itemid = $context->instanceid;
-        } elseif ($context->contextlevel == CONTEXT_SYSTEM) {
+        } else if ($context->contextlevel == CONTEXT_SYSTEM) {
             $component = 'core';
             $filearea = 'content';
             $itemid = 0;
-        } elseif ($context->contextlevel == CONTEXT_USER) {
+        } else if ($context->contextlevel == CONTEXT_USER) {
             $component = 'user';
             $filearea = 'profile';
             $itemid = $context->instanceid;
-        } elseif ($context->contextlevel == CONTEXT_COURSECAT) {
+        } else if ($context->contextlevel == CONTEXT_COURSECAT) {
             $component = 'coursecat';
             $filearea = 'description';
             $itemid = $context->instanceid;

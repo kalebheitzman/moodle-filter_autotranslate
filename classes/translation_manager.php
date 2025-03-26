@@ -48,7 +48,14 @@ require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_service.
  * - translation_service.php: Handles database operations for translations (e.g., updating records).
  */
 class translation_manager {
+    /**
+     * @var translation_repository The translation repository instance.
+     */
     private $repository;
+
+    /**
+     * @var translation_service The translation service instance.
+     */
     private $service;
 
     /**
@@ -57,7 +64,7 @@ class translation_manager {
      * @param translation_repository $repository The translation repository instance.
      * @param translation_service $service The translation service instance (optional, defaults to new instance).
      */
-    public function __construct(translation_repository $repository, translation_service $service = null) {
+    public function __construct(translation_repository $repository, ?translation_service $service = null) {
         $this->repository = $repository;
         $this->service = $service ?? new translation_service();
     }
@@ -71,23 +78,42 @@ class translation_manager {
      *
      * @param int $page The current page number.
      * @param int $perpage The number of records per page.
-     * @param string $filter_lang The language to filter by (or 'all').
-     * @param string $filter_human The human status to filter by ('' for all, '1' for human, '0' for machine).
+     * @param string $filterlang The language to filter by (or 'all').
+     * @param string $filterhuman The human status to filter by ('' for all, '1' for human, '0' for machine).
      * @param string $sort The column to sort by (e.g., 'hash', 'lang').
      * @param string $dir The sort direction ('ASC' or 'DESC').
      * @param int $courseid The course ID to filter by (0 for all).
-     * @param string $filter_needsreview Filter by needs review status ('' for all, '1' for needs review, '0' for reviewed).
+     * @param string $filterneedsreview Filter by needs review status ('' for all, '1' for needs review, '0' for reviewed).
      * @return array An array containing:
      *               - 'translations': The paginated translation records.
      *               - 'total': The total number of matching records.
      */
-    public function get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir, $courseid = 0, $filter_needsreview = '') {
+    public function get_paginated_translations(
+        $page,
+        $perpage,
+        $filterlang,
+        $filterhuman,
+        $sort,
+        $dir,
+        $courseid = 0,
+        $filterneedsreview = ''
+    ) {
         $sitelang = get_config('core', 'lang') ?: 'en';
-        $result = $this->repository->get_paginated_translations($page, $perpage, $filter_lang, $filter_human, $sort, $dir, $sitelang, $courseid, $filter_needsreview);
+        $result = $this->repository->get_paginated_translations(
+            $page,
+            $perpage,
+            $filterlang,
+            $filterhuman,
+            $sort,
+            $dir,
+            $sitelang,
+            $courseid,
+            $filterneedsreview
+        );
         $translations = $result['translations'];
         $total = $result['total'];
 
-        // Post-process translations to set source_text default
+        // Post-process translations to set source_text default.
         foreach ($translations as $translation) {
             $translation->source_text = $translation->source_text ?: 'N/A';
         }
