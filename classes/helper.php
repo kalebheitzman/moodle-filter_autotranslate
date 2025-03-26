@@ -179,11 +179,11 @@ class helper {
      *
      * @param string $text The content to process.
      * @param \context $context The context object (used for contextlevel in translations).
-     * @param array &$translations Array to store translations for other languages.
-     * @param string &$outsidetext String to store text outside of multilang tags.
+     * @param array &$translations Reference to an array to store translations for other languages.
+     * @param string &$outsidetext Reference to a string to store text outside of multilang tags.
      * @param array $validlangs List of valid language codes.
-     * @param string|null &$firstcontent First language content as a fallback.
-     * @param string &$sourcetext Source text for translation.
+     * @param string|null &$firstcontent Reference to the first language content as a fallback, or null if not set.
+     * @param string &$sourcetext Reference to the source text for translation.
      * @return string The processed content (site language content or original content if no tags).
      */
     public static function process_span_multilang_tags(

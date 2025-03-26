@@ -62,7 +62,7 @@ class translation_manager {
      * Constructor for the translation manager.
      *
      * @param translation_repository $repository The translation repository instance.
-     * @param translation_service $service The translation service instance (optional, defaults to new instance).
+     * @param translation_service|null $service The translation service instance (optional, defaults to new instance).
      */
     public function __construct(translation_repository $repository, ?translation_service $service = null) {
         $this->repository = $repository;

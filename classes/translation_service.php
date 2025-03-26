@@ -46,7 +46,7 @@ namespace filter_autotranslate;
  */
 class translation_service {
     /**
-     * @var \moodle_database The Moodle database instance.
+     * @var \moodle_database|null $db The Moodle database instance, or null to use the global $DB.
      */
     private $db;
 
