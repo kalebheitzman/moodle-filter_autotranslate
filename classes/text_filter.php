@@ -95,9 +95,9 @@ class text_filter extends \core_filters\text_filter {
     public function __construct($context, array $options = []) {
         parent::__construct($context, $options);
         global $DB;
-        $this->translation_repository = new translation_repository($DB);
-        $this->translation_service = new translation_service($DB);
-        $this->tagging_service = new tagging_service($DB);
+        $this->translationrepository = new translation_repository($DB);
+        $this->translationservice = new translation_service($DB);
+        $this->taggingservice = new tagging_service($DB);
         $this->cache = \cache::make('filter_autotranslate', 'taggedcontent');
     }
 
@@ -145,15 +145,15 @@ class text_filter extends \core_filters\text_filter {
                 $sourcetext = trim($match[1]); // Group 1 is the source text.
 
                 // Update the hash-course mapping for all {t:hash} tags to ensure hid_cids is populated.
-                $this->tagging_service->update_hash_course_mapping($fulltag, $courseid);
+                $this->taggingservice->update_hash_course_mapping($fulltag, $courseid);
 
                 // Skip if we've already processed this hash in the current request.
-                if (isset($this->processed_hashes[$hash])) {
-                    $displaytext = $this->processed_hashes[$hash]['display_text'];
-                    $isautotranslated = $this->processed_hashes[$hash]['is_autotranslated'];
+                if (isset($this->processedhashes[$hash])) {
+                    $displaytext = $this->processedhashes[$hash]['display_text'];
+                    $isautotranslated = $this->processedhashes[$hash]['is_autotranslated'];
                 } else {
                     // Fetch the current source text from the database (lang = 'other').
-                    $dbsource = $this->translation_repository->get_translation($hash, 'other');
+                    $dbsource = $this->translationrepository->get_translation($hash, 'other');
                     $dbsourcetext = $dbsource ? $dbsource->translated_text : 'N/A';
 
                     // Compare the source text from the content with the database (preserve HTML, only trim whitespace).
@@ -164,7 +164,7 @@ class text_filter extends \core_filters\text_filter {
                     if ($trimmedcontenttext !== '' && $trimmedcontenttext !== $trimmeddbtext) {
                         if ($dbsourcetext === 'N/A') {
                             // Insert a new record for lang = 'other'.
-                            $this->translation_service->store_translation(
+                            $this->translationservice->store_translation(
                                 $hash,
                                 'other',
                                 $sourcetext,
@@ -182,7 +182,7 @@ class text_filter extends \core_filters\text_filter {
                             $translation->timecreated = $dbsource->timecreated;
                             $translation->timemodified = time();
                             $translation->timereviewed = $dbsource->timereviewed;
-                            $this->translation_service->update_translation($translation);
+                            $this->translationservice->update_translation($translation);
                         }
                     }
 
@@ -190,7 +190,7 @@ class text_filter extends \core_filters\text_filter {
                     $userlang = current_language();
                     $sitelang = get_config('core', 'lang') ?: 'en';
                     $effectivelang = ($userlang === $sitelang) ? 'other' : $userlang;
-                    $translation = $this->translation_repository->get_translation($hash, $effectivelang);
+                    $translation = $this->translationrepository->get_translation($hash, $effectivelang);
                     if (!$translation) {
                         $debugenabled = get_config('filter_autotranslate', 'debugtranslations');
                         if ($debugenabled) {
@@ -209,7 +209,7 @@ class text_filter extends \core_filters\text_filter {
                     $isautotranslated = $translation ? $translation->human === 0 : false; // Default to auto if no record.
 
                     // Cache the result for this hash.
-                    $this->processed_hashes[$hash] = [
+                    $this->processedhashes[$hash] = [
                         'display_text' => $displaytext,
                         'is_autotranslated' => $isautotranslated,
                     ];
@@ -281,16 +281,16 @@ class text_filter extends \core_filters\text_filter {
             try {
                 // Store the source text if it doesn't exist.
                 if (!$existing) {
-                    $this->translation_service->store_translation($hash, 'other', $sourcetext, $this->context->contextlevel);
+                    $this->translationservice->store_translation($hash, 'other', $sourcetext, $this->context->contextlevel);
 
                     // Store translations from MLang tags.
                     foreach ($translations as $lang => $translatedtext) {
-                        $this->translation_service->store_translation($hash, $lang, $translatedtext, $this->context->contextlevel);
+                        $this->translationservice->store_translation($hash, $lang, $translatedtext, $this->context->contextlevel);
                     }
                 }
 
                 // Update the hash-course mapping.
-                $this->tagging_service->update_hash_course_mapping($taggedcontent, $courseid);
+                $this->taggingservice->update_hash_course_mapping($taggedcontent, $courseid);
 
                 $transaction->allow_commit();
             } catch (\Exception $e) {
@@ -313,15 +313,15 @@ class text_filter extends \core_filters\text_filter {
                 $sourcetext = trim($match[1]);
 
                 // Skip if we've already processed this hash in the current request.
-                if (isset($this->processed_hashes[$hash])) {
-                    $displaytext = $this->processed_hashes[$hash]['display_text'];
-                    $isautotranslated = $this->processed_hashes[$hash]['is_autotranslated'];
+                if (isset($this->processedhashes[$hash])) {
+                    $displaytext = $this->processedhashes[$hash]['display_text'];
+                    $isautotranslated = $this->processedhashes[$hash]['is_autotranslated'];
                 } else {
                     // Fetch the translation for the user's language.
                     $userlang = current_language();
                     $sitelang = get_config('core', 'lang') ?: 'en';
                     $effectivelang = ($userlang === $sitelang) ? 'other' : $userlang;
-                    $translation = $this->translation_repository->get_translation($hash, $effectivelang);
+                    $translation = $this->translationrepository->get_translation($hash, $effectivelang);
                     if (!$translation) {
                         $debugenabled = get_config('filter_autotranslate', 'debugtranslations');
                         if ($debugenabled) {
@@ -340,7 +340,7 @@ class text_filter extends \core_filters\text_filter {
                     $isautotranslated = $translation ? $translation->human === 0 : false;
 
                     // Cache the result for this hash.
-                    $this->processed_hashes[$hash] = [
+                    $this->processedhashes[$hash] = [
                         'display_text' => $displaytext,
                         'is_autotranslated' => $isautotranslated,
                     ];
@@ -395,7 +395,7 @@ class text_filter extends \core_filters\text_filter {
      * @return string The fallback text (source text or original text).
      */
     private function get_fallback_text($hash, $sourcetext) {
-        $fallback = $this->translation_repository->get_source_text($hash);
+        $fallback = $this->translationrepository->get_source_text($hash);
         return $fallback !== 'N/A' ? $fallback : $sourcetext;
     }
 
