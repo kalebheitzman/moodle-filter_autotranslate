@@ -177,14 +177,14 @@ class helper {
      * returning the display text while populating the translations array. It is a helper
      * function for process_mlang_tags and does not interact with the database.
      *
-     * @param string $text The content to process.
-     * @param \context $context The context object (used for contextlevel in translations).
-     * @param array &$translations Reference to an array to store translations for other languages.
-     * @param string &$outsidetext Reference to a string to store text outside of multilang tags.
-     * @param array $validlangs List of valid language codes.
+     * @param string $text The content to process containing multilang span tags.
+     * @param \context $context The context object used to determine contextlevel in translations.
+     * @param array &$translations Reference to an array where translations for other languages are stored.
+     * @param string &$outsidetext Reference to a string where text outside of multilang tags is accumulated.
+     * @param array $validlangs List of valid language codes to filter translations.
      * @param string|null &$firstcontent Reference to the first language content as a fallback, or null if not set.
-     * @param string &$sourcetext Reference to the source text for translation.
-     * @return string The processed content (site language content or original content if no tags).
+     * @param string &$sourcetext Reference to the source text for translation in the site language.
+     * @return string The processed content, either site language content or original content if no tags are found.
      */
     public static function process_span_multilang_tags(
         $text,

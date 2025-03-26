@@ -53,7 +53,7 @@ class translation_service {
     /**
      * Constructor for the translation service.
      *
-     * @param \moodle_database $db The Moodle database instance.
+     * @param \moodle_database|null $db The Moodle database instance, or null to use the global $DB.
      */
     public function __construct(?\moodle_database $db = null) {
         global $DB;
