@@ -15,7 +15,7 @@ The plugin has been developed with a focus on separation of concerns, DRY (Don�
   - Providing a management interface for administrators to edit translations.
   - Allowing manual rebuilding of translations for a specific course via a "Rebuild Translations" button.
 - **Key Features**:
-  - **Tagging**: Tags content in configured tables and fields with `{t:hash}` tags, reusing hashes for identical strings across all courses.
+  - **Tagging**: Tags content in configured tables and fields with `{t:hash}` tags, reusing hashes for identical strings across all courses. The `text_filter` also dynamically tags content during page rendering, supporting third-party modules without manual configuration.
   - **Translation Fetching**: Fetches translations for tagged content using the Google Generative AI API.
   - **Filtering**: Replaces `{t:hash}` tags with translations during content display, falling back to the source text if no translation exists.
   - **Management Interface**: Allows admins to view, filter, and edit translations, with course-based filtering for easier management. Includes a "Rebuild Translations" button to manually rebuild translations for a specific course.
@@ -27,7 +27,7 @@ The plugin follows these design principles:
 
 - **Separation of Concerns**:
   - Logic files are split into utilities (`helper.php`), coordination (`tagging_manager.php`, `translation_manager.php`), read-only database access (`translation_repository.php`), and database writes (`tagging_service.php`, `translation_service.php`).
-  - The filter (`text_filter.php`) performs read-only operations, fetching translations via `translation_repository.php`.
+  - The filter (`text_filter.php`) performs both read and write operations, fetching translations via `translation_repository.php` and dynamically tagging content during page rendering.
   - Scheduled tasks (`tagcontent_task.php`, `fetchtranslation_task.php`) handle background processes like tagging and translation fetching.
   - Utility classes (`rebuild_course_translations.php`) handle specific operations like manual rebuilding of translations for a course.
 - **DRY (Don’t Repeat Yourself)**:
@@ -36,6 +36,7 @@ The plugin follows these design principles:
   - Configuration is centralized in `tagging_config.php` and `settings.php`.
 - **Performance and Scalability**:
   - Tagging is handled by `tagcontent_task.php` in batches, avoiding real-time processing to improve performance.
+  - The `text_filter` uses Moodle’s cache API to cache dynamically tagged content, reducing database operations during page loads.
   - Pagination and filtering are implemented in the management interface to handle large datasets.
   - The course-specific rebuild (`rebuild_course_translations.php`) processes content in batches (default: 20 per run, configurable via `managelimit`).
 - **Course-Agnostic Design**:
@@ -97,7 +98,7 @@ The plugin follows these design principles:
    - **`fetchtranslation_task.php`**: Scheduled task that fetches translations from the Google Generative AI API for untagged content.
 
 3. **Filter**:
-   - **`text_filter.php`**: Replaces `{t:hash}` tags with translations based on the user’s language, using `translation_repository.php` for read-only access.
+   - **`text_filter.php`**: Replaces `{t:hash}` tags with translations based on the user’s language, using `translation_repository.php` for read-only access. Additionally, it dynamically tags untagged content during page rendering, processes MLang tags, and stores the tagged content in the database (`mdl_autotranslate_translations`, `mdl_autotranslate_hid_cids`) and cache (`taggedcontent`). This allows the filter to handle content from third-party modules without requiring manual configuration in `tagging_config.php`, ensuring broader compatibility and flexibility.
 
 4. **Configuration**:
    - **`tagging_config.php`**: Defines the tables, fields, and relationships to tag, organized by context level (e.g., `course`, `book`, `book_chapters`).
@@ -115,6 +116,7 @@ The plugin follows these design principles:
 
 - **Tagging Strategy**:
   - Tagging is handled by `tagcontent_task.php` in batches, running on a schedule (default: every 15 minutes, configurable via `taskfrequency`) to improve performance and scalability.
+  - The `text_filter` dynamically tags content during page rendering, ensuring that content from third-party modules or unconfigured tables is tagged on-the-fly, complementing the scheduled task.
   - Tags are course-agnostic, ensuring that identical phrases (same hash) are translated consistently across all courses.
 - **Translation Fetching**:
   - Uses the Google Generative AI API (OpenAI-compatible endpoint) for fetching translations, with configurable settings (`apiendpoint`, `apikey`, `apimodel`).
@@ -132,35 +134,35 @@ The plugin follows these design principles:
 
 ### Current State and Known Issues
 
-- **Tagging Delay**: Content is tagged by `tagcontent_task.php` on a schedule (default: every 15 minutes, configurable via `taskfrequency`), which may delay translations becoming available. Admins can reduce `taskfrequency` or use `enablemanualtrigger` to run the task manually.
-- **@@PLUGINFILE@@ URL Rewriting**: The `text_filter.php`, `manage.php`, and `edit.php` files do not fully implement `@@PLUGINFILE@@` URL rewriting, as the correct component and filearea are context-dependent and require further implementation.
+- **Tagging Delay**: Content is tagged by `tagcontent_task.php` on a schedule (default: every 15 minutes, configurable via `taskfrequency`), which may delay translations becoming available for content in configured tables. However, the `text_filter` dynamically tags content during page rendering, ensuring that untagged content (including from third-party modules) is tagged immediately upon viewing. Admins can reduce `taskfrequency` or use `enablemanualtrigger` to run the task manually for faster tagging of configured content.
+- **Dynamic Content Handling**: The `text_filter` dynamically tags content during page loads, but this tagged content is not persisted in the source tables (e.g., third-party module tables). When rebuilding translations via `rebuild_course_translations.php`, dynamic content not in `tagging_config.php` is not reprocessed, requiring a page visit to re-tag it. This can lead to temporary loss of dynamic content tagging until the content is viewed again.
 - **Stale Translations**: The plugin does not currently handle stale translations (e.g., when source text changes, translations are not automatically marked for re-translation).
 - **Testing**: Unit tests are not implemented, which could help ensure the plugin’s reliability.
 
 ### Guidance for Future Development
 
 1. **Testing**:
-   - Add unit tests for key functionality (e.g., tagging in `tagcontent_task.php`, translation fetching in `fetchtranslation_task.php`, filtering in `text_filter.php`, course-specific rebuild in `rebuild_course_translations.php`).
-   - Test the end-to-end flow (tagging, translation fetching, filtering, management, course-specific rebuild) to ensure consistency and performance.
+   - Add unit tests for key functionality (e.g., tagging in `tagcontent_task.php`, translation fetching in `fetchtranslation_task.php`, filtering and dynamic tagging in `text_filter.php`, course-specific rebuild in `rebuild_course_translations.php`).
+   - Test the end-to-end flow (tagging, translation fetching, filtering, management, course-specific rebuild) to ensure consistency and performance, including dynamic tagging behavior.
 2. **Stale Translations**:
    - Implement a mechanism to detect when source text changes (e.g., by comparing hashes or timestamps) and mark translations for re-translation.
    - Add a scheduled task to periodically check for stale translations and re-fetch them.
-3. **@@PLUGINFILE@@ URL Rewriting**:
-   - Implement proper `@@PLUGINFILE@@` URL rewriting in `text_filter.php`, `manage.php`, and `edit.php` by determining the correct component and filearea based on the content’s context.
+3. **Dynamic Content Persistence**:
+   - Consider persisting dynamically tagged content (e.g., from third-party modules) in a separate table or the source tables to ensure it’s not lost during a rebuild. This would allow `rebuild_course_translations.php` to reprocess dynamic content without requiring page visits.
 4. **Management Interface Enhancements**:
    - Add bulk actions to `manage.php` (e.g., bulk mark as human-edited, bulk delete).
    - Add validation for HTML content in `edit_form.php` to ensure safe input.
    - Consider adding an asynchronous option for the "Rebuild Translations" button to improve user experience for large courses.
 5. **Documentation**:
-   - Create a README or user guide for the plugin, explaining its features, configuration, and usage for admins and developers.
-   - Document the "Rebuild Translations" feature, including its synchronous nature and how to trigger it via CLI.
+   - Create a README or user guide for the plugin, explaining its features, configuration, and usage for admins and developers, including the dynamic tagging behavior of the `text_filter`.
+   - Document the "Rebuild Translations" feature, including its synchronous nature, how to trigger it via CLI, and its impact on dynamically tagged content.
 
 ### Instructions for Development
 
 - Use the provided context to continue developing the `filter_autotranslate` plugin.
 - Follow the design principles (separation of concerns, DRY, snake_case naming, course-agnostic translations) when adding new features or making changes.
 - Ensure all new files and functions include comprehensive documentation, as shown in the existing files.
-- Test any changes thoroughly, considering performance, scalability, and user experience.
+- Test any changes thoroughly, considering performance, scalability, and user experience, especially the interaction between dynamic tagging and scheduled tasks.
 - If adding new database operations, use `translation_service.php` for writes and `translation_repository.php` for reads.
 - If adding new utility functions, place them in `helper.php`.
 - If adding new scheduled tasks, define them in `db/tasks.php` with appropriate documentation and place them in `/filter/autotranslate/classes/task/`.

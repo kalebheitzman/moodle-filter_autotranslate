@@ -9,6 +9,7 @@ The **Moodle Autotranslate Filter** plugin automatically translates content acro
 ## Key Features
 
 - **Automatic Translation**: Translates content using your chosen OpenAI-compatible service.
+- **Dynamic Tagging**: Tags content on-the-fly during page rendering, supporting third-party modules without manual configuration, in addition to scheduled task-based tagging.
 - **Human Translation Support**: Allows manual review or correction of translations.
 - **Global Reuse**: Identical text shares translations site-wide for efficiency.
 - **Course-Specific Rebuild**: Manually rebuild translations for a specific course using the "Rebuild Translations" button.
@@ -52,11 +53,11 @@ Check your service’s documentation for specific details.
 Here’s how to use the plugin:
 
 1. Install and configure as above.
-2. Visit a page (e.g., a course or resource).
+2. Visit a page (e.g., a course or resource). The plugin will dynamically tag untagged content on-the-fly during page rendering, ensuring immediate tagging for viewed content, including from third-party modules.
 3. Switch languages using Moodle’s language selector (usually top-right).
-4. Wait up to 30 minutes for translations to appear (see Scheduled Tasks below).
+4. Wait up to 30 minutes for translations to appear for content tagged by scheduled tasks (see Scheduled Tasks below). Content tagged dynamically during page loads will be available immediately.
 5. Manually manage translations via the plugin's interface at `/filter/autotranslate/manage.php` (requires appropriate capabilities; see [Permissions and Capabilities](#permissions-and-capabilities) below).
-6. Use the "Rebuild Translations" button on the manage page to manually rebuild translations for a specific course (requires `filter/autotranslate:manage` capability).
+6. Use the "Rebuild Translations" button on the manage page to manually rebuild translations for a specific course (requires `filter/autotranslate:manage` capability). Note that this may affect dynamically tagged content (see Important Considerations and Risks below).
 
 Teachers can also edit translations within their course contexts for greater control, provided they have the necessary permissions.
 
@@ -80,7 +81,7 @@ For more information on how capabilities work in Moodle, see the [Moodle documen
 
 ## How It Works
 
-The plugin manages translations through a database, text tagging, and a filter mechanism.
+The plugin manages translations through a combination of dynamic tagging, scheduled task-based tagging, and a filter mechanism.
 
 ### Database Schema
 
@@ -118,11 +119,13 @@ The plugin manages translations through a database, text tagging, and a filter m
 
 ### Text Tagging
 
-The plugin tags content with `CONTENT {t:hash}`:
+The plugin tags content with `CONTENT {t:hash}` in two ways:
 
-- Example: `Submit {t:aBcDeFgHiJ}`
-- Spanish (`es`): “Enviar”
-- The hash ensures translations are reusable across identical text site-wide.
+- **Dynamic Tagging**: During page rendering, the filter automatically tags untagged content with `{t:hash}` tags, including content from third-party modules not explicitly configured. This ensures immediate tagging for viewed content.
+- **Scheduled Tagging**: The `autotranslate_task` tags content in configured tables (e.g., course summaries, activity intros) with `{t:hash}` tags, ensuring consistent tagging across the site.
+- **Example**: `Submit {t:aBcDeFgHiJ}`
+  - Spanish (`es`): “Enviar”
+  - The hash ensures translations are reusable across identical text site-wide.
 
 ### Multilang Processing
 
@@ -145,10 +148,11 @@ The filter processes text on page load:
 Two tasks handle translation management:
 
 1. **`autotranslate_task`** (runs **every 15 minutes**):
-   - Scans fields (e.g., course summaries, activity intros) for untagged text.
+   - Scans fields in configured tables (e.g., course summaries, activity intros) for untagged text.
    - Processes existing multilang tags (`<span>` and `{mlang}`), extracts translations, and replaces them with `{t:hash}` tags.
    - Assigns a unique hash and tags the content with `CONTENT {t:aBcDeFgHiJ}`.
    - Stores the source text in the database with `lang = 'other'`.
+   - Note: This task only tags content in configured tables. Content from unconfigured tables (e.g., third-party modules) is tagged dynamically during page loads.
 
 2. **`fetchtranslation_task`** (runs **every 30 minutes**):
    - Generates automatic translations for tagged content using your translation service.
@@ -163,7 +167,7 @@ The plugin provides a management interface at `/filter/autotranslate/manage.php`
 - **View Translations**: Displays a table of translations with columns for hash, language, translated text, human status, context level, review status, and actions.
 - **Filter Translations**: Filter by language, human status, review status, and course ID (using `mdl_autotranslate_hid_cids` for course-based filtering).
 - **Edit Translations**: Edit individual translations via a WYSIWYG editor, updating `translated_text`, `human`, and `timereviewed`.
-- **Rebuild Translations**: Manually rebuild translations for a specific course using the "Rebuild Translations" button (requires `filter/autotranslate:manage` capability). This operation is synchronous and redirects with a success message upon completion.
+- **Rebuild Translations**: Manually rebuild translations for a specific course using the "Rebuild Translations" button (requires `filter/autotranslate:manage` capability). This operation is synchronous and redirects with a success message upon completion. Note that this may affect dynamically tagged content (see Important Considerations and Risks below).
 
 ## Integration with Global Search
 
@@ -182,6 +186,8 @@ The plugin is designed to enhance Moodle’s global search, but this feature is 
 - **Performance**: Scheduled tasks may impact busy sites. Adjust task frequency or batch sizes (`managelimit`) as needed.
 - **Content Alteration**: Tags like `{t:aBcDeFgHiJ}` modify text fields. Disabling or uninstalling without cleanup may expose raw tags, affecting readability.
 - **Multilang Tag Removal**: The plugin removes `<span>` and `{mlang}` multilang tags, replacing them with `{t:hash}` tags. This is a destructive, non-reversible action, and the original multilang tags cannot be restored without a custom script (not currently implemented).
+- **Tagging Delay for Configured Content**: Content in configured tables (e.g., course summaries, activity intros) is tagged by the `autotranslate_task` on a schedule (default: every 15 minutes). This may delay translations becoming available for such content. However, the filter dynamically tags content during page rendering, ensuring that untagged content (including from third-party modules) is tagged immediately upon viewing.
+- **Dynamic Content Handling During Rebuild**: The filter dynamically tags content during page loads, but this tagged content is not persisted in the source tables (e.g., third-party module tables). When rebuilding translations via the "Rebuild Translations" button, dynamic content not in configured tables is not reprocessed, requiring a page visit to re-tag it. This can lead to temporary loss of dynamic content tagging until the content is viewed again.
 - **Hash Sensitivity**: Editing tagged text or hashes manually can break translation links.
 - **Translation Quality**: Auto-translations vary by service/model; human review may be required.
 - **Rebuild Performance**: The "Rebuild Translations" operation is synchronous and may take time for large courses. Consider adjusting the batch size (`managelimit`) for better performance.
