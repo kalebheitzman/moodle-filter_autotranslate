@@ -35,7 +35,7 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
 
     if ($oldversion < 2025031401) {
         // Define field human.
-        $table = new xmldb_table('autotranslate_translations');
+        $table = new xmldb_table('filter_autotranslate_translations');
         $field = new xmldb_field('human', XMLDB_TYPE_INTEGER, '1', null, XMLDB_NOTNULL, null, '0', 'timemodified');
 
         if (!$dbman->field_exists($table, $field)) {
@@ -51,7 +51,7 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
         $dbman = $DB->get_manager();
 
         // Define the table.
-        $table = new xmldb_table('autotranslate_hid_cids');
+        $table = new xmldb_table('filter_autotranslate_hid_cids');
 
         // Add fields.
         $table->add_field('hash', XMLDB_TYPE_CHAR, '10', null, XMLDB_NOTNULL, null, null);
@@ -59,7 +59,7 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
 
         // Add keys.
         $table->add_key('primary', XMLDB_KEY_PRIMARY, ['hash', 'courseid']);
-        $table->add_key('hashfk', XMLDB_KEY_FOREIGN, ['hash'], 'autotranslate_translations', ['hash']);
+        $table->add_key('hashfk', XMLDB_KEY_FOREIGN, ['hash'], 'filter_autotranslate_translations', ['hash']);
         $table->add_key('courseidfk', XMLDB_KEY_FOREIGN, ['courseid'], 'course', ['id']);
 
         // No need to add explicit indexes on 'hash' or 'courseid'—foreign keys handle it.
@@ -75,7 +75,7 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
 
     // Add the 'timereviewed' field and index.
     if ($oldversion < 2025031830) {
-        $table = new xmldb_table('autotranslate_translations');
+        $table = new xmldb_table('filter_autotranslate_translations');
 
         // Add timereviewed field.
         $field = new xmldb_field('timereviewed', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', 'timemodified');
@@ -90,7 +90,7 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
         }
 
         // Populate timereviewed for existing records (set to timecreated).
-        $DB->execute("UPDATE {autotranslate_translations} SET timereviewed = timecreated WHERE timereviewed = 0");
+        $DB->execute("UPDATE {filter_autotranslate_translations} SET timereviewed = timecreated WHERE timereviewed = 0");
 
         upgrade_plugin_savepoint(true, 2025031830, 'filter', 'autotranslate');
     }

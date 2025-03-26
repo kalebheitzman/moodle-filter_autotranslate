@@ -40,10 +40,10 @@ require_once($CFG->dirroot . '/filter/autotranslate/classes/helper.php');
  *   Coordination logic is handled by tagging_manager.php, and utility functions are in helper.php.
  * - Function names use snake_case (e.g., tag_content) to follow Moodle's coding style.
  * - The tag_content function handles MLang tags by processing them via helper.php and storing
- *   the resulting translations in autotranslate_translations.
+ *   the resulting translations in filter_autotranslate_translations.
  * - Ensures hashes are reused for identical strings (after trimming) to limit database growth.
  * - Rewrites @@PLUGINFILE@@ URLs in the source text and translations before storing them in
- *   autotranslate_translations, ensuring the stored text has fully resolved URLs and eliminating
+ *   filter_autotranslate_translations, ensuring the stored text has fully resolved URLs and eliminating
  *   the need for rewriting at display time.
  *
  * Dependencies:
@@ -70,8 +70,8 @@ class tagging_service {
      * Tags content in a record and updates the database.
      *
      * This function processes each field in the record, tagging untagged content with {t:hash} tags,
-     * storing the source text and translations in autotranslate_translations, and associating the
-     * hash with a course ID in autotranslate_hid_cids. It also marks translations for revision if needed.
+     * storing the source text and translations in filter_autotranslate_translations, and associating the
+     * hash with a course ID in filter_autotranslate_hid_cids. It also marks translations for revision if needed.
      *
      * @param string $table The table name (e.g., 'course', 'book_chapters').
      * @param object $record The record object containing the fields to tag.
@@ -104,7 +104,7 @@ class tagging_service {
             if (!empty($sourcetext)) {
                 // Check if the source text already has a hash.
                 $params = ['lang' => 'other', 'text' => $sourcetext];
-                $sql = "SELECT hash FROM {autotranslate_translations} WHERE lang = :lang
+                $sql = "SELECT hash FROM {filter_autotranslate_translations} WHERE lang = :lang
                         AND " . $this->db->sql_compare_text('translated_text') . " = " . $this->db->sql_compare_text(':text');
                 $existing = $this->db->get_record_sql($sql, $params, IGNORE_MULTIPLE);
 
@@ -124,7 +124,7 @@ class tagging_service {
                     $recorddata->timemodified = time();
                     $recorddata->timereviewed = time();
                     $recorddata->human = 1;
-                    $this->db->insert_record('autotranslate_translations', $recorddata);
+                    $this->db->insert_record('filter_autotranslate_translations', $recorddata);
 
                     // Rewrite @@PLUGINFILE@@ URLs in translations before storing.
                     foreach ($translations as $lang => $translatedtext) {
@@ -138,7 +138,7 @@ class tagging_service {
                         $transrecord->timemodified = time();
                         $transrecord->timereviewed = time();
                         $transrecord->human = 1;
-                        $this->db->insert_record('autotranslate_translations', $transrecord);
+                        $this->db->insert_record('filter_autotranslate_translations', $transrecord);
                     }
                 }
 
@@ -174,9 +174,9 @@ class tagging_service {
     }
 
     /**
-     * Updates the autotranslate_hid_cids table with the hash and courseid mapping.
+     * Updates the filter_autotranslate_hid_cids table with the hash and courseid mapping.
      *
-     * This function stores the mapping between a hash and a course ID in autotranslate_hid_cids,
+     * This function stores the mapping between a hash and a course ID in filter_autotranslate_hid_cids,
      * allowing translations to be filtered by course on the manage page.
      *
      * @param string $content The tagged content (containing the hash).
@@ -188,10 +188,10 @@ class tagging_service {
             return;
         }
 
-        $exists = $this->db->record_exists('autotranslate_hid_cids', ['hash' => $hash, 'courseid' => $courseid]);
+        $exists = $this->db->record_exists('filter_autotranslate_hid_cids', ['hash' => $hash, 'courseid' => $courseid]);
         if (!$exists) {
             try {
-                $this->db->execute("INSERT INTO {autotranslate_hid_cids} (hash, courseid) VALUES (?, ?)
+                $this->db->execute("INSERT INTO {filter_autotranslate_hid_cids} (hash, courseid) VALUES (?, ?)
                             ON DUPLICATE KEY UPDATE hash = hash", [$hash, $courseid]);
             } catch (\dml_exception $e) {
                 debugging($e->getMessage(), DEBUG_DEVELOPER);
@@ -200,9 +200,9 @@ class tagging_service {
     }
 
     /**
-     * Creates or updates the source translation record in autotranslate_translations.
+     * Creates or updates the source translation record in filter_autotranslate_translations.
      *
-     * This function stores the source text (lang = 'other') for a given hash in autotranslate_translations,
+     * This function stores the source text (lang = 'other') for a given hash in filter_autotranslate_translations,
      * creating a new record if it doesn't exist or updating the existing record if it does.
      *
      * @param string $content The tagged content (containing the hash).
@@ -218,7 +218,7 @@ class tagging_service {
         $sourcetext = preg_replace('/\{t:[a-zA-Z0-9]{10}\}(?:\s*(?:<\/p>)?)?$/s', '', $content);
 
         // Check if a source translation record already exists.
-        $existing = $this->db->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => 'other']);
+        $existing = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => 'other']);
         $currenttime = time();
 
         if ($existing) {
@@ -228,7 +228,7 @@ class tagging_service {
             $existing->timemodified = $currenttime;
             $existing->timereviewed = $existing->timereviewed == 0 ? $currenttime : $existing->timereviewed;
             $existing->human = 1; // Human-edited, as per observer requirement.
-            $this->db->update_record('autotranslate_translations', $existing);
+            $this->db->update_record('filter_autotranslate_translations', $existing);
         } else {
             // Create a new record.
             $record = new \stdClass();
@@ -240,7 +240,7 @@ class tagging_service {
             $record->timemodified = $currenttime;
             $record->timereviewed = $currenttime;
             $record->human = 1; // Human-edited, as per observer requirement.
-            $this->db->insert_record('autotranslate_translations', $record);
+            $this->db->insert_record('filter_autotranslate_translations', $record);
         }
     }
 
@@ -277,7 +277,7 @@ class tagging_service {
 
         // Update timemodified and timereviewed for all translations with these hashes.
         $placeholders = implode(',', array_fill(0, count($hashes), '?'));
-        $sql = "UPDATE {autotranslate_translations}
+        $sql = "UPDATE {filter_autotranslate_translations}
                 SET timemodified = ?,
                     timereviewed = CASE WHEN timereviewed = 0 THEN ? ELSE timereviewed END
                 WHERE hash IN ($placeholders)

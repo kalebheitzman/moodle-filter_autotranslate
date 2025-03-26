@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <XMLDB PATH="filter/autotranslate/db" VERSION="20250315" COMMENT="XMLDB structure for filter_autotranslate">
     <TABLES>
-        <TABLE NAME="autotranslate_translations" COMMENT="Stores translations for the autotranslate filter">
+        <TABLE NAME="filter_autotranslate_translations" COMMENT="Stores translations for the autotranslate filter">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
                 <FIELD NAME="hash" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Unique 10-character hash for the source text"/>
@@ -20,14 +20,14 @@
                 <INDEX NAME="mdl_autotran_con_ix" UNIQUE="false" FIELDS="contextlevel" COMMENT="Index for context-based recovery"/>
                 <INDEX NAME="mdl_autotran_timereviewed_ix" UNIQUE="false" FIELDS="timereviewed" COMMENT="Index for review tracking"/>            </INDEXES>
         </TABLE>
-        <TABLE NAME="autotranslate_hid_cids" COMMENT="Maps translation hashes to course IDs">
+        <TABLE NAME="filter_autotranslate_hid_cids" COMMENT="Maps translation hashes to course IDs">
             <FIELDS>
                 <FIELD NAME="hash" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Hash of the translatable string"/>
                 <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course ID where the string appears"/>
             </FIELDS>
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="hash,courseid"/>
-                <KEY NAME="hashfk" TYPE="foreign" FIELDS="hash" REFTABLE="autotranslate_translations" REFFIELDS="hash"/>
+                <KEY NAME="hashfk" TYPE="foreign" FIELDS="hash" REFTABLE="filter_autotranslate_translations" REFFIELDS="hash"/>
                 <KEY NAME="courseidfk" TYPE="foreign" FIELDS="courseid" REFTABLE="course" REFFIELDS="id"/>
             </KEYS>
             <INDEXES>

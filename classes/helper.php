@@ -55,7 +55,7 @@ class helper {
      * Generates a unique 10-character alphanumeric hash.
      *
      * This function creates a random hash to be used in {t:hash} tags for tagging content.
-     * The hash is checked against the autotranslate_translations table to ensure uniqueness.
+     * The hash is checked against the filter_autotranslate_translations table to ensure uniqueness.
      *
      * @return string A unique 10-character hash.
      * @throws \Exception If a unique hash cannot be generated after 100 attempts.
@@ -78,7 +78,7 @@ class helper {
             if ($attempts >= $maxattempts) {
                 throw new \Exception("Unable to generate a unique hash after $maxattempts attempts.");
             }
-        } while ($DB->record_exists('autotranslate_translations', ['hash' => $hash]));
+        } while ($DB->record_exists('filter_autotranslate_translations', ['hash' => $hash]));
 
         return $hash;
     }
@@ -246,7 +246,7 @@ class helper {
     /**
      * Tags content with a hash if untagged.
      *
-     * This function checks if the content already has a hash in autotranslate_translations,
+     * This function checks if the content already has a hash in filer_autotranslate_translations,
      * reusing the existing hash for identical strings (after trimming). If no hash exists,
      * it generates a new one using generate_unique_hash. It no longer performs database
      * operations; the caller (e.g., tagging_service.php) is responsible for storing the hash.
@@ -260,7 +260,7 @@ class helper {
 
         $content = trim($text);
         $params = ['lang' => 'other', 'text' => $content];
-        $sql = "SELECT hash FROM {autotranslate_translations}
+        $sql = "SELECT hash FROM {filter_autotranslate_translations}
                 WHERE lang = :lang AND " . $DB->sql_compare_text('translated_text') . " = " . $DB->sql_compare_text(':text');
         $existing = $DB->get_record_sql($sql, $params, IGNORE_MULTIPLE);
 
@@ -326,7 +326,7 @@ class helper {
      * Maps a language code to 'other' if it matches the site language.
      *
      * This function ensures consistent language handling across the plugin by mapping the site
-     * language to 'other', as stored in autotranslate_translations.
+     * language to 'other', as stored in filter_autotranslate_translations.
      *
      * @param string $lang The language code to map (e.g., 'en', 'es').
      * @return string The mapped language code ('other' if it matches the site language, otherwise the original code).

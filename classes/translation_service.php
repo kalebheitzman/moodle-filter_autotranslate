@@ -23,6 +23,12 @@
  */
 namespace filter_autotranslate;
 
+// Is this correct?
+require_once(__DIR__ . '/../../../config.php');
+require_login();
+
+require_once($CFG->libdir . '/filelib.php');
+
 /**
  * Service class for handling translation-related database operations in the filter_autotranslate plugin.
  *
@@ -38,7 +44,7 @@ namespace filter_autotranslate;
  * - Function names use snake_case (e.g., update_translation) to follow Moodle's coding style.
  * - The store_translation function ensures translations are either inserted or updated, handling
  *   both new translations and updates to existing ones.
- * - Rewrites @@PLUGINFILE@@ URLs in the translated text before storing it in autotranslate_translations,
+ * - Rewrites @@PLUGINFILE@@ URLs in the translated text before storing it in filter_autotranslate_translations,
  *   ensuring the stored text has fully resolved URLs and eliminating the need for rewriting at display time.
  *
  * Dependencies:
@@ -61,7 +67,7 @@ class translation_service {
     }
 
     /**
-     * Updates a translation record in autotranslate_translations.
+     * Updates a translation record in filter_autotranslate_translations.
      *
      * This function updates an existing translation record with the provided data, typically
      * used to update fields like translated_text, human, timemodified, and timereviewed.
@@ -69,7 +75,7 @@ class translation_service {
      * @param object $translation The translation record to update.
      */
     public function update_translation($translation) {
-        $this->db->update_record('autotranslate_translations', $translation);
+        $this->db->update_record('filter_autotranslate_translations', $translation);
     }
 
     /**
@@ -83,11 +89,11 @@ class translation_service {
     public function update_human_status($translation) {
         $translation->timemodified = time();
         $translation->timereviewed = time();
-        $this->db->update_record('autotranslate_translations', $translation);
+        $this->db->update_record('filter_autotranslate_translations', $translation);
     }
 
     /**
-     * Stores a translation in autotranslate_translations, updating if it already exists.
+     * Stores a translation in filter_autotranslate_translations, updating if it already exists.
      *
      * This function inserts a new translation record or updates an existing one if a record
      * with the same hash and language already exists. It is used by fetchtranslation_task.php
@@ -110,7 +116,7 @@ class translation_service {
         }
 
         // Check if a translation already exists for this hash and lang.
-        $existing = $this->db->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
+        $existing = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
         if ($existing) {
             // Update the existing record.
             $record = new \stdClass();
@@ -121,7 +127,7 @@ class translation_service {
             $record->timereviewed = time();
             $record->human = 0; // Machine-generated translation.
 
-            $this->db->update_record('autotranslate_translations', $record);
+            $this->db->update_record('filter_autotranslate_translations', $record);
         } else {
             // Insert a new record.
             $record = new \stdClass();
@@ -134,7 +140,7 @@ class translation_service {
             $record->timereviewed = time();
             $record->human = 0; // Machine-generated translation.
 
-            $this->db->insert_record('autotranslate_translations', $record);
+            $this->db->insert_record('filter_autotranslate_translations', $record);
         }
     }
 
@@ -142,15 +148,15 @@ class translation_service {
      * Fetches the context for a hash based on its context level and course mapping.
      *
      * This function retrieves the context associated with a hash by looking up the course ID
-     * in autotranslate_hid_cids and determining the context level from autotranslate_translations.
+     * in filter_autotranslate_hid_cids and determining the context level from filter_autotranslate_translations.
      *
      * @param string $hash The hash to look up.
      * @param int $contextlevel The context level from the translation record.
      * @return \context|null The context object, or null if not found.
      */
     private function get_context_for_hash($hash, $contextlevel) {
-        // Fetch the course ID from autotranslate_hid_cids.
-        $courseid = $this->db->get_field('autotranslate_hid_cids', 'courseid', ['hash' => $hash]);
+        // Fetch the course ID from filter_autotranslate_hid_cids.
+        $courseid = $this->db->get_field('filter_autotranslate_hid_cids', 'courseid', ['hash' => $hash]);
         if (!$courseid) {
             return null;
         }
@@ -162,7 +168,7 @@ class translation_service {
                 // Fetch the course module ID (requires joining with course_modules).
                 $sql = "SELECT cm.id
                         FROM {course_modules} cm
-                        JOIN {autotranslate_hid_cids} hc ON hc.courseid = cm.course
+                        JOIN {filter_autotranslate_hid_cids} hc ON hc.courseid = cm.course
                         WHERE hc.hash = :hash";
                 $cmid = $this->db->get_field_sql($sql, ['hash' => $hash]);
                 if ($cmid) {
@@ -172,7 +178,7 @@ class translation_service {
                 $sql = "SELECT bi.id
                         FROM {block_instances} bi
                         JOIN {context} ctx ON ctx.instanceid = bi.id AND ctx.contextlevel = :contextlevel
-                        JOIN {autotranslate_hid_cids} hc ON hc.courseid = ctx.instanceid
+                        JOIN {filter_autotranslate_hid_cids} hc ON hc.courseid = ctx.instanceid
                         WHERE hc.hash = :hash";
                 $blockid = $this->db->get_field_sql($sql, ['hash' => $hash, 'contextlevel' => CONTEXT_BLOCK]);
                 if ($blockid) {
@@ -183,7 +189,7 @@ class translation_service {
             } else if ($contextlevel == CONTEXT_USER) {
                 $sql = "SELECT u.id
                         FROM {user} u
-                        JOIN {autotranslate_hid_cids} hc ON hc.courseid = 0
+                        JOIN {filter_autotranslate_hid_cids} hc ON hc.courseid = 0
                         WHERE hc.hash = :hash";
                 $userid = $this->db->get_field_sql($sql, ['hash' => $hash]);
                 if ($userid) {
@@ -192,7 +198,7 @@ class translation_service {
             } else if ($contextlevel == CONTEXT_COURSECAT) {
                 $sql = "SELECT cc.id
                         FROM {course_categories} cc
-                        JOIN {autotranslate_hid_cids} hc ON hc.courseid = 0
+                        JOIN {filter_autotranslate_hid_cids} hc ON hc.courseid = 0
                         WHERE hc.hash = :hash";
                 $catid = $this->db->get_field_sql($sql, ['hash' => $hash]);
                 if ($catid) {

@@ -19,7 +19,7 @@
  *
  * Purpose:
  * This script renders the manage page for the filter_autotranslate plugin, displaying a table of
- * translations stored in the autotranslate_translations table. It allows administrators to filter
+ * translations stored in the filter_autotranslate_translations table. It allows administrators to filter
  * translations by language, human status, review status, and records per page, with support for
  * pagination, sorting, and editing individual translations. The page also handles right-to-left (RTL)
  * languages for proper text alignment.
@@ -100,7 +100,7 @@ try {
         require_once($CFG->dirroot . '/filter/autotranslate/classes/rebuild_course_translations.php'); // Include the new class.
         $rebuilder = new \filter_autotranslate\rebuild_course_translations();
         // Clear existing mappings for this course to ensure a fresh rebuild.
-        $DB->delete_records('autotranslate_hid_cids', ['courseid' => $courseid]);
+        $DB->delete_records('filter_autotranslate_hid_cids', ['courseid' => $courseid]);
         // Execute the rebuild process for the specified course.
         $rebuilder->execute($courseid);
         // Redirect back to the manage page with a success notification.

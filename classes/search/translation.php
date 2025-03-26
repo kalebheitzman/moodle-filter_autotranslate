@@ -35,7 +35,7 @@ class translation extends \core_search\base {
         global $DB;
 
         $sql = "SELECT id, hash, lang, translated_text, contextlevel, instanceid, timemodified
-                FROM {autotranslate_translations}
+                FROM {filter_autotranslate_translations}
                 WHERE lang != 'other'";
         $params = [];
 
@@ -166,7 +166,7 @@ class translation extends \core_search\base {
     public function check_access($id) {
         global $DB;
 
-        $record = $DB->get_record('autotranslate_translations', ['id' => $id], '*', IGNORE_MISSING);
+        $record = $DB->get_record('filter_autotranslate_translations', ['id' => $id], '*', IGNORE_MISSING);
         if (!$record) {
             return \core_search\manager::ACCESS_DENIED;
         }

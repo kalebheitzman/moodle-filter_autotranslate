@@ -21,7 +21,7 @@
  *
  * Purpose:
  * This page enables administrators to edit a translation for a given hash and language in the
- * autotranslate_translations table. It updates the translated_text, human status, and timereviewed
+ * filter_autotranslate_translations table. It updates the translated_text, human status, and timereviewed
  * fields, ensuring that the 'other' language (site language) cannot be edited through this interface.
  * The page also provides a language switcher to navigate between translations for the same hash.
  *

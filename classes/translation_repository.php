@@ -27,7 +27,7 @@ namespace filter_autotranslate;
  * Database access layer for translations in the filter_autotranslate plugin.
  *
  * Purpose:
- * This class provides read-only access to translation data in the autotranslate_translations
+ * This class provides read-only access to translation data in the filter_autotranslate_translations
  * table, serving as the data access layer for translation-related operations. It is used by
  * translation_manager.php to fetch translations for the manage page and by other components
  * (e.g., text_filter.php) to retrieve translations for display.
@@ -71,7 +71,7 @@ class translation_repository {
     /**
      * Fetches a translation by hash and language.
      *
-     * This function retrieves a specific translation record from autotranslate_translations
+     * This function retrieves a specific translation record from filter_autotranslate_translations
      * based on the provided hash and language. If no language is specified, it fetches the
      * record by ID.
      *
@@ -81,22 +81,22 @@ class translation_repository {
      */
     public function get_translation(string $hash, ?string $lang = null) {
         if ($lang) {
-            return $this->db->get_record('autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
+            return $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
         }
-        return $this->db->get_record('autotranslate_translations', ['id' => $hash]);
+        return $this->db->get_record('filter_autotranslate_translations', ['id' => $hash]);
     }
 
     /**
      * Fetches the source text for a hash.
      *
      * This function retrieves the source text (lang = 'other') for a given hash from
-     * autotranslate_translations, returning 'N/A' if not found.
+     * filter_autotranslate_translations, returning 'N/A' if not found.
      *
      * @param string $hash The hash of the translation.
      * @return string The source text, or 'N/A' if not found.
      */
     public function get_source_text(string $hash) {
-        $sourcetext = $this->db->get_field('autotranslate_translations', 'translated_text', ['hash' => $hash, 'lang' => 'other']);
+        $sourcetext = $this->db->get_field('filter_autotranslate_translations', 'translated_text', ['hash' => $hash, 'lang' => 'other']);
         return $sourcetext ?: 'N/A';
     }
 
@@ -104,19 +104,19 @@ class translation_repository {
      * Fetches all languages for a hash.
      *
      * This function retrieves a list of distinct language codes for a given hash from
-     * autotranslate_translations, indicating which languages have translations.
+     * filter_autotranslate_translations, indicating which languages have translations.
      *
      * @param string $hash The hash of the translation.
      * @return array List of language codes.
      */
     public function get_all_languages(string $hash) {
-        return $this->db->get_fieldset_select('autotranslate_translations', 'DISTINCT lang', 'hash = ?', [$hash]);
+        return $this->db->get_fieldset_select('filter_autotranslate_translations', 'DISTINCT lang', 'hash = ?', [$hash]);
     }
 
     /**
      * Fetches paginated translations with filtering for the manage page.
      *
-     * This function retrieves translations from autotranslate_translations with pagination
+     * This function retrieves translations from filter_autotranslate_translations with pagination
      * and filtering options (e.g., by language, human status, course ID, needs review).
      * It joins with the source text (lang = 'other') for display purposes.
      *
@@ -147,8 +147,8 @@ class translation_repository {
         $internalfilterlang = ($filterlang === $sitelang) ? 'other' : $filterlang;
 
         $sql = "SELECT t.*, t2.translated_text AS source_text
-                FROM {autotranslate_translations} t
-                LEFT JOIN {autotranslate_translations} t2 ON t.hash = t2.hash AND t2.lang = 'other'";
+                FROM {filter_autotranslate_translations} t
+                LEFT JOIN {filter_autotranslate_translations} t2 ON t.hash = t2.hash AND t2.lang = 'other'";
         $params = [];
 
         $where = [];
@@ -162,7 +162,7 @@ class translation_repository {
         }
         if ($courseid > 0) {
             $hashes = $this->db->get_fieldset_select(
-                'autotranslate_hid_cids',
+                'filter_autotranslate_hid_cids',
                 'hash',
                 'courseid = :courseid',
                 ['courseid' => $courseid]
@@ -192,7 +192,7 @@ class translation_repository {
         $dir = strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC';
         $sql .= " ORDER BY t.$sort $dir";
 
-        $countsql = "SELECT COUNT(*) FROM {autotranslate_translations} t" .
+        $countsql = "SELECT COUNT(*) FROM {filter_autotranslate_translations} t" .
             (empty($where) ? "" : " WHERE " . implode(" AND ", $where));
         $total = $this->db->count_records_sql($countsql, $params);
         $translations = $this->db->get_records_sql($sql, $params, $page * $perpage, $perpage);

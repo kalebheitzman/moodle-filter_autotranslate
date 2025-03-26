@@ -7,18 +7,18 @@
 - **Course-Specific Rebuild Feature**: Added the ability to manually rebuild translations for a specific course using the "Rebuild Translations" button in the management interface (`manage.php`) or via CLI through `tagcontent_task.php`. Implemented in `rebuild_course_translations.php` with batch processing (default: 20 records per run, configurable via `managelimit`).
 - **Management Interface Enhancements**:
   - Introduced a comprehensive management interface at `/filter/autotranslate/manage.php` for viewing, filtering, and editing translations.
-  - Added filtering by language, human status, review status, and course ID (using `mdl_autotranslate_hid_cids` for course-based filtering).
+  - Added filtering by language, human status, review status, and course ID (using `mdl_filter_autotranslate_hid_cids` for course-based filtering).
   - Enabled editing of translations via a WYSIWYG editor, updating `translated_text`, `human`, and `timereviewed`.
   - Included pagination and sorting for efficient handling of large datasets.
-- **Multilang Tag Processing**: Improved support for `<span>` and `{mlang}` multilang tags by extracting translations, storing them in `mdl_autotranslate_translations`, and replacing them with `{t:hash}` tags. Note that this is a destructive, non-reversible action.
+- **Multilang Tag Processing**: Improved support for `<span>` and `{mlang}` multilang tags by extracting translations, storing them in `mdl_filter_autotranslate_translations`, and replacing them with `{t:hash}` tags. Note that this is a destructive, non-reversible action.
 - **Scheduled Tasks**:
   - Renamed the tagging task to `autotranslate_task` (runs every 15 minutes) to tag content in configured tables and process multilang tags.
   - Added `fetchtranslation_task` (runs every 30 minutes) to fetch translations from the configured OpenAI-compatible service and store them with `human = 0`.
 - **Database Schema Updates**:
-  - Enhanced `mdl_autotranslate_translations` with fields for `contextlevel`, `human`, `timecreated`, `timemodified`, and `timereviewed` to support context awareness, human editing, and review tracking.
-  - Introduced `mdl_autotranslate_hid_cids` to map hashes to course IDs, enabling course-based filtering in the management interface.
+  - Enhanced `mdl_filter_autotranslate_translations` with fields for `contextlevel`, `human`, `timecreated`, `timemodified`, and `timereviewed` to support context awareness, human editing, and review tracking.
+  - Introduced `mdl_filter_autotranslate_hid_cids` to map hashes to course IDs, enabling course-based filtering in the management interface.
 - **Fixed @@PLUGINFILE@@ URL Rewriting**: Resolved issues with `@@PLUGINFILE@@` URL rewriting by handling it in `translation_service.php` during translation storage, ensuring stored translations have fully resolved URLs. Updated documentation in `text_filter.php`, `tagging_service.php`, and `translation_service.php` to reflect this fix.
-- **Fixed Missing hid_cids Entries**: Ensured the `text_filter` updates `mdl_autotranslate_hid_cids` for all `{t:hash}` tags, aligning with the behavior of `tagcontent_task` and preventing missing course mappings on the manage page.
+- **Fixed Missing hid_cids Entries**: Ensured the `text_filter` updates `mdl_filter_autotranslate_hid_cids` for all `{t:hash}` tags, aligning with the behavior of `tagcontent_task` and preventing missing course mappings on the manage page.
 - **Fixed Duplicate Wiki Page Content**: Addressed an issue where wiki page content (`mdl_wiki_pages.cachedcontent`) was being tagged with duplicate hashes by reusing existing hashes in the `text_filter` and improving caching logic.
 - **Permissions and Capabilities**:
   - Added `filter/autotranslate:manage` capability to allow system-level management of translations, including the "Rebuild Translations" feature (default roles: Manager, Editing Teacher).

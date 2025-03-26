@@ -312,13 +312,13 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
   5. Check the database tables:
      - `course` table: Verify that the `summary` field now includes a translation tag (e.g., `{t:<hash>}`).
      - `course_sections` table: Verify that the `summary` field now includes a translation tag.
-     - `autotranslate_hid_cids` table: Verify that the hash is mapped to the course ID.
-     - `autotranslate_translations` table: Verify that a record exists for the `other` language with the hash, `translated_text`, and `contextlevel`.
+     - `filter_autotranslate_hid_cids` table: Verify that the hash is mapped to the course ID.
+     - `filter_autotranslate_translations` table: Verify that a record exists for the `other` language with the hash, `translated_text`, and `contextlevel`.
 - **Expected Outcome**:
   - The task completes without errors, with logs indicating that content was tagged.
   - The `course.summary` and `course_sections.summary` fields are updated with translation tags.
-  - The `autotranslate_hid_cids` table contains entries mapping the hashes to the course ID.
-  - The `autotranslate_translations` table contains entries for the `other` language with the correct `hash`, `translated_text`, and `contextlevel` (e.g., 50 for `CONTEXT_COURSE`).
+  - The `filter_autotranslate_hid_cids` table contains entries mapping the hashes to the course ID.
+  - The `filter_autotranslate_translations` table contains entries for the `other` language with the correct `hash`, `translated_text`, and `contextlevel` (e.g., 50 for `CONTEXT_COURSE`).
 - **Notes**:
   - Verify that the task logs show the correct number of records processed.
   - Check that the tagged content in the database includes a valid hash (e.g., `{t:abcdefghij}`).
@@ -335,13 +335,13 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
   4. Check the task output in the terminal for logs (e.g., "Tagged and stored: field=content, instanceid=<id>, old_hash=none, new_hash=<hash>, courseid=<courseid>").
   5. Check the database tables:
      - `page` table: Verify that the `name` and `content` fields now include translation tags.
-     - `autotranslate_hid_cids` table: Verify that the hashes are mapped to the course ID.
-     - `autotranslate_translations` table: Verify that records exist for the `other` language with the hashes, `translated_text`, and `contextlevel`.
+     - `filter_autotranslate_hid_cids` table: Verify that the hashes are mapped to the course ID.
+     - `filter_autotranslate_translations` table: Verify that records exist for the `other` language with the hashes, `translated_text`, and `contextlevel`.
 - **Expected Outcome**:
   - The task completes without errors, with logs indicating that content was tagged.
   - The `page.name` and `page.content` fields are updated with translation tags.
-  - The `autotranslate_hid_cids` table contains entries mapping the hashes to the course ID.
-  - The `autotranslate_translations` table contains entries for the `other` language with the correct `hash`, `translated_text`, and `contextlevel` (e.g., 70 for `CONTEXT_MODULE`).
+  - The `filter_autotranslate_hid_cids` table contains entries mapping the hashes to the course ID.
+  - The `filter_autotranslate_translations` table contains entries for the `other` language with the correct `hash`, `translated_text`, and `contextlevel` (e.g., 70 for `CONTEXT_MODULE`).
 - **Notes**:
   - Verify that the task logs show the correct number of records processed.
   - Check that the tagged content in the database includes valid hashes.
@@ -356,13 +356,13 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
   5. Check the task output for logs (e.g., "Updated hash mapping for existing content: instanceid=<id>, hash=<hash>, courseid=<courseid>").
   6. Check the database tables:
      - `course` table: Verify that the `summary` field still has the same translation tag.
-     - `autotranslate_hid_cids` table: Verify that the hash mapping remains unchanged.
+     - `filter_autotranslate_hid_cids` table: Verify that the hash mapping remains unchanged.
 - **Expected Outcome**:
   - The task completes without errors, with logs indicating that existing tagged content was processed but not re-tagged.
   - The `course.summary` field retains its original translation tag.
-  - The `autotranslate_hid_cids` table retains the existing hash mapping.
+  - The `filter_autotranslate_hid_cids` table retains the existing hash mapping.
 - **Notes**:
-  - Verify that the task does not create duplicate entries in `autotranslate_translations` or `autotranslate_hid_cids`.
+  - Verify that the task does not create duplicate entries in `filter_autotranslate_translations` or `filter_autotranslate_hid_cids`.
 
 ### Test Case 4.4: Run `fetchtranslation_task` to Fetch Translations
 **Objective**: Verify that `fetchtranslation_task` fetches translations for untagged content.
@@ -370,16 +370,16 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
   1. Ensure the plugin’s API settings are correctly configured (valid `apiendpoint`, `apikey`, `apimodel`, etc.).
   2. Create a course with a summary (e.g., "Course Summary Test").
   3. Run the `tagcontent_task` to tag the content (as in Test Case 4.1).
-  4. Verify that the `autotranslate_translations` table contains a record for the `other` language with the hash.
+  4. Verify that the `filter_autotranslate_translations` table contains a record for the `other` language with the hash.
   5. Manually run the `fetchtranslation_task`:
      <code>
      sudo -u www-data php admin/cli/scheduled_task.php --execute='\filter_autotranslate\task\fetchtranslation_task'
      </code>
   6. Check the task output for logs (e.g., "Fetched translation: hash=<hash>, lang=cs, text='<translated text>'").
-  7. Check the `autotranslate_translations` table for new records.
+  7. Check the `filter_autotranslate_translations` table for new records.
 - **Expected Outcome**:
   - The task completes without errors, with logs indicating that translations were fetched for each target language (e.g., `cs`, `hu`, `bg`, etc.).
-  - The `autotranslate_translations` table contains new records for each target language with the same `hash` as the `other` record, with `translated_text` populated, `human` set to `0`, and `contextlevel` matching the source record.
+  - The `filter_autotranslate_translations` table contains new records for each target language with the same `hash` as the `other` record, with `translated_text` populated, `human` set to `0`, and `contextlevel` matching the source record.
 - **Notes**:
   - Verify that the task logs show the correct number of records processed.
   - Check that the translations are reasonable (e.g., "Course Summary Test" translated to Czech for `cs`).
@@ -396,11 +396,11 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
      sudo -u www-data php admin/cli/scheduled_task.php --execute='\filter_autotranslate\task\fetchtranslation_task'
      </code>
   5. Check the task output for logs (e.g., "Approaching rate limit (2 requests). Sleeping for 60 seconds.").
-  6. Check the `autotranslate_translations` table for new records.
+  6. Check the `filter_autotranslate_translations` table for new records.
 - **Expected Outcome**:
   - The task pauses after reaching the rate limit threshold (e.g., after 2 requests), with a log indicating a 60-second sleep.
   - After the sleep, the task continues processing the remaining batches.
-  - The `autotranslate_translations` table contains new records for each target language for all courses.
+  - The `filter_autotranslate_translations` table contains new records for each target language for all courses.
 - **Notes**:
   - Verify that the task completes without errors.
   - Check that the sleep duration is logged and respected.
@@ -416,10 +416,10 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
      sudo -u www-data php admin/cli/scheduled_task.php --execute='\filter_autotranslate\task\fetchtranslation_task'
      </code>
   5. Check the task output for error messages.
-  6. Check the `autotranslate_translations` table for new records.
+  6. Check the `filter_autotranslate_translations` table for new records.
 - **Expected Outcome**:
   - The task fails with an error message in the logs (e.g., "API error: HTTP 401, Response: ...").
-  - No new translations are added to the `autotranslate_translations` table.
+  - No new translations are added to the `filter_autotranslate_translations` table.
 - **Notes**:
   - Verify that the error message is clear and indicates the API key issue.
   - Restore the correct API key after this test.
@@ -435,10 +435,10 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
      sudo -u www-data php admin/cli/scheduled_task.php --execute='\filter_autotranslate\task\fetchtranslation_task'
      </code>
   5. Check the task output for messages.
-  6. Check the `autotranslate_translations` table for new records.
+  6. Check the `filter_autotranslate_translations` table for new records.
 - **Expected Outcome**:
   - The task exits early with a log message: "No target languages configured. Skipping fetch."
-  - No new translations are added to the `autotranslate_translations` table.
+  - No new translations are added to the `filter_autotranslate_translations` table.
 - **Notes**:
   - Verify that the task does not attempt to fetch translations.
   - Restore the `targetlangs` setting after this test.
@@ -463,7 +463,7 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
   13. Click "Save changes".
   14. Return to the manage page and refresh.
 - **Expected Outcome**:
-  - After running `tagcontent_task` and `fetchtranslation_task`, the `autotranslate_translations` table contains records for the `other` language and each target language.
+  - After running `tagcontent_task` and `fetchtranslation_task`, the `filter_autotranslate_translations` table contains records for the `other` language and each target language.
   - After updating the course summary and running `tagcontent_task` again, the translations’ `timemodified` is updated, and the "Review Status" column shows a warning icon.
   - After editing the translation:
     - The translation’s `translated_text` is updated.
@@ -499,7 +499,7 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
   6. Observe the source text and form.
 - **Expected Outcome**:
   - The `tagcontent_task` tags the content correctly, preserving special characters and HTML.
-  - The `fetchtranslation_task` fetches translations, and the translated text in the `autotranslate_translations` table handles special characters appropriately.
+  - The `fetchtranslation_task` fetches translations, and the translated text in the `filter_autotranslate_translations` table handles special characters appropriately.
   - The source text displays correctly on the edit page, with special characters and HTML preserved (e.g., "Test & <b>Special</b> ČŠŽ").
   - The "Translated Text" field is a WYSIWYG editor (since the source text contains HTML).
   - Saving the translation preserves the special characters in the translated text.
@@ -517,7 +517,7 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
   6. Observe the source text and form.
 - **Expected Outcome**:
   - The `tagcontent_task` skips empty content (no translation tag is added).
-  - The `fetchtranslation_task` does not fetch translations for empty content (no records in `autotranslate_translations`).
+  - The `fetchtranslation_task` does not fetch translations for empty content (no records in `filter_autotranslate_translations`).
   - If no translations exist, the edit page redirects with an error message: "No translation found for the specified hash."
   - If a translation exists (e.g., from a previous non-empty state), the source text displays as "N/A" on the edit page.
 - **Notes**:
@@ -532,11 +532,11 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
   3. Run the `tagcontent_task` to tag the content.
   4. Run the `fetchtranslation_task` to fetch translations.
   5. Check the task output for error messages.
-  6. Check the `autotranslate_translations` table for new records.
+  6. Check the `filter_autotranslate_translations` table for new records.
 - **Expected Outcome**:
   - The `tagcontent_task` completes successfully, tagging the content.
   - The `fetchtranslation_task` fails to fetch translations for the invalid language, with an error message in the logs (e.g., "Invalid translation for language invalid in record...").
-  - The `autotranslate_translations` table contains records only for valid languages (e.g., `cs`, `hu`), not for the invalid language.
+  - The `filter_autotranslate_translations` table contains records only for valid languages (e.g., `cs`, `hu`), not for the invalid language.
 - **Notes**:
   - Verify that the task logs indicate the error for the invalid language.
   - Restore the `targetlangs` setting after this test.
@@ -553,7 +553,7 @@ This testing plan covers the manual testing of the `filter_autotranslate` plugin
   - Verify that the user is redirected to an appropriate page (e.g., the Moodle dashboard) after the error.
 
 ## Testing Notes
-- **Database Verification**: For tests involving `timereviewed`, `timemodified`, and `human`, use a database tool (e.g., phpMyAdmin) to check the `autotranslate_translations` table and confirm the field values. For task-related tests, check the `autotranslate_translations` and `autotranslate_hid_cids` tables to confirm that records are created or updated correctly.
+- **Database Verification**: For tests involving `timereviewed`, `timemodified`, and `human`, use a database tool (e.g., phpMyAdmin) to check the `filter_autotranslate_translations` table and confirm the field values. For task-related tests, check the `filter_autotranslate_translations` and `filter_autotranslate_hid_cids` tables to confirm that records are created or updated correctly.
 - **Task Logs**: Enable Moodle’s cron logging (`$CFG->showcronloglevel = 1;`) to capture detailed task output in the terminal or logs.
 - **API Monitoring**: If possible, monitor API requests to the Google Generative AI API to verify that the `fetchtranslation_task` is making correct requests and handling responses.
 - **Debugging**: Enable debugging in Moodle (`$CFG->debug = E_ALL | E_STRICT; $CFG->debugdisplay = 1;`) to catch any warnings or notices during testing.

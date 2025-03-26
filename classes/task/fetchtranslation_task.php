@@ -149,16 +149,16 @@ class fetchtranslation_task extends scheduled_task {
             // Fetch untagged translations where at least one target language is missing.
             $params = $targetlangs; // Only targetlangs for IN clause.
             $sql = "SELECT t.id, t.hash, t.translated_text AS source_text, t.contextlevel
-                    FROM {autotranslate_translations} t
+                    FROM {filter_autotranslate_translations} t
                     WHERE t.lang = 'other'
                     AND EXISTS (
                         SELECT 1
-                        FROM {autotranslate_translations} t2
+                        FROM {filter_autotranslate_translations} t2
                         WHERE t2.hash = t.hash
                         AND t2.lang = 'other'
                         AND NOT EXISTS (
                             SELECT 1
-                            FROM {autotranslate_translations} t3
+                            FROM {filter_autotranslate_translations} t3
                             WHERE t3.hash = t.hash
                             AND t3.lang IN (" . implode(',', array_fill(0, count($targetlangs), '?')) . ")
                         )
@@ -539,7 +539,7 @@ class fetchtranslation_task extends scheduled_task {
 
                         $hash = $hashes[$recordid];
                         $existingtranslations = $DB->get_records(
-                            'autotranslate_translations',
+                            'filter_autotranslate_translations',
                             ['hash' => $hash],
                             '',
                             'lang,

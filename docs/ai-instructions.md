@@ -40,8 +40,8 @@ The plugin follows these design principles:
   - Pagination and filtering are implemented in the management interface to handle large datasets.
   - The course-specific rebuild (`rebuild_course_translations.php`) processes content in batches (default: 20 per run, configurable via `managelimit`).
 - **Course-Agnostic Design**:
-  - Translations are stored in `autotranslate_translations` and are reused across all courses and contexts, identified by a unique hash.
-  - The `autotranslate_hid_cids` table maps hashes to course IDs for filtering on the manage page, but does not affect translation storage or retrieval.
+  - Translations are stored in `filter_autotranslate_translations` and are reused across all courses and contexts, identified by a unique hash.
+  - The `filter_autotranslate_hid_cids` table maps hashes to course IDs for filtering on the manage page, but does not affect translation storage or retrieval.
 - **Naming Conventions**:
   - Function names use `snake_case` (e.g., `tag_content`, `is_rtl_language`).
   - File names use `snake_case` (e.g., `tagging_service.php`).
@@ -50,7 +50,7 @@ The plugin follows these design principles:
 
 ### Database Schema
 
-#### Table: `mdl_autotranslate_translations`
+#### Table: `mdl_filter_autotranslate_translations`
 - **Purpose**: Stores translations for tagged strings, allowing a single string to have translations in multiple languages.
 - **Fields**:
   - `id` (int, primary key, auto-increment): Unique identifier for each translation record.
@@ -69,14 +69,14 @@ The plugin follows these design principles:
   - `contextlevel`: For context-based recovery.
   - `timereviewed`: For review tracking.
 
-#### Table: `mdl_autotranslate_hid_cids`
+#### Table: `mdl_filter_autotranslate_hid_cids`
 - **Purpose**: Maps hashes to course IDs to track which courses contain a specific tagged string. This enables the manage page to filter translations by course ID, showing only translations relevant to a specific course.
 - **Fields**:
   - `hash` (char, length 10, not null): The hash of the translatable string (e.g., `9UoZ3soJDz`).
   - `courseid` (int, length 10, not null): The ID of the course where the string appears (e.g., `5`).
 - **Keys**:
   - Primary key: `hash, courseid` (ensures one mapping per hash-course pair).
-  - Foreign key (logical): `hash` references `mdl_autotranslate_translations(hash)` (not enforced at the database level).
+  - Foreign key (logical): `hash` references `mdl_filter_autotranslate_translations(hash)` (not enforced at the database level).
   - Foreign key (logical): `courseid` references `mdl_course(id)` (not enforced at the database level).
 - **Indexes**:
   - `hash`: For efficient lookup by hash.
@@ -98,7 +98,7 @@ The plugin follows these design principles:
    - **`fetchtranslation_task.php`**: Scheduled task that fetches translations from the Google Generative AI API for untagged content.
 
 3. **Filter**:
-   - **`text_filter.php`**: Replaces `{t:hash}` tags with translations based on the user’s language, using `translation_repository.php` for read-only access. Additionally, it dynamically tags untagged content during page rendering, processes MLang tags, and stores the tagged content in the database (`mdl_autotranslate_translations`, `mdl_autotranslate_hid_cids`) and cache (`taggedcontent`). This allows the filter to handle content from third-party modules without requiring manual configuration in `tagging_config.php`, ensuring broader compatibility and flexibility.
+   - **`text_filter.php`**: Replaces `{t:hash}` tags with translations based on the user’s language, using `translation_repository.php` for read-only access. Additionally, it dynamically tags untagged content during page rendering, processes MLang tags, and stores the tagged content in the database (`mdl_filter_autotranslate_translations`, `mdl_filter_autotranslate_hid_cids`) and cache (`taggedcontent`). This allows the filter to handle content from third-party modules without requiring manual configuration in `tagging_config.php`, ensuring broader compatibility and flexibility.
 
 4. **Configuration**:
    - **`tagging_config.php`**: Defines the tables, fields, and relationships to tag, organized by context level (e.g., `course`, `book`, `book_chapters`).
@@ -123,7 +123,7 @@ The plugin follows these design principles:
   - Batches translation requests to optimize API usage, with configurable `batchsize` and `fetchlimit`, handled by `fetchtranslation_task.php` (default: every 30 minutes).
 - **Management Interface**:
   - Provides a user-friendly interface for managing translations, with filtering, pagination, and a language switcher.
-  - Uses `autotranslate_hid_cids` to allow course-based filtering, helping admins identify phrases used in a specific course.
+  - Uses `filter_autotranslate_hid_cids` to allow course-based filtering, helping admins identify phrases used in a specific course.
   - Prevents editing of the `other` (site language) record, requiring updates through normal Moodle workflows.
   - Includes a "Rebuild Translations" button to manually rebuild translations for a specific course, implemented as a synchronous operation with a redirect and success notification.
 - **Course-Specific Rebuild**:

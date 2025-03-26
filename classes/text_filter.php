@@ -257,7 +257,7 @@ class text_filter extends \core_filters\text_filter {
         } else {
             // Check if the source text already has a hash in the database.
             $existing = $DB->get_record_sql(
-                "SELECT hash FROM {autotranslate_translations} WHERE lang = :lang AND " .
+                "SELECT hash FROM {filter_autotranslate_translations} WHERE lang = :lang AND " .
                 $DB->sql_compare_text('translated_text') . " = " . $DB->sql_compare_text(':text'),
                 ['lang' => 'other', 'text' => $sourcetext],
                 IGNORE_MULTIPLE

@@ -85,7 +85,7 @@ The plugin manages translations through a combination of dynamic tagging, schedu
 
 ### Database Schema
 
-#### Table: `mdl_autotranslate_translations`
+#### Table: `mdl_filter_autotranslate_translations`
 - **Purpose**: Stores translations for tagged strings, allowing a single string to have translations in multiple languages.
 - **Fields**:
   - `id` (BIGINT(10), auto-increment, primary key): Unique identifier for each translation record.
@@ -104,14 +104,14 @@ The plugin manages translations through a combination of dynamic tagging, schedu
   - `contextlevel`: For context-based recovery.
   - `timereviewed`: For review tracking.
 
-#### Table: `mdl_autotranslate_hid_cids`
+#### Table: `mdl_filter_autotranslate_hid_cids`
 - **Purpose**: Maps hashes to course IDs to track which courses contain a specific tagged string. This enables the manage page to filter translations by course ID, showing only translations relevant to a specific course.
 - **Fields**:
   - `hash` (VARCHAR(10), not null): The hash of the translatable string (e.g., `9UoZ3soJDz`).
   - `courseid` (BIGINT(10), not null): The ID of the course where the string appears (e.g., `5`).
 - **Keys**:
   - Primary key: `hash, courseid` (ensures one mapping per hash-course pair).
-  - Foreign key (logical): `hash` references `mdl_autotranslate_translations(hash)` (not enforced at the database level).
+  - Foreign key (logical): `hash` references `mdl_filter_autotranslate_translations(hash)` (not enforced at the database level).
   - Foreign key (logical): `courseid` references `mdl_course(id)` (not enforced at the database level).
 - **Indexes**:
   - `hash`: For efficient lookup by hash.
@@ -165,7 +165,7 @@ Adjust these schedules in the plugin settings if needed. You can also run these 
 The plugin provides a management interface at `/filter/autotranslate/manage.php` for administrators to oversee translations:
 
 - **View Translations**: Displays a table of translations with columns for hash, language, translated text, human status, context level, review status, and actions.
-- **Filter Translations**: Filter by language, human status, review status, and course ID (using `mdl_autotranslate_hid_cids` for course-based filtering).
+- **Filter Translations**: Filter by language, human status, review status, and course ID (using `mdl_filter_autotranslate_hid_cids` for course-based filtering).
 - **Edit Translations**: Edit individual translations via a WYSIWYG editor, updating `translated_text`, `human`, and `timereviewed`.
 - **Rebuild Translations**: Manually rebuild translations for a specific course using the "Rebuild Translations" button (requires `filter/autotranslate:manage` capability). This operation is synchronous and redirects with a success message upon completion. Note that this may affect dynamically tagged content (see Important Considerations and Risks below).
 
@@ -198,7 +198,7 @@ To remove the plugin:
 
 1. Disable it in **Site Administration** > **Plugins** > **Filters** > **Manage filters**.
 2. Delete the plugin files from the `filter` directory.
-3. Optionally, remove translation data from `mdl_autotranslate_translations` and `mdl_autotranslate_hid_cids`, and clean tagged content by removing `{t:hash}` tags.
+3. Optionally, remove translation data from `mdl_filter_autotranslate_translations` and `mdl_filter_autotranslate_hid_cids`, and clean tagged content by removing `{t:hash}` tags.
 
 **⚠️ Warning**: Without cleanup, raw tags may remain in content, and original multilang tags (`<span>` or `{mlang}`) cannot be restored. Always back up your database first.
 
