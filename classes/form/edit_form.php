@@ -12,7 +12,8 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
 /**
  * Autotranslate Edit Form
  *
@@ -57,39 +58,48 @@ class edit_form extends \moodleform {
     protected function definition() {
         $mform = $this->_form;
 
-        // Hidden fields for hash and lang
+        // Hidden fields for hash and lang.
         $mform->addElement('hidden', 'hash', $this->_customdata['translation']->hash);
         $mform->setType('hash', PARAM_ALPHANUMEXT);
 
         $mform->addElement('hidden', 'lang', $this->_customdata['tlang']);
         $mform->setType('lang', PARAM_ALPHANUM);
 
-        // Display hash and language as static elements (read-only)
-        $mform->addElement('static', 'hash_display', get_string('hash', 'filter_autotranslate'), $this->_customdata['translation']->hash);
+        // Display hash and language as static elements (read-only).
+        $mform->addElement(
+            'static',
+            'hash_display',
+            get_string('hash', 'filter_autotranslate'),
+            $this->_customdata['translation']->hash
+        );
         $mform->addElement('static', 'lang_display', get_string('language', 'filter_autotranslate'), $this->_customdata['tlang']);
 
-        // Translated text field
+        // Translated text field.
         if ($this->_customdata['use_wysiwyg']) {
             $mform->addElement('editor', 'translated_text', get_string('translatedtext', 'filter_autotranslate'), ['rows' => 10]);
             $mform->setType('translated_text', PARAM_RAW);
-            // Set default value as an array for the editor
+            // Set default value as an array for the editor.
             $mform->setDefault('translated_text', [
                 'text' => $this->_customdata['translation']->translated_text,
-                'format' => FORMAT_HTML
+                'format' => FORMAT_HTML,
             ]);
         } else {
-            $mform->addElement('textarea', 'translated_text', get_string('translatedtext', 'filter_autotranslate'), 'wrap="virtual" rows="10" cols="50"');
+            $mform->addElement(
+                'textarea',
+                'translated_text',
+                get_string('translatedtext', 'filter_autotranslate'), 'wrap="virtual" rows="10" cols="50"'
+            );
             $mform->setType('translated_text', PARAM_RAW);
             $mform->setDefault('translated_text', $this->_customdata['translation']->translated_text);
         }
         $mform->addRule('translated_text', get_string('required'), 'required', null, 'client');
         $mform->addHelpButton('translated_text', 'translation', 'filter_autotranslate');
 
-        // Human translated checkbox
+        // Human translated checkbox.
         $mform->addElement('checkbox', 'human', get_string('humantranslated', 'filter_autotranslate'));
         $mform->setDefault('human', $this->_customdata['translation']->human);
 
-        // Action buttons
+        // Action buttons.
         $this->add_action_buttons(true, get_string('savechanges', 'filter_autotranslate'));
     }
 
@@ -106,7 +116,7 @@ class edit_form extends \moodleform {
      */
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
-        // Additional validation can be added here if needed (e.g., validate HTML content)
+        // Additional validation can be added here if needed (e.g., validate HTML content).
         return $errors;
     }
 }

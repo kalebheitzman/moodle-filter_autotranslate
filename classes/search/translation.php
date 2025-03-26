@@ -12,7 +12,9 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
+namespace filter_autotranslate\search;
 
 /**
  * Auto Translate Search Area
@@ -21,11 +23,6 @@
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
-namespace filter_autotranslate\search;
-
-defined('MOODLE_INTERNAL') || die();
-
 class translation extends \core_search\base {
 
     /**
@@ -43,7 +40,7 @@ class translation extends \core_search\base {
                 WHERE lang != 'other'";
         $params = [];
 
-        // If context is provided, filter by contextlevel and instanceid
+        // If context is provided, filter by contextlevel and instanceid.
         if ($context) {
             $contextlevel = $context->contextlevel;
             $instanceid = $context->instanceid;
@@ -66,47 +63,61 @@ class translation extends \core_search\base {
     public function get_document($record, $options = []) {
         global $DB;
 
-        // Get the context ID, skip if invalid
+        // Get the context ID, skip if invalid.
         $contextid = $this->get_context_id($record->contextlevel, $record->instanceid);
         if ($contextid === \context_system::instance()->id && $record->contextlevel != 10) {
-            // Skip indexing if context mapping failed (unless it's a System context)
-            debugging("Skipping document for contextlevel {$record->contextlevel}, instanceid {$record->instanceid} due to invalid context mapping.", DEBUG_DEVELOPER);
+            // Skip indexing if context mapping failed (unless it's a System context).
+            debugging(
+                "Skipping document for contextlevel {$record->contextlevel}, " .
+                "instanceid {$record->instanceid} due to invalid context mapping.",
+                DEBUG_DEVELOPER
+            );
             return false;
         }
 
-        // Create a document for indexing
+        // Create a document for indexing.
         $doc = \core_search\document_factory::instance($record->id, $this->componentname, $this->areaname);
 
-        // Set the document fields
+        // Set the document fields.
         $doc->set('title', $record->translated_text);
         $doc->set('content', $record->translated_text);
         $doc->set('contextid', $contextid);
-        $doc->set('owneruserid', 0); // System-owned content
+        $doc->set('owneruserid', 0); // System-owned content.
         $doc->set('modified', $record->timemodified);
         $doc->set('description1', 'Translation for hash: ' . $record->hash . ', language: ' . $record->lang);
 
-        // Determine course ID with debugging for invalid cases
-        $courseid = 1; // Default to site course ID
-        if ($record->contextlevel == 50) { // Course context
+        // Determine course ID with debugging for invalid cases.
+        $courseid = 1; // Default to site course ID.
+        if ($record->contextlevel == 50) { // Course context.
             $course = $DB->get_record('course', ['id' => $record->instanceid], 'id', IGNORE_MISSING);
             $courseid = $course ? $record->instanceid : 1;
             if (!$course) {
-                debugging("Course not found for contextlevel 50, instanceid {$record->instanceid}. Using site course ID.", DEBUG_DEVELOPER);
+                debugging(
+                    "Course not found for contextlevel 50, instanceid {$record->instanceid}. Using site course ID.",
+                    DEBUG_DEVELOPER
+                );
             }
-        } elseif ($record->contextlevel == 70) { // Module context
+        } else if ($record->contextlevel == 70) { // Module context.
             $cm = $DB->get_record('course_modules', ['id' => $record->instanceid], 'course', IGNORE_MISSING);
             if ($cm) {
                 $course = $DB->get_record('course', ['id' => $cm->course], 'id', IGNORE_MISSING);
                 $courseid = $course ? $cm->course : 1;
                 if (!$course) {
-                    debugging("Course not found for contextlevel 70, module instanceid {$record->instanceid}. Using site course ID.", DEBUG_DEVELOPER);
+                    debugging(
+                        "Course not found for contextlevel 70, module instanceid {$record->instanceid}. Using site course ID.",
+                        DEBUG_DEVELOPER
+                    );
                 }
             } else {
-                debugging("Course module not found for contextlevel 70, instanceid {$record->instanceid}. Using site course ID.", DEBUG_DEVELOPER);
-                return false; // Skip if module context is invalid
+                debugging(
+                    "Course module not found for contextlevel 70, instanceid {$record->instanceid}. Using site course ID.",
+                    DEBUG_DEVELOPER
+                );
+                return false; // Skip if module context is invalid.
             }
         } else {
-            debugging("Non-course context (level {$record->contextlevel}). Using site course ID for courseid.", DEBUG_DEVELOPER);
+            debugging("Non-course context (level {$record->contextlevel}). Using site course ID for courseid.",
+            DEBUG_DEVELOPER);
         }
         $doc->set('courseid', $courseid);
 
@@ -136,10 +147,11 @@ class translation extends \core_search\base {
                 return \context_block::instance($instanceid)->id;
             }
         } catch (\moodle_exception $e) {
-            // Log the error but return a fallback context if instanceid is invalid
-            debugging("Invalid context mapping for contextlevel $contextlevel, instanceid $instanceid: " . $e->getMessage(), DEBUG_DEVELOPER);
+            // Log the error but return a fallback context if instanceid is invalid.
+            debugging("Invalid context mapping for contextlevel $contextlevel, instanceid $instanceid: " . $e->getMessage(),
+            DEBUG_DEVELOPER);
         }
-        return \context_system::instance()->id; // Fallback to system context
+        return \context_system::instance()->id; // Fallback to system context.
     }
 
     /**
@@ -156,9 +168,11 @@ class translation extends \core_search\base {
             return \core_search\manager::ACCESS_DENIED;
         }
 
-        // Use a valid capability based on context
+        // Use a valid capability based on context.
         $context = \context::instance_by_id($this->get_context_id($record->contextlevel, $record->instanceid));
-        $capability = ($record->contextlevel == 50 || $record->contextlevel == 70) ? 'moodle/course:view' : 'moodle/site:accessallgroups';
+        $capability = ($record->contextlevel == 50 || $record->contextlevel == 70)
+            ? 'moodle/course:view'
+            : 'moodle/site:accessallgroups';
         return has_capability($capability, $context) ? \core_search\manager::ACCESS_GRANTED : \core_search\manager::ACCESS_DENIED;
     }
 
@@ -171,12 +185,12 @@ class translation extends \core_search\base {
     public function get_doc_url(\core_search\document $doc) {
         $contextid = $doc->get('contextid');
         $context = \context::instance_by_id($contextid);
-        if ($context->contextlevel == 50) { // Course
+        if ($context->contextlevel == 50) { // Course.
             return new \moodle_url('/course/view.php', ['id' => $doc->get('courseid')]);
-        } elseif ($context->contextlevel == 70) { // Module (URL activity)
+        } else if ($context->contextlevel == 70) { // Module (URL activity).
             return new \moodle_url('/mod/url/view.php', ['id' => $context->instanceid]);
         }
-        return new \moodle_url('/'); // Fallback to homepage
+        return new \moodle_url('/'); // Fallback to homepage.
     }
 
     /**

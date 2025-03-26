@@ -12,7 +12,8 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
 /**
  * Autotranslate Manage Form
  *
@@ -57,73 +58,114 @@ class manage_form extends \moodleform {
      */
     public function definition() {
         $mform = $this->_form;
-        $filter_lang = $this->_customdata['filter_lang'] ?? '';
-        $filter_human = $this->_customdata['filter_human'] ?? '';
-        $filter_needsreview = $this->_customdata['filter_needsreview'] ?? '';
-        $perpage = $this->_customdata['perpage'] ?? 20; // Default to 20 if not set
+        $filterlang = $this->_customdata['filter_lang'] ?? '';
+        $filterhuman = $this->_customdata['filter_human'] ?? '';
+        $filterneedsreview = $this->_customdata['filter_needsreview'] ?? '';
+        $perpage = $this->_customdata['perpage'] ?? 20; // Default to 20 if not set.
         $baseurl = $this->_customdata['baseurl'] ?? new \moodle_url('/filter/autotranslate/manage.php');
 
-        // Ensure $filter_human and $filter_needsreview are strings
-        $filter_human = trim((string)$filter_human);
-        $filter_needsreview = trim((string)$filter_needsreview);
+        // Ensure $filterhuman and $filterneedsreview are strings.
+        $filterhuman = trim((string)$filterhuman);
+        $filterneedsreview = trim((string)$filterneedsreview);
 
-        // Get site language and target languages
+        // Get site language and target languages.
         $sitelang = get_config('core', 'lang') ?: 'en';
         $targetlangs = get_config('filter_autotranslate', 'targetlangs') ?: '';
         $targetlangs = !empty($targetlangs) ? array_filter(array_map('trim', explode(',', $targetlangs))) : [];
 
-        // Build filter options: "All" plus site language (mapped to 'other') and target languages
-        $lang_options = ['all' => get_string('all', 'filter_autotranslate')];
-        $lang_options['other'] = strtoupper($sitelang); // Map 'other' to site language for display
+        // Build filter options: "All" plus site language (mapped to 'other') and target languages.
+        $langoptions = ['all' => get_string('all', 'filter_autotranslate')];
+        $langoptions['other'] = strtoupper($sitelang); // Map 'other' to site language for display.
         foreach ($targetlangs as $lang) {
-            $lang_options[$lang] = strtoupper($lang); // Add target languages
+            $langoptions[$lang] = strtoupper($lang); // Add target languages.
         }
 
-        // Language filter buttons
-        $mform->addElement('hidden', 'filter_lang', $filter_lang);
+        // Language filter buttons.
+        $mform->addElement('hidden', 'filter_lang', $filterlang);
         $mform->setType('filter_lang', PARAM_RAW);
-        $filter_buttons = [];
-        foreach ($lang_options as $value => $label) {
-            $url = new \moodle_url($baseurl, ['filter_lang' => $value, 'page' => 0, 'filter_human' => $filter_human, 'filter_needsreview' => $filter_needsreview, 'perpage' => $perpage]);
-            $class = ($filter_lang === $value || ($value === 'all' && empty($filter_lang))) ? 'btn btn-primary' : 'btn btn-secondary';
-            $filter_buttons[] = \html_writer::link($url, $label, ['class' => $class . ' mr-1']);
+        $filterbuttons = [];
+        foreach ($langoptions as $value => $label) {
+            $url = new \moodle_url(
+                $baseurl,
+                [
+                    'filter_lang' => $value,
+                    'page' => 0,
+                    'filter_human' => $filterhuman,
+                    'filter_needsreview' => $filterneedsreview,
+                    'perpage' => $perpage]
+            );
+            $class = ($filterlang === $value || ($value === 'all' && empty($filterlang))) ? 'btn btn-primary' : 'btn btn-secondary';
+            $filterbuttons[] = \html_writer::link($url, $label, ['class' => $class . ' mr-1']);
         }
-        $mform->addElement('static', 'lang_filter', get_string('filterbylanguage', 'filter_autotranslate'), implode(' ', $filter_buttons));
+        $mform->addElement(
+            'static',
+            'lang_filter',
+            get_string('filterbylanguage', 'filter_autotranslate'),
+            implode(' ', $filterbuttons)
+        );
 
-        // Human reviewed filter buttons
-        $human_options = [
+        // Human reviewed filter buttons.
+        $humanoptions = [
             '' => get_string('all', 'filter_autotranslate'),
             '1' => get_string('yes', 'filter_autotranslate'),
-            '0' => get_string('no', 'filter_autotranslate')
+            '0' => get_string('no', 'filter_autotranslate'),
         ];
-        $mform->addElement('hidden', 'filter_human', $filter_human);
+        $mform->addElement('hidden', 'filter_human', $filterhuman);
         $mform->setType('filter_human', PARAM_RAW);
-        $human_buttons = [];
-        foreach ($human_options as $value => $label) {
-            $url = new \moodle_url($baseurl, ['filter_human' => $value, 'page' => 0, 'filter_lang' => $filter_lang, 'filter_needsreview' => $filter_needsreview, 'perpage' => $perpage]);
-            $class = ($filter_human === (string)$value) ? 'btn btn-primary' : 'btn btn-secondary';
-            $human_buttons[] = \html_writer::link($url, $label, ['class' => $class . ' mr-1']);
+        $humanbuttons = [];
+        foreach ($humanoptions as $value => $label) {
+            $url = new \moodle_url(
+                $baseurl,
+                [
+                    'filter_human' => $value,
+                    'page' => 0,
+                    'filter_lang' => $filterlang,
+                    'filter_needsreview' => $filterneedsreview,
+                    'perpage' => $perpage,
+                ]
+            );
+            $class = ($filterhuman === (string)$value) ? 'btn btn-primary' : 'btn btn-secondary';
+            $humanbuttons[] = \html_writer::link($url, $label, ['class' => $class . ' mr-1']);
         }
-        $mform->addElement('static', 'human_filter', get_string('filterbyhumanreviewed', 'filter_autotranslate'), implode(' ', $human_buttons));
+        $mform->addElement(
+            'static',
+            'human_filter',
+            get_string('filterbyhumanreviewed', 'filter_autotranslate'),
+            implode(' ', $humanbuttons)
+        );
 
-        // Needs review filter buttons
-        $needsreview_options = [
+        // Needs review filter buttons.
+        $needsreviewoptions = [
             '' => get_string('all', 'filter_autotranslate'),
             '1' => get_string('yes', 'filter_autotranslate'),
-            '0' => get_string('no', 'filter_autotranslate')
+            '0' => get_string('no', 'filter_autotranslate'),
         ];
-        $mform->addElement('hidden', 'filter_needsreview', $filter_needsreview);
+        $mform->addElement('hidden', 'filter_needsreview', $filterneedsreview);
         $mform->setType('filter_needsreview', PARAM_RAW);
-        $needsreview_buttons = [];
-        foreach ($needsreview_options as $value => $label) {
-            $url = new \moodle_url($baseurl, ['filter_needsreview' => $value, 'page' => 0, 'filter_lang' => $filter_lang, 'filter_human' => $filter_human, 'perpage' => $perpage]);
-            $class = ($filter_needsreview === (string)$value) ? 'btn btn-primary' : 'btn btn-secondary';
-            $needsreview_buttons[] = \html_writer::link($url, $label, ['class' => $class . ' mr-1']);
+        $needsreviewbuttons = [];
+        foreach ($needsreviewoptions as $value => $label) {
+            $url = new \moodle_url(
+                $baseurl,
+                [
+                    'filter_needsreview' => $value,
+                    'page' => 0,
+                    'filter_lang' => $filterlang,
+                    'filter_human' => $filterhuman,
+                    'perpage' => $perpage,
+                ]
+            );
+            $class = ($filterneedsreview === (string)$value) ? 'btn btn-primary' : 'btn btn-secondary';
+            $needsreviewbuttons[] = \html_writer::link($url, $label, ['class' => $class . ' mr-1']);
         }
-        $mform->addElement('static', 'needsreview_filter', get_string('filterbyneedsreview', 'filter_autotranslate'), implode(' ', $needsreview_buttons));
+        $mform->addElement(
+            'static',
+            'needsreview_filter',
+            get_string('filterbyneedsreview', 'filter_autotranslate'),
+            implode(' ', $needsreviewbuttons)
+        );
 
-        // Limit (perpage) filter buttons
-        $limit_options = [
+        // Limit (perpage) filter buttons.
+        $limitoptions = [
             10 => '10',
             20 => '20',
             50 => '50',
@@ -132,12 +174,21 @@ class manage_form extends \moodleform {
         ];
         $mform->addElement('hidden', 'perpage', $perpage);
         $mform->setType('perpage', PARAM_INT);
-        $limit_buttons = [];
-        foreach ($limit_options as $value => $label) {
-            $url = new \moodle_url($baseurl, ['perpage' => $value, 'page' => 0, 'filter_lang' => $filter_lang, 'filter_human' => $filter_human, 'filter_needsreview' => $filter_needsreview]);
+        $limitbuttons = [];
+        foreach ($limitoptions as $value => $label) {
+            $url = new \moodle_url(
+                $baseurl,
+                [
+                    'perpage' => $value,
+                    'page' => 0,
+                    'filter_lang' => $filterlang,
+                    'filter_human' => $filterhuman,
+                    'filter_needsreview' => $filterneedsreview,
+                ]
+            );
             $class = ($perpage == $value) ? 'btn btn-primary' : 'btn btn-secondary';
-            $limit_buttons[] = \html_writer::link($url, $label, ['class' => $class . ' mr-1']);
+            $limitbuttons[] = \html_writer::link($url, $label, ['class' => $class . ' mr-1']);
         }
-        $mform->addElement('static', 'limit_filter', get_string('perpage', 'filter_autotranslate'), implode(' ', $limit_buttons));
+        $mform->addElement('static', 'limit_filter', get_string('perpage', 'filter_autotranslate'), implode(' ', $limitbuttons));
     }
 }
