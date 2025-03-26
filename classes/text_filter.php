@@ -48,9 +48,6 @@ require_once($CFG->dirroot . '/filter/autotranslate/classes/helper.php');
  *   to keep the code DRY and consistent with the task-based tagging process.
  * - Function names use snake_case (e.g., get_fallback_text) to follow Moodle's coding style.
  * - Includes error handling for invalid hashes, logging a message to aid debugging.
- * - The get_file_params function for handling @@PLUGINFILE@@ URLs is currently commented out,
- *   as it is incomplete and requires further implementation (e.g., determining the correct component
- *   and file area for all contexts).
  *
  * Dependencies:
  * - translation_repository.php: Provides read-only access to translation data for fetching translations.
@@ -396,41 +393,5 @@ class text_filter extends \core_filters\text_filter {
         $label = '<span class="text-secondary font-italic small mr-1">' . get_string('autotranslated', 'filter_autotranslate') . '</span>';
         $icon = '<span class="text-secondary">' . $OUTPUT->pix_icon('i/siteevent', 'Autotranslated', 'moodle') . '</span>';
         return '<div class="text-right">' . $label . $icon . '</div>';
-    }
-
-    /**
-     * Determines the component, file area, and item ID for rewriting @@PLUGINFILE@@ URLs.
-     *
-     * This function identifies the appropriate component, file area, and item ID based on the
-     * current context, to support rewriting @@PLUGINFILE@@ URLs in translated content. It is
-     * currently commented out as the implementation is incomplete and requires further work to
-     * handle all contexts correctly.
-     *
-     * @return array|null [component, filearea, itemid] or null if not applicable.
-     */
-    private function get_file_params() {
-        $context = $this->context;
-
-        if ($context->contextlevel == CONTEXT_COURSE) {
-            // Course context (e.g., course summary)
-            $component = 'course';
-            $filearea = 'summary';
-            $itemid = $context->instanceid;
-        } elseif ($context->contextlevel == CONTEXT_MODULE) {
-            // Module context (e.g., module intro)
-            $cm = get_coursemodule_from_id('', $context->instanceid);
-            if ($cm) {
-                $component = 'mod_' . $cm->modname; // e.g., 'mod_forum'
-                $filearea = 'intro';
-                $itemid = $cm->instance; // Module instance ID, not course module ID
-            } else {
-                return null; // Couldn’t fetch course module
-            }
-        } else {
-            // Other contexts (e.g., blocks, categories) not handled yet
-            return null;
-        }
-
-        return [$component, $filearea, $itemid];
     }
 }
