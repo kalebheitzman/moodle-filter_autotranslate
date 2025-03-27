@@ -93,17 +93,19 @@ class translation_service {
      * Stores a translation in filter_autotranslate_translations, updating if it already exists.
      *
      * @param string $hash The unique hash of the translation.
-     * @param string $lang The language code (e.g., 'es', 'fr').
+     * @param string $lang The language code (e.g., 'es', 'fr', 'other').
      * @param string|array $translatedtext The translated text (string or array to handle potential API responses).
      * @param int $contextlevel The context level for the translation.
      * @param int|null $courseid Optional course ID to determine the context for URL rewriting.
+     * @param \context|null $context Optional context object from the caller for precise URL rewriting.
      */
-    public function store_translation($hash, $lang, $translatedtext, $contextlevel, $courseid = null) {
+    public function store_translation($hash, $lang, $translatedtext, $contextlevel, $courseid = null, $context = null) {
         $translatedtext = is_array($translatedtext) ? implode(' ', $translatedtext) : (string)$translatedtext;
 
-        $context = $this->get_context_for_hash($hash, $contextlevel, $courseid, $lang);
-        if ($context) {
-            $translatedtext = $this->rewrite_pluginfile_urls($translatedtext, $context, $hash);
+        // Use provided context if available; otherwise, fall back to hash-based resolution.
+        $effectivecontext = $context ?? $this->get_context_for_hash($hash, $contextlevel, $courseid, $lang);
+        if ($effectivecontext) {
+            $translatedtext = $this->rewrite_pluginfile_urls($translatedtext, $effectivecontext, $hash);
         }
 
         $existing = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
@@ -167,14 +169,12 @@ class translation_service {
 
         try {
             // For target languages, use course context for URL rewriting to avoid module ambiguity.
-            if ($lang !== 'other') {
+            if ($lang !== 'other' || $contextlevel == CONTEXT_COURSE) {
                 return \context_course::instance($effectivecourseid);
             }
 
             // For 'other', respect the original contextlevel.
-            if ($contextlevel == CONTEXT_COURSE) {
-                return \context_course::instance($effectivecourseid);
-            } else if ($contextlevel == CONTEXT_MODULE) {
+            if ($contextlevel == CONTEXT_MODULE) {
                 $sql = "SELECT cm.id
                         FROM {course_modules} cm
                         JOIN {filter_autotranslate_hid_cids} hc ON hc.courseid = cm.course
@@ -192,14 +192,14 @@ class translation_service {
                     if ($cmidcount > 1) {
                         debugging(
                             "Multiple course module IDs found for hash '$hash' in " .
-                            "course '$effectivecourseid' ($cmidcount found). " .
-                            "Using first cmid ($cmid) for context.",
+                            "course '$effectivecourseid' ($cmidcount found). Falling back to course context.",
                             DEBUG_DEVELOPER
                         );
+                        return \context_course::instance($effectivecourseid);
                     }
                     return \context_module::instance($cmid);
                 }
-                return null;
+                return \context_course::instance($effectivecourseid); // Fallback if no cmid found.
             } else if ($contextlevel == CONTEXT_BLOCK) {
                 $sql = "SELECT bi.id
                         FROM {block_instances} bi
@@ -272,7 +272,7 @@ class translation_service {
      * @param string $hash The hash of the translation (used to fetch itemid if needed).
      * @return string The content with rewritten URLs.
      */
-    private function rewrite_pluginfile_urls($content, $context, $hash) {
+    public function rewrite_pluginfile_urls($content, $context, $hash) {
         $component = '';
         $filearea = '';
         $itemid = 0;

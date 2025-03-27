@@ -129,7 +129,7 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
                     // Continue polling.
                     setTimeout(function () {
                         pollTaskStatus(taskid);
-                    }, 5000); // Poll every 5 seconds.
+                    }, 1000); // Poll every 1 seconds.
                 }
             },
             fail: function (error) {

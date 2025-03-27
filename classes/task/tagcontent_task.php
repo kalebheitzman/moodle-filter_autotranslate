@@ -16,10 +16,7 @@
 
 namespace filter_autotranslate\task;
 
-
 use core\task\scheduled_task;
-use filter_autotranslate\helper;
-use filter_autotranslate\tagging_manager;
 use filter_autotranslate\tagging_service;
 
 /**
@@ -50,13 +47,11 @@ class tagcontent_task extends scheduled_task {
         // Check if called from CLI with a courseid argument.
         if (defined('CLI_SCRIPT') && !empty($argv) && count($argv) > 1 && is_numeric($argv[1])) {
             $courseid = (int)$argv[1];
-            // Delegate to the course-specific rebuild class.
             $rebuilder = new \filter_autotranslate\task\rebuild_course_translations();
             $rebuilder->execute($courseid);
             return;
         }
 
-        // Treat selectctx as CSV string.
         $selectedctx = get_config('filter_autotranslate', 'selectctx') ?: '40,50,70,80';
         $selectedctx = array_filter(array_map('trim', explode(',', (string)$selectedctx)));
         $managelimit = (int)(get_config('filter_autotranslate', 'managelimit') ?: 20);
@@ -64,13 +59,9 @@ class tagcontent_task extends scheduled_task {
         $batchsize = $managelimit;
         $totalentrieschecked = 0;
 
-        // Instantiate tagging_service with the database connection.
         $taggingservice = new tagging_service($DB);
-
-        // Get the configured tables and fields.
         $tables = \filter_autotranslate\tagging_config::get_default_tables();
 
-        // Only output mtrace in CLI context to avoid browser output in web context.
         if (defined('CLI_SCRIPT')) {
             mtrace("Starting Auto Translate task with contexts: " . implode(', ', $selectedctx));
         }
@@ -172,57 +163,28 @@ class tagcontent_task extends scheduled_task {
                                 mtrace("Fetched $count records for table $table, field $field at offset $offset");
                             }
 
-                            if ($count > 0) {
-                                $firstrecord = reset($records);
-                                $context = null;
-                                if (isset($firstrecord->cmid)) {
-                                    $context = \context_module::instance($firstrecord->cmid);
-                                } else {
-                                    $context = \context_system::instance(); // Fallback.
-                                }
-                                if (defined('CLI_SCRIPT')) {
-                                    mtrace("First record: " . json_encode($firstrecord));
-                                }
-                            } else {
-                                $context = \context_system::instance(); // Fallback for no records.
-                            }
-
                             foreach ($records as $record) {
                                 if (!isset($record->instanceid)) {
                                     if (defined('CLI_SCRIPT')) {
-                                        mtrace(
-                                            "Error: Record missing instanceid for table $table, field $field: " .
-                                            json_encode($record)
-                                        );
+                                        mtrace("Error: Record missing instanceid for table $table, field $field");
                                     }
                                     continue;
                                 }
+                                $context = isset($record->cmid) ? \context_module::instance($record->cmid) : \context_system::instance();
                                 $record->id = $record->instanceid;
                                 unset($record->instanceid);
                                 $record->$field = $record->content;
                                 unset($record->content);
-                                if (!isset($record->id)) {
-                                    if (defined('CLI_SCRIPT')) {
-                                        mtrace("Error: Record missing id field after renaming for table $table, field $field");
-                                    }
-                                    continue;
-                                }
                                 $updated = $taggingservice->tag_content($table, $record, [$field], $context, $record->course);
-                                if ($updated) {
-                                    if (defined('CLI_SCRIPT')) {
-                                        mtrace(
-                                            "Tagged content in table $table, field $field, instanceid {$record->id}: " .
-                                            substr($record->$field, 0, 50) . "..."
-                                        );
-                                    }
-                                    $taggingservice->mark_translations_for_revision($table, $record->id, [$field], $context);
+                                if ($updated && defined('CLI_SCRIPT')) {
+                                    mtrace("Tagged content in table $table, field $field, id {$record->id}");
                                 }
                             }
 
                             $offset += $batchsize;
                         } catch (\dml_exception $e) {
                             if (defined('CLI_SCRIPT')) {
-                                mtrace("Error executing query for table $table, field $field: " . $e->getMessage());
+                                mtrace("Error for table $table, field $field: " . $e->getMessage());
                             }
                             break;
                         }
@@ -234,7 +196,7 @@ class tagcontent_task extends scheduled_task {
                     $secondarytables = \filter_autotranslate\tagging_manager::get_secondary_tables($table, $ctx);
                     foreach ($secondarytables as $secondarytable => $secondaryfields) {
                         if (defined('CLI_SCRIPT')) {
-                            mtrace("Processing table: $secondarytable, Fields: " . implode(', ', $secondaryfields));
+                            mtrace("Processing secondary table: $secondarytable, Fields: " . implode(', ', $secondaryfields));
                         }
                         $offset = 0;
 
@@ -243,12 +205,10 @@ class tagcontent_task extends scheduled_task {
                                 $relationship = \filter_autotranslate\tagging_config::get_relationship_details($secondarytable);
                                 $fk = $relationship['fk'];
                                 $parenttable = $relationship['parent_table'];
-                                $parentfk = $relationship['parent_fk'];
                                 $grandparenttable = $relationship['grandparent_table'];
-                                $grandparentfk = $relationship['grandparent_fk'];
 
                                 if ($secondarytable === 'question') {
-                                    $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                    $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, cm.id AS cmid
                                             FROM {{$secondarytable}} s
                                             JOIN {question_versions} qv ON qv.questionid = s.id
                                             JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
@@ -263,7 +223,7 @@ class tagcontent_task extends scheduled_task {
                                             AND qr.questionarea = 'slot'";
                                     $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE];
                                 } else if ($secondarytable === 'question_answers') {
-                                    $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                    $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, cm.id AS cmid
                                             FROM {{$secondarytable}} s
                                             JOIN {{$parenttable}} pt ON s.question = pt.id
                                             JOIN {question_versions} qv ON qv.questionid = pt.id
@@ -279,7 +239,7 @@ class tagcontent_task extends scheduled_task {
                                             AND qr.questionarea = 'slot'";
                                     $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE];
                                 } else if ($secondarytable === 'question_categories') {
-                                    $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id AS primary_instanceid, cm.id AS cmid
+                                    $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, cm.id AS cmid
                                             FROM {{$secondarytable}} s
                                             JOIN {question_bank_entries} qbe ON qbe.questioncategoryid = s.id
                                             JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
@@ -294,25 +254,22 @@ class tagcontent_task extends scheduled_task {
                                     $params = ['modulename' => $table, 'contextlevel' => CONTEXT_MODULE];
                                 } else {
                                     if ($grandparenttable) {
-                                        $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id
-                                                AS primary_instanceid, cm.id AS cmid
+                                        $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, cm.id AS cmid
                                                 FROM {{$secondarytable}} s
                                                 JOIN {{$parenttable}} pt ON s.$fk = pt.id
-                                                JOIN {{$grandparenttable}} gpt ON pt.$parentfk = gpt.id
-                                                JOIN {{$table}} p ON p.id = gpt.$grandparentfk
+                                                JOIN {{$grandparenttable}} gpt ON pt.$fk = gpt.id
+                                                JOIN {{$table}} p ON p.id = gpt.$fk
                                                 JOIN {course_modules} cm ON cm.instance = p.id
                                                 AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)";
                                     } else if ($parenttable) {
-                                        $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id
-                                                AS primary_instanceid, cm.id AS cmid
+                                        $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, cm.id AS cmid
                                                 FROM {{$secondarytable}} s
                                                 JOIN {{$parenttable}} pt ON s.$fk = pt.id
-                                                JOIN {{$table}} p ON p.id = pt.$parentfk
+                                                JOIN {{$table}} p ON p.id = pt.$fk
                                                 JOIN {course_modules} cm ON cm.instance = p.id
                                                 AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)";
                                     } else {
-                                        $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, p.id
-                                                AS primary_instanceid, cm.id AS cmid
+                                        $sql = "SELECT DISTINCT s.id AS instanceid, cm.course, cm.id AS cmid
                                                 FROM {{$secondarytable}} s
                                                 JOIN {{$table}} p ON p.id = s.$fk
                                                 JOIN {course_modules} cm ON cm.instance = p.id
@@ -328,135 +285,18 @@ class tagcontent_task extends scheduled_task {
                                     mtrace("Fetched $count records for table $secondarytable at offset $offset");
                                 }
 
-                                if ($count > 0) {
-                                    $firstrecord = reset($records);
-                                    $context = null;
-                                    if (isset($firstrecord->cmid)) {
-                                        $context = \context_module::instance($firstrecord->cmid);
-                                    } else {
-                                        $context = \context_system::instance(); // Fallback.
-                                    }
-                                } else {
-                                    $context = \context_system::instance(); // Fallback for no records.
-                                }
-
                                 foreach ($records as $record) {
                                     if (!isset($record->instanceid)) {
                                         if (defined('CLI_SCRIPT')) {
-                                            mtrace(
-                                                "Error: Secondary record missing instanceid for table $secondarytable: " .
-                                                json_encode($record)
-                                            );
+                                            mtrace("Error: Secondary record missing instanceid for table $secondarytable");
                                         }
                                         continue;
                                     }
-                                    $instanceid = $record->instanceid;
-
+                                    $context = \context_module::instance($record->cmid);
                                     foreach ($secondaryfields as $field) {
-                                        if ($secondarytable === 'question') {
-                                            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id
-                                                    AS primary_instanceid, cm.id AS cmid
-                                                    FROM {{$secondarytable}} s
-                                                    JOIN {question_versions} qv ON qv.questionid = s.id
-                                                    JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
-                                                    JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
-                                                    JOIN {{$parenttable}} pt ON pt.id = qr.itemid
-                                                    JOIN {{$table}} p ON p.id = pt.quizid
-                                                    JOIN {course_modules} cm ON cm.instance = p.id
-                                                    AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                                    JOIN {context} ctx ON ctx.instanceid = cm.id
-                                                    AND ctx.contextlevel = :contextlevel
-                                                    WHERE s.id = :instanceid
-                                                    AND s.$field IS NOT NULL AND s.$field != ''
-                                                    AND qr.usingcontextid = ctx.id
-                                                    AND qr.component = 'mod_quiz'
-                                                    AND qr.questionarea = 'slot'";
-                                            $params = [
-                                                'modulename' => $table,
-                                                'contextlevel' => CONTEXT_MODULE,
-                                                'instanceid' => $instanceid,
-                                            ];
-                                        } else if ($secondarytable === 'question_answers') {
-                                            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id
-                                                    AS primary_instanceid, cm.id AS cmid
-                                                    FROM {{$secondarytable}} s
-                                                    JOIN {{$parenttable}} pt ON s.question = pt.id
-                                                    JOIN {question_versions} qv ON qv.questionid = pt.id
-                                                    JOIN {question_bank_entries} qbe ON qbe.id = qv.questionbankentryid
-                                                    JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
-                                                    JOIN {{$grandparenttable}} gpt ON gpt.id = qr.itemid
-                                                    JOIN {{$table}} p ON p.id = gpt.quizid
-                                                    JOIN {course_modules} cm ON cm.instance = p.id
-                                                    AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                                    JOIN {context} ctx ON ctx.instanceid = cm.id
-                                                    AND ctx.contextlevel = :contextlevel
-                                                    WHERE s.id = :instanceid
-                                                    AND s.$field IS NOT NULL AND s.$field != ''
-                                                    AND qr.usingcontextid = ctx.id
-                                                    AND qr.component = 'mod_quiz'
-                                                    AND qr.questionarea = 'slot'";
-                                            $params = [
-                                                'modulename' => $table,
-                                                'contextlevel' => CONTEXT_MODULE,
-                                                'instanceid' => $instanceid,
-                                            ];
-                                        } else if ($secondarytable === 'question_categories') {
-                                            $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id
-                                                    AS primary_instanceid, cm.id AS cmid
-                                                    FROM {{$secondarytable}} s
-                                                    JOIN {question_bank_entries} qbe ON qbe.questioncategoryid = s.id
-                                                    JOIN {question_references} qr ON qr.questionbankentryid = qbe.id
-                                                    JOIN {{$grandparenttable}} gpt ON gpt.id = qr.itemid
-                                                    JOIN {{$table}} p ON p.id = gpt.quizid
-                                                    JOIN {course_modules} cm ON cm.instance = p.id
-                                                    AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                                    JOIN {context} ctx ON ctx.instanceid = cm.id
-                                                    AND ctx.contextlevel = :contextlevel
-                                                    WHERE s.id = :instanceid
-                                                    AND s.$field IS NOT NULL AND s.$field != ''
-                                                    AND qr.usingcontextid = ctx.id
-                                                    AND qr.component = 'mod_quiz'
-                                                    AND qr.questionarea = 'slot'";
-                                            $params = [
-                                                'modulename' => $table,
-                                                'contextlevel' => CONTEXT_MODULE,
-                                                'instanceid' => $instanceid,
-                                            ];
-                                        } else {
-                                            if ($grandparenttable) {
-                                                $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id
-                                                        AS primary_instanceid, cm.id AS cmid
-                                                        FROM {{$secondarytable}} s
-                                                        JOIN {{$parenttable}} pt ON s.$fk = pt.id
-                                                        JOIN {{$grandparenttable}} gpt ON pt.$parentfk = gpt.id
-                                                        JOIN {{$table}} p ON p.id = gpt.$grandparentfk
-                                                        JOIN {course_modules} cm ON cm.instance = p.id
-                                                        AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                                        WHERE s.id = :instanceid
-                                                        AND s.$field IS NOT NULL AND s.$field != ''";
-                                            } else if ($parenttable) {
-                                                $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id
-                                                        AS primary_instanceid, cm.id AS cmid
-                                                        FROM {{$secondarytable}} s
-                                                        JOIN {{$parenttable}} pt ON s.$fk = pt.id
-                                                        JOIN {{$table}} p ON p.id = pt.$parentfk
-                                                        JOIN {course_modules} cm ON cm.instance = p.id
-                                                        AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                                        WHERE s.id = :instanceid
-                                                        AND s.$field IS NOT NULL AND s.$field != ''";
-                                            } else {
-                                                $sql = "SELECT s.id AS instanceid, s.$field AS content, cm.course, p.id
-                                                        AS primary_instanceid, cm.id AS cmid
-                                                        FROM {{$secondarytable}} s
-                                                        JOIN {{$table}} p ON p.id = s.$fk
-                                                        JOIN {course_modules} cm ON cm.instance = p.id
-                                                        AND cm.module = (SELECT id FROM {modules} WHERE name = :modulename)
-                                                        WHERE s.id = :instanceid
-                                                        AND s.$field IS NOT NULL AND s.$field != ''";
-                                            }
-                                            $params = ['modulename' => $table, 'instanceid' => $instanceid];
-                                        }
-
+                                        $sql = str_replace("DISTINCT s.id AS instanceid", "s.id AS instanceid, s.$field AS content", $sql) .
+                                            " WHERE s.id = :instanceid AND s.$field IS NOT NULL AND s.$field != ''";
+                                        $params['instanceid'] = $record->instanceid;
                                         $fieldrecord = $DB->get_record_sql($sql, $params);
                                         if (!$fieldrecord) {
                                             continue;
@@ -466,15 +306,6 @@ class tagcontent_task extends scheduled_task {
                                         unset($fieldrecord->instanceid);
                                         $fieldrecord->$field = $fieldrecord->content;
                                         unset($fieldrecord->content);
-                                        if (!isset($fieldrecord->id)) {
-                                            if (defined('CLI_SCRIPT')) {
-                                                mtrace(
-                                                    "Error: Secondary record missing id field after " .
-                                                    "renaming for table $secondarytable, field $field"
-                                                );
-                                            }
-                                            continue;
-                                        }
                                         $updated = $taggingservice->tag_content(
                                             $secondarytable,
                                             $fieldrecord,
@@ -482,20 +313,8 @@ class tagcontent_task extends scheduled_task {
                                             $context,
                                             $fieldrecord->course
                                         );
-                                        if ($updated) {
-                                            if (defined('CLI_SCRIPT')) {
-                                                mtrace(
-                                                    "Tagged content in table $secondarytable, " .
-                                                    "field $field, instanceid {$fieldrecord->id}: " .
-                                                    substr($fieldrecord->$field, 0, 50) . "..."
-                                                );
-                                            }
-                                            $taggingservice->mark_translations_for_revision(
-                                                $secondarytable,
-                                                $fieldrecord->id,
-                                                [$field],
-                                                $context
-                                            );
+                                        if ($updated && defined('CLI_SCRIPT')) {
+                                            mtrace("Tagged content in table $secondarytable, field $field, id {$fieldrecord->id}");
                                         }
                                     }
                                 }
@@ -503,7 +322,7 @@ class tagcontent_task extends scheduled_task {
                                 $offset += $batchsize;
                             } catch (\dml_exception $e) {
                                 if (defined('CLI_SCRIPT')) {
-                                    mtrace("Error executing query for table $secondarytable: " . $e->getMessage());
+                                    mtrace("Error for table $secondarytable: " . $e->getMessage());
                                 }
                                 break;
                             }

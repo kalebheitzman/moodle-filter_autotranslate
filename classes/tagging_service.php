@@ -26,6 +26,7 @@ namespace filter_autotranslate;
 defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->dirroot . '/filter/autotranslate/classes/helper.php');
+require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_service.php');
 
 /**
  * Service class for handling tagging-related database operations in the filter_autotranslate plugin.
@@ -37,12 +38,91 @@ class tagging_service {
     private $db;
 
     /**
+     * @var translation_service
+     */
+    private $translationservice;
+
+    /**
      * Constructor for the tagging_service class.
      *
      * @param \moodle_database $db The database object.
      */
     public function __construct(\moodle_database $db) {
         $this->db = $db;
+        $this->translationservice = new translation_service($db);
+    }
+
+    /**
+     * Tags content and stores it in the database, reusing existing hashes and rewriting URLs.
+     *
+     * This method handles tagging, hash reuse, URL rewriting, and source text storage in a single
+     * reusable function for both text_filter.php and tagcontent_task.php.
+     *
+     * @param string $content The content to tag.
+     * @param \context $context The context object for tagging.
+     * @param int $courseid The course ID for hash-course mapping.
+     * @return string The tagged content with {t:hash}.
+     */
+    public function tag_and_store_content($content, $context, $courseid) {
+        $trimmedcontent = trim($content);
+        if (empty($trimmedcontent) || is_numeric($trimmedcontent)) {
+            return $content;
+        }
+
+        // Process MLang tags if present.
+        $mlangresult = helper::process_mlang_tags($trimmedcontent, $context);
+        $sourcetext = $mlangresult['source_text'];
+        $displaytext = $mlangresult['display_text'];
+        $translations = $mlangresult['translations'];
+
+        if (empty($sourcetext)) {
+            $sourcetext = $trimmedcontent;
+            $displaytext = $trimmedcontent;
+        }
+
+        // Check if content is already tagged and extract hash.
+        $hash = helper::extract_hash($content);
+        if ($hash) {
+            // If tagged, ensure source text exists or restore it.
+            $this->restore_missing_source_text($hash, $sourcetext, $context, $courseid);
+            $taggedcontent = $displaytext . " {t:$hash}";
+            $this->update_hash_course_mapping($taggedcontent, $courseid);
+            return $taggedcontent;
+        }
+
+        // Check for existing hash based on source text.
+        $existing = $this->db->get_record_sql(
+            "SELECT hash FROM {filter_autotranslate_translations} WHERE lang = :lang AND " .
+            $this->db->sql_compare_text('translated_text') . " = " . $this->db->sql_compare_text(':text'),
+            ['lang' => 'other', 'text' => $sourcetext],
+            IGNORE_MULTIPLE
+        );
+        $hash = $existing ? $existing->hash : helper::generate_unique_hash();
+
+        // Rewrite URLs in source text and translations.
+        $sourcetext = $this->translationservice->rewrite_pluginfile_urls($sourcetext, $context, $hash);
+        foreach ($translations as $lang => $text) {
+            $translations[$lang] = $this->translationservice->rewrite_pluginfile_urls($text, $context, $hash);
+        }
+
+        // Store or update source text and translations in the database.
+        $transaction = $this->db->start_delegated_transaction();
+        try {
+            // Pass the context for precise URL rewriting.
+            $this->translationservice->store_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
+            foreach ($translations as $lang => $translatedtext) {
+                $this->translationservice->store_translation($hash, $lang, $translatedtext, $context->contextlevel, $courseid, $context);
+            }
+            $taggedcontent = $displaytext . " {t:$hash}";
+            $this->update_hash_course_mapping($taggedcontent, $courseid);
+            $transaction->allow_commit();
+        } catch (\Exception $e) {
+            $transaction->rollback($e);
+            debugging("Failed to tag content for hash '$hash': " . $e->getMessage(), DEBUG_DEVELOPER);
+            return $content;
+        }
+
+        return $taggedcontent;
     }
 
     /**
@@ -63,67 +143,11 @@ class tagging_service {
             }
 
             $content = $record->$field;
-            if (helper::is_tagged($content)) {
-                // Update hash-course mapping and source translation for already tagged content.
-                $this->update_hash_course_mapping($content, $courseid, 'other');
-                $this->create_or_update_source_translation($content, $context->contextlevel);
-                continue;
+            $taggedcontent = $this->tag_and_store_content($content, $context, $courseid);
+            if ($taggedcontent !== $content) {
+                $record->$field = $taggedcontent;
+                $updated = true;
             }
-
-            $mlangresult = helper::process_mlang_tags($content, $context);
-            $sourcetext = $mlangresult['source_text'];
-            $displaytext = $mlangresult['display_text'];
-            $translations = $mlangresult['translations'];
-
-            if (!empty($sourcetext)) {
-                $params = ['lang' => 'other', 'text' => $sourcetext];
-                $sql = "SELECT hash FROM {filter_autotranslate_translations} WHERE lang = :lang
-                        AND " . $this->db->sql_compare_text('translated_text') . " = " . $this->db->sql_compare_text(':text');
-                $existing = $this->db->get_record_sql($sql, $params, IGNORE_MULTIPLE);
-
-                $hash = $existing ? $existing->hash : helper::generate_unique_hash();
-
-                if (!$existing) {
-                    $sourcetext = $this->rewrite_pluginfile_urls($sourcetext, $context, $table, $field, $record->id);
-                    $recorddata = new \stdClass();
-                    $recorddata->hash = $hash;
-                    $recorddata->lang = 'other';
-                    $recorddata->translated_text = $sourcetext;
-                    $recorddata->contextlevel = $context->contextlevel;
-                    $recorddata->timecreated = time();
-                    $recorddata->timemodified = time();
-                    $recorddata->timereviewed = time();
-                    $recorddata->human = 1;
-                    $this->db->insert_record('filter_autotranslate_translations', $recorddata);
-
-                    foreach ($translations as $lang => $translatedtext) {
-                        $translatedtext = $this->rewrite_pluginfile_urls($translatedtext, $context, $table, $field, $record->id);
-                        $transrecord = new \stdClass();
-                        $transrecord->hash = $hash;
-                        $transrecord->lang = $lang;
-                        $transrecord->translated_text = $translatedtext;
-                        $transrecord->contextlevel = $context->contextlevel;
-                        $transrecord->timecreated = time();
-                        $transrecord->timemodified = time();
-                        $transrecord->timereviewed = time();
-                        $transrecord->human = 1;
-                        $this->db->insert_record('filter_autotranslate_translations', $transrecord);
-                    }
-                }
-
-                $taggedcontent = $displaytext . " {t:$hash}";
-            } else {
-                $taggedcontent = helper::tag_content($content, $context);
-                $hash = helper::extract_hash($taggedcontent);
-                $content = $this->rewrite_pluginfile_urls($content, $context, $table, $field, $record->id);
-                $this->create_or_update_source_translation($taggedcontent, $context->contextlevel);
-            }
-
-            // Only update hid_cids for 'other' language.
-            $this->update_hash_course_mapping($taggedcontent, $courseid, 'other');
-
-            $record->$field = $taggedcontent;
-            $updated = true;
         }
 
         if ($updated) {
@@ -141,12 +165,11 @@ class tagging_service {
      *
      * @param string $content The tagged content (containing the hash).
      * @param int $courseid The course ID to map.
-     * @param string $lang The language of the translation (only 'other' updates hid_cids).
      */
-    public function update_hash_course_mapping($content, $courseid, $lang = 'other') {
+    public function update_hash_course_mapping($content, $courseid) {
         $hash = helper::extract_hash($content);
-        if (!$hash || !$courseid || $lang !== 'other') {
-            return; // Only update hid_cids for 'other' language.
+        if (!$hash || !$courseid) {
+            return;
         }
 
         $exists = $this->db->record_exists('filter_autotranslate_hid_cids', ['hash' => $hash, 'courseid' => $courseid]);
@@ -160,6 +183,30 @@ class tagging_service {
             } catch (\dml_exception $e) {
                 debugging($e->getMessage(), DEBUG_DEVELOPER);
             }
+        }
+    }
+
+    /**
+     * Restores missing source text for an existing hash.
+     *
+     * @param string $hash The hash from the content.
+     * @param string $sourcetext The source text to restore.
+     * @param \context $context The context object for tagging.
+     * @param int $courseid The course ID for hash-course mapping.
+     */
+    public function restore_missing_source_text($hash, $sourcetext, $context, $courseid) {
+        $existing = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => 'other']);
+        if (!$existing) {
+            $sourcetext = $this->translationservice->rewrite_pluginfile_urls($sourcetext, $context, $hash);
+            // Pass the context for precise URL rewriting.
+            $this->translationservice->store_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
+            $this->update_hash_course_mapping("{t:$hash}", $courseid);
+        } else if (trim($existing->translated_text) !== trim($sourcetext)) {
+            $sourcetext = $this->translationservice->rewrite_pluginfile_urls($sourcetext, $context, $hash);
+            $existing->translated_text = $sourcetext;
+            $existing->timemodified = time();
+            $existing->human = 1;
+            $this->translationservice->update_translation($existing);
         }
     }
 
@@ -180,32 +227,7 @@ class tagging_service {
 
         // Extract the source text by removing the {t:hash} tag.
         $sourcetext = preg_replace('/\{t:[a-zA-Z0-9]{10}\}(?:\s*(?:<\/p>)?)?$/s', '', $content);
-
-        // Check if a source translation record already exists.
-        $existing = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => 'other']);
-        $currenttime = time();
-
-        if ($existing) {
-            // Update the existing record.
-            $existing->translated_text = $sourcetext;
-            $existing->contextlevel = $contextlevel;
-            $existing->timemodified = $currenttime;
-            $existing->timereviewed = $existing->timereviewed == 0 ? $currenttime : $existing->timereviewed;
-            $existing->human = 1; // Human-edited, as per observer requirement.
-            $this->db->update_record('filter_autotranslate_translations', $existing);
-        } else {
-            // Create a new record.
-            $record = new \stdClass();
-            $record->hash = $hash;
-            $record->lang = 'other';
-            $record->translated_text = $sourcetext;
-            $record->contextlevel = $contextlevel;
-            $record->timecreated = $currenttime;
-            $record->timemodified = $currenttime;
-            $record->timereviewed = $currenttime;
-            $record->human = 1; // Human-edited, as per observer requirement.
-            $this->db->insert_record('filter_autotranslate_translations', $record);
-        }
+        $this->restore_missing_source_text($hash, $sourcetext, \context::instance_by_id($this->db->get_field('context', 'id', ['contextlevel' => $contextlevel])), 0);
     }
 
     /**
@@ -220,7 +242,6 @@ class tagging_service {
      * @param \context $context The context object for tagging.
      */
     public function mark_translations_for_revision($table, $instanceid, $fields, $context) {
-        // Find all hashes associated with the updated fields.
         $hashes = [];
         $record = $this->db->get_record($table, ['id' => $instanceid], implode(',', $fields));
         foreach ($fields as $field) {
@@ -249,24 +270,5 @@ class tagging_service {
                 AND lang != 'other'";
         $params = array_merge([time(), time()], array_keys($hashes), [$context->contextlevel]);
         $this->db->execute($sql, $params);
-    }
-
-    /**
-     * Rewrites @@PLUGINFILE@@ URLs in content based on the context and table.
-     *
-     * This function determines the correct component, filearea, and itemid for the content
-     * and rewrites @@PLUGINFILE@@ URLs to their proper form before storing the translation.
-     *
-     * TODO: Breaks from manage rebuild translations button
-     *
-     * @param string $content The content to rewrite.
-     * @param \context $context The context object for the content.
-     * @param string $table The table name (e.g., 'course', 'book_chapters').
-     * @param string $field The field name (e.g., 'summary', 'content').
-     * @param int $itemid The item ID (e.g., record ID).
-     * @return string The content with rewritten URLs.
-     */
-    private function rewrite_pluginfile_urls($content, $context, $table, $field, $itemid) {
-        return $content;
     }
 }

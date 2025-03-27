@@ -330,13 +330,15 @@ class fetchtranslation_task extends scheduled_task {
                                 ['hash' => $record->hash, 'lang' => 'other']
                             );
                             $contextlevel = $sourcecontextlevel ?: CONTEXT_COURSE; // Fallback to course if not found.
+                            // Derive context from courseid if available, otherwise null.
+                            $context = $courseid ? \context_course::instance($courseid) : null;
                             $translationservice->store_translation(
                                 $record->hash,
                                 $lang,
                                 $translatedtext,
                                 $contextlevel,
                                 $courseid,
-                                $lang
+                                $context
                             );
                         }
                     }
