@@ -10,11 +10,11 @@ The **Moodle Autotranslate Filter** plugin automatically translates content acro
 
 - **Automatic Translation**: Translates content using your chosen OpenAI-compatible service.
 - **Dynamic Tagging**: Tags content on-the-fly during page rendering, supporting third-party modules without manual configuration, in addition to scheduled task-based tagging.
-- **Human Translation Support**: Allows manual review or correction of translations.
-- **Global Reuse**: Identical text shares translations site-wide for efficiency.
+- **Human Translation Support**: Allows manual review or correction of translations, with a user-friendly interface for editing.
+- **Global Reuse**: Identical text shares translations site-wide for efficiency, ensuring consistency across courses.
 - **Course-Specific Rebuild**: Manually rebuild translations for a specific course using the "Rebuild Translations" button.
 - **Customizable**: Works with any translation service following the OpenAI API specification.
-- **Context Awareness**: Organizes translations by Moodle context (e.g., course, module).
+- **Context Awareness**: Organizes translations by Moodle context (e.g., course, module), with context levels inherited from source text for new translations.
 - **Multilang Processing**: Extracts and stores translations from `<span>` and `{mlang}` multilang tags, replacing them with `{t:hash}` tags.
 - [ ] **Search Integration**: Indexes translations for multilingual search results (work in progress).
 
@@ -57,6 +57,9 @@ Here’s how to use the plugin:
 3. Switch languages using Moodle’s language selector (usually top-right).
 4. Wait up to 30 minutes for translations to appear for content tagged by scheduled tasks (see Scheduled Tasks below). Content tagged dynamically during page loads will be available immediately.
 5. Manually manage translations via the plugin's interface at `/filter/autotranslate/manage.php` (requires appropriate capabilities; see [Permissions and Capabilities](#permissions-and-capabilities) below).
+   - View translations with their source text, translated text, human status, context level, review status, and actions.
+   - Filter by language, human status, review status, and course ID.
+   - Edit translations directly or add new translations for missing languages using the "Add" button in the "Actions" column.
 6. Use the "Rebuild Translations" button on the manage page to manually rebuild translations for a specific course (requires `filter/autotranslate:manage` capability). Note that this may affect dynamically tagged content (see Important Considerations and Risks below).
 
 Teachers can also edit translations within their course contexts for greater control, provided they have the necessary permissions.
@@ -92,7 +95,7 @@ The plugin manages translations through a combination of dynamic tagging, schedu
   - `hash` (VARCHAR(10), not null): A unique 10-character hash representing the source text (e.g., `9UoZ3soJDz`). This hash is embedded in the content as a tag (e.g., `{t:9UoZ3soJDz}`) to mark it for translation.
   - `lang` (VARCHAR(20), not null): The language code for the translation (e.g., `en` for English, `es` for Spanish, `ru` for Russian). The special value `other` represents the source text in the site’s default language.
   - `translated_text` (TEXT, not null): The translated content for the specified language. For `lang = 'other'`, this is the source text; for other languages, this is the translated text.
-  - `contextlevel` (INT(2), not null): The Moodle context level where the string is used (e.g., `10` for System, `50` for Course, `70` for Module). Used for context-based recovery or filtering.
+  - `contextlevel` (INT(2), not null): The Moodle context level where the string is used (e.g., `10` for System, `50` for Course, `70` for Module). Used for context-based recovery or filtering. For target languages, this is inherited from the "other" record.
   - `human` (TINYINT(1), not null, default 0): Flag indicating if the translation was manually edited by a human (`0` = automatic, `1` = manual).
   - `timecreated` (INT(10), not null): Timestamp when the translation record was created.
   - `timemodified` (INT(10), not null): Timestamp when the translation was last modified.
@@ -105,7 +108,7 @@ The plugin manages translations through a combination of dynamic tagging, schedu
   - `timereviewed`: For review tracking.
 
 #### Table: `mdl_filter_autotranslate_hid_cids`
-- **Purpose**: Maps hashes to course IDs to track which courses contain a specific tagged string. This enables the manage page to filter translations by course ID, showing only translations relevant to a specific course.
+- **Purpose**: Maps hashes to course IDs to track which courses contain a specific tagged string. This enables the manage page to filter translations by course ID, showing only translations relevant to a specific course. Only populated for `lang = 'other'` records.
 - **Fields**:
   - `hash` (VARCHAR(10), not null): The hash of the translatable string (e.g., `9UoZ3soJDz`).
   - `courseid` (BIGINT(10), not null): The ID of the course where the string appears (e.g., `5`).
@@ -131,7 +134,7 @@ The plugin tags content with `CONTENT {t:hash}` in two ways:
 
 The plugin processes existing multilang content in both `<span>` and `{mlang}` formats:
 
-- **Extraction**: Extracts translations from `<span>` tags (e.g., `<span lang="es" class="multilang">Hola</span>`) and `{mlang}` tags (e.g., `{mlang es}Hola{mlang}`), storing them in the `mdl_autotranslate_translations` table.
+- **Extraction**: Extracts translations from `<span>` tags (e.g., `<span lang="es" class="multilang">Hola</span>`) and `{mlang}` tags (e.g., `{mlang es}Hola{mlang}`), storing them in the `mdl_filter_autotranslate_translations` table.
 - **Replacement**: Removes the multilang tags and replaces them with a single `{t:hash}` tag, linking to the stored translations.
 - **Destructive Action**: This process is destructive and non-reversible, as the original multilang tags are removed. A future script could potentially restore them, but this is not currently implemented.
 
@@ -164,9 +167,10 @@ Adjust these schedules in the plugin settings if needed. You can also run these 
 
 The plugin provides a management interface at `/filter/autotranslate/manage.php` for administrators to oversee translations:
 
-- **View Translations**: Displays a table of translations with columns for hash, language, translated text, human status, context level, review status, and actions.
+- **View Translations**: Displays a table of translations with columns for hash, language, source text (for target languages), translated text, human status, context level, review status, and actions.
 - **Filter Translations**: Filter by language, human status, review status, and course ID (using `mdl_filter_autotranslate_hid_cids` for course-based filtering).
-- **Edit Translations**: Edit individual translations via a WYSIWYG editor, updating `translated_text`, `human`, and `timereviewed`.
+- **Edit Translations**: Edit individual translations via a WYSIWYG editor (or textarea for non-HTML content), updating `translated_text`, `human`, and `timereviewed`.
+- **Add Translations**: Add new translations for missing languages using the "Add" button in the "Actions" column, which links to `create.php`.
 - **Rebuild Translations**: Manually rebuild translations for a specific course using the "Rebuild Translations" button (requires `filter/autotranslate:manage` capability). This operation is synchronous and redirects with a success message upon completion. Note that this may affect dynamically tagged content (see Important Considerations and Risks below).
 
 ## Integration with Global Search

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2025032601
+
+- **UI Adjustment for Management Interface**: Moved the "Add" button from the "Translated Text" column to the "Actions" column in the target language view on the "Manage Translations" page (`manage.php`), improving user experience by grouping all actions ("Add" and "Edit") together.
+- **Context Level Inheritance for New Translations**: Updated `create.php` and `fetchtranslation_task.php` to set the `contextlevel` of new target language translations to match the source ("other") record, ensuring consistency across languages for the same `hash` (e.g., `contextlevel = 70` for `1tnFRRPSlo`).
+- **Fixed `create.php` Error with Multiple Course Modules**: Resolved the error "Error: mdb->get_record() found more than one record!" in `create.php` by ensuring `get_context_for_hash()` in `translation_service.php` uses `CONTEXT_COURSE` for URL rewriting in target language translations, avoiding ambiguity with multiple course modules while preserving the source `contextlevel` in the translation record.
+- **Context Level Display for Untranslated Entries**: Updated `manage.php` to display the source ("other") record’s `contextlevel` for untranslated entries in target language views, ensuring visibility of the context even when no translation exists (e.g., `contextlevel = 70` for `1tnFRRPSlo` in "es" view).
+
 ## 2025032600
 
 - **Total Rewrite of the Plugin**: Completely overhauled the `filter_autotranslate` plugin to improve functionality, performance, and usability, introducing a new architecture and feature set.

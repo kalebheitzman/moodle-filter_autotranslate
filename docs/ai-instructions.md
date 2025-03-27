@@ -2,9 +2,9 @@
 
 ## Overview
 
-You are Grok, an AI assistant created by xAI, tasked with assisting in the development of the `filter_autotranslate` plugin for Moodle. This plugin automatically tags translatable content in Moodle with `{t:hash}` tags, fetches translations using an external API (Google Generative AI), and replaces the tags with translated text based on the user’s language. The plugin also provides a management interface for administrators to edit translations and manually rebuild translations for specific courses.
+You are Grok, an AI assistant created by xAI, tasked with assisting in the development of the `filter_autotranslate` plugin for Moodle. This plugin automatically tags translatable content in Moodle with `{t:hash}` tags, fetches translations using an external API (Google Generative AI), and replaces the tags with translated text based on the user’s language. The plugin also provides a management interface for administrators to view, edit, and add translations, as well as manually rebuild translations for specific courses. The following sections provide a detailed context of the plugin’s architecture, design decisions, and current state to guide further development.
 
-The plugin has been developed with a focus on separation of concerns, DRY (Don’t Repeat Yourself) principles, and performance optimization. The plugin is designed to be **course-agnostic**, meaning that a phrase (identified by its hash) has the same translation across all instances in Moodle, regardless of the course or context where it appears. The current implementation includes tagging, translation fetching, filtering, a management interface, scheduled tasks for tagging and translation fetching, and a manual rebuild feature for course-specific translations. The following sections provide a detailed context of the plugin’s architecture, design decisions, and current state to guide further development.
+The plugin has been developed with a focus on separation of concerns, DRY (Don’t Repeat Yourself) principles, and performance optimization. The plugin is designed to be **course-agnostic**, meaning that a phrase (identified by its hash) has the same translation across all instances in Moodle, regardless of the course or context where it appears. The current implementation includes tagging, translation fetching, filtering, a management interface with add/edit functionality, scheduled tasks for tagging and translation fetching, and a manual rebuild feature for course-specific translations.
 
 ## Plugin Purpose and Functionality
 
@@ -12,14 +12,14 @@ The plugin has been developed with a focus on separation of concerns, DRY (Don�
   - Tagging translatable text with `{t:hash}` tags.
   - Fetching translations for tagged content using an external API (Google Generative AI).
   - Replacing tags with translations based on the user’s language during content display.
-  - Providing a management interface for administrators to edit translations.
+  - Providing a management interface for administrators to view, filter, edit, and add translations.
   - Allowing manual rebuilding of translations for a specific course via a "Rebuild Translations" button.
 - **Key Features**:
   - **Tagging**: Tags content in configured tables and fields with `{t:hash}` tags, reusing hashes for identical strings across all courses. The `text_filter` also dynamically tags content during page rendering, supporting third-party modules without manual configuration.
   - **Translation Fetching**: Fetches translations for tagged content using the Google Generative AI API.
   - **Filtering**: Replaces `{t:hash}` tags with translations during content display, falling back to the source text if no translation exists.
-  - **Management Interface**: Allows admins to view, filter, and edit translations, with course-based filtering for easier management. Includes a "Rebuild Translations" button to manually rebuild translations for a specific course.
-  - **Course-Specific Rebuild**: Provides a utility class to rebuild translations for a specific course, triggered via the management interface or CLI.
+  - **Management Interface**: Allows admins to view, filter, and edit translations, with course-based filtering for easier management. Includes a "Rebuild Translations" button to manually rebuild translations for a specific course, and an "Add" button in the "Actions" column to create new translations for missing languages.
+  - **Course-Specific Rebuild**: Provides a utility class to rebuild translations for a specific course, triggered from the management interface or CLI.
 
 ## Architecture and Design Principles
 
@@ -41,7 +41,7 @@ The plugin follows these design principles:
   - The course-specific rebuild (`rebuild_course_translations.php`) processes content in batches (default: 20 per run, configurable via `managelimit`).
 - **Course-Agnostic Design**:
   - Translations are stored in `filter_autotranslate_translations` and are reused across all courses and contexts, identified by a unique hash.
-  - The `filter_autotranslate_hid_cids` table maps hashes to course IDs for filtering on the manage page, but does not affect translation storage or retrieval.
+  - The `filter_autotranslate_hid_cids` table maps hashes to course IDs for filtering on the manage page, but does not affect translation storage or retrieval. It is only populated for `lang = 'other'` records.
 - **Naming Conventions**:
   - Function names use `snake_case` (e.g., `tag_content`, `is_rtl_language`).
   - File names use `snake_case` (e.g., `tagging_service.php`).
@@ -57,7 +57,7 @@ The plugin follows these design principles:
   - `hash` (char, length 10, not null): A unique 10-character hash representing the source text (e.g., `9UoZ3soJDz`). This hash is embedded in the content as a tag (e.g., `{t:9UoZ3soJDz}`) to mark it for translation.
   - `lang` (char, length 20, not null): The language code for the translation (e.g., `en` for English, `es` for Spanish, `ru` for Russian). The special value `other` represents the source text in the site’s default language.
   - `translated_text` (text, not null): The translated content for the specified language. For `lang = 'other'`, this is the source text; for other languages, this is the translated text.
-  - `contextlevel` (int, length 2, not null): The Moodle context level where the string is used (e.g., `10` for System, `50` for Course, `70` for Module). Used for context-based recovery or filtering.
+  - `contextlevel` (int, length 2, not null): The Moodle context level where the string is used (e.g., `10` for System, `50` for Course, `70` for Module). For target languages, this is inherited from the "other" record.
   - `human` (int, length 1, not null, default 0): Flag indicating if the translation was manually edited by a human (`0` = automatic, `1` = manual).
   - `timecreated` (int, length 10, not null): Timestamp when the translation record was created.
   - `timemodified` (int, length 10, not null): Timestamp when the translation was last modified.
@@ -70,7 +70,7 @@ The plugin follows these design principles:
   - `timereviewed`: For review tracking.
 
 #### Table: `mdl_filter_autotranslate_hid_cids`
-- **Purpose**: Maps hashes to course IDs to track which courses contain a specific tagged string. This enables the manage page to filter translations by course ID, showing only translations relevant to a specific course.
+- **Purpose**: Maps hashes to course IDs to track which courses contain a specific tagged string. This enables the manage page to filter translations by course ID, showing only translations relevant to a specific course. Only populated for `lang = 'other'` records.
 - **Fields**:
   - `hash` (char, length 10, not null): The hash of the translatable string (e.g., `9UoZ3soJDz`).
   - `courseid` (int, length 10, not null): The ID of the course where the string appears (e.g., `5`).
@@ -87,15 +87,15 @@ The plugin follows these design principles:
 1. **Logic Files**:
    - **`helper.php`**: Pure utility functions (e.g., `generate_unique_hash`, `is_tagged`, `extract_hash`, `process_mlang_tags`, `is_rtl_language`).
    - **`tagging_manager.php`**: Coordinates tagging logic, fetching fields to tag and processing secondary tables.
-   - **`tagging_service.php`**: Handles tagging-related database operations (e.g., `tag_content`, `update_hash_course_mapping`).
+   - **`tagging_service.php`**: Handles tagging-related database operations (e.g., `tag_content`, `update_hash_course_mapping`). Ensures `hid_cids` is only updated for `lang = 'other'`.
    - **`translation_repository.php`**: Read-only database access for translations (e.g., `get_translation`, `get_source_text`).
    - **`translation_manager.php`**: Coordinates translation management (e.g., `get_paginated_translations`, `update_human_status`).
-   - **`translation_service.php`**: Handles translation-related database operations (e.g., `update_translation`, `store_translation`).
+   - **`translation_service.php`**: Handles translation-related database operations (e.g., `update_translation`, `store_translation`). Uses `CONTEXT_COURSE` for URL rewriting in target languages to avoid module context ambiguity.
    - **`rebuild_course_translations.php`**: Utility class to rebuild translations for a specific course, triggered via the "Rebuild Translations" button or CLI. Located in `/filter/autotranslate/classes/`.
 
 2. **Tasks**:
    - **`tagcontent_task.php`**: Scheduled task that tags content in configured tables and fields, processing primary and secondary tables in batches. Can trigger course-specific rebuilds via CLI.
-   - **`fetchtranslation_task.php`**: Scheduled task that fetches translations from the Google Generative AI API for untagged content.
+   - **`fetchtranslation_task.php`**: Scheduled task that fetches translations from the Google Generative AI API for untagged content. Sets `contextlevel` of new translations to match the source ("other") record.
 
 3. **Filter**:
    - **`text_filter.php`**: Replaces `{t:hash}` tags with translations based on the user’s language, using `translation_repository.php` for read-only access. Additionally, it dynamically tags untagged content during page rendering, processes MLang tags, and stores the tagged content in the database (`mdl_filter_autotranslate_translations`, `mdl_filter_autotranslate_hid_cids`) and cache (`taggedcontent`). This allows the filter to handle content from third-party modules without requiring manual configuration in `tagging_config.php`, ensuring broader compatibility and flexibility.
@@ -105,12 +105,15 @@ The plugin follows these design principles:
    - **`settings.php`**: Admin settings for API configuration, translation settings, task configuration, and tagging options (e.g., `tagging_config` multicheckbox defaults to `course`, `course_sections`, `page`, `assign`, `forum`, `quiz`, `resource`, `folder`).
 
 5. **Management Interface**:
-   - **`manage.php`**: Displays a table of translations with filtering, pagination, and sorting, linking to `edit.php` for editing. Includes a "Rebuild Translations" button to trigger course-specific rebuilds.
+   - **`manage.php`**: Displays a table of translations with filtering, pagination, and sorting, linking to `edit.php` for editing and `create.php` for adding new translations. Includes a "Rebuild Translations" button to trigger course-specific rebuilds. Shows source text and inherited `contextlevel` for untranslated entries in target language views.
    - **`manage_form.php`**: Filter form for `manage.php`, allowing filtering by language, human status, review status, records per page, and course.
-   - **`manage.mustache`**: Template for rendering the manage page table, including the "Rebuild Translations" button.
+   - **`manage.mustache`**: Template for rendering the manage page table, including the "Rebuild Translations" button. Places "Add" and "Edit" buttons in the "Actions" column.
    - **`edit.php`**: Allows editing a specific translation, updating `translated_text`, `human`, and `timereviewed`.
-   - **`edit_form.php`**: Form for editing a translation, with a WYSIWYG editor for HTML content.
+   - **`edit_form.php`**: Form for editing a translation, with a WYSIWYG editor for HTML content or a textarea for plain text, based on the source text’s content.
    - **`edit.mustache`**: Template for rendering the edit page, showing the form and source text side by side.
+   - **`create.php`**: Allows adding a new translation for a specific hash and language, setting the `contextlevel` to match the source ("other") record.
+   - **`create_form.php`**: Form for adding a new translation, with a WYSIWYG editor or textarea based on the source text’s content.
+   - **`create.mustache`**: Template for rendering the create page, showing the form and source text side by side.
 
 ### Design Decisions
 
@@ -126,18 +129,33 @@ The plugin follows these design principles:
   - Uses `filter_autotranslate_hid_cids` to allow course-based filtering, helping admins identify phrases used in a specific course.
   - Prevents editing of the `other` (site language) record, requiring updates through normal Moodle workflows.
   - Includes a "Rebuild Translations" button to manually rebuild translations for a specific course, implemented as a synchronous operation with a redirect and success notification.
+  - Places "Add" and "Edit" buttons in the "Actions" column for a consistent user experience.
+  - Displays the source record’s `contextlevel` for untranslated entries in target language views, ensuring visibility of the context even when no translation exists.
 - **Course-Specific Rebuild**:
   - Implemented in `rebuild_course_translations.php`, located in `/filter/autotranslate/classes/`.
   - Triggered via the "Rebuild Translations" button in `manage.php` or via CLI through `tagcontent_task.php`.
   - Uses `debugging()` for logging instead of `mtrace()`, respecting Moodle’s debugging settings for output control.
   - Processes content in batches (default: 20 per run, configurable via `managelimit`).
+- **Context Level Handling**:
+  - New translations inherit the `contextlevel` from the source ("other") record, ensuring consistency across languages for the same `hash`.
+  - For URL rewriting in target language translations, `get_context_for_hash()` uses `CONTEXT_COURSE` to avoid ambiguity with multiple course modules, while preserving the source `contextlevel` in the translation record.
 
 ### Current State and Known Issues
 
-- **Tagging Delay**: Content is tagged by `tagcontent_task.php` on a schedule (default: every 15 minutes, configurable via `taskfrequency`), which may delay translations becoming available for content in configured tables. However, the `text_filter` dynamically tags content during page rendering, ensuring that untagged content (including from third-party modules) is tagged immediately upon viewing. Admins can reduce `taskfrequency` or use `enablemanualtrigger` to run the task manually for faster tagging of configured content.
+- **Tagging Delay**: Content in configured tables is tagged by `tagcontent_task.php` on a schedule (default: every 15 minutes, configurable via `taskfrequency`), which may delay translations becoming available for such content. However, the `text_filter` dynamically tags content during page rendering, ensuring immediate availability for viewed content, including from third-party modules. Admins can reduce `taskfrequency` or use `enablemanualtrigger` to run the task manually for faster tagging of configured content.
 - **Dynamic Content Handling**: The `text_filter` dynamically tags content during page loads, but this tagged content is not persisted in the source tables (e.g., third-party module tables). When rebuilding translations via `rebuild_course_translations.php`, dynamic content not in `tagging_config.php` is not reprocessed, requiring a page visit to re-tag it. This can lead to temporary loss of dynamic content tagging until the content is viewed again.
 - **Stale Translations**: The plugin does not currently handle stale translations (e.g., when source text changes, translations are not automatically marked for re-translation).
 - **Testing**: Unit tests are not implemented, which could help ensure the plugin’s reliability.
+- **Context Level for Existing Translations**: Some existing translations may have incorrect `contextlevel` values due to previous hardcoded settings (e.g., 10 instead of 50). A one-time SQL update has been provided to fix this:
+  <code>
+  UPDATE mdl_filter_autotranslate_translations t_target
+  JOIN mdl_filter_autotranslate_translations t_other
+      ON t_target.hash = t_other.hash
+  SET t_target.contextlevel = t_other.contextlevel
+  WHERE t_target.lang != 'other'
+    AND t_other.lang = 'other'
+    AND t_target.contextlevel != t_other.contextlevel;
+  </code>
 
 ### Guidance for Future Development
 
@@ -151,11 +169,11 @@ The plugin follows these design principles:
    - Consider persisting dynamically tagged content (e.g., from third-party modules) in a separate table or the source tables to ensure it’s not lost during a rebuild. This would allow `rebuild_course_translations.php` to reprocess dynamic content without requiring page visits.
 4. **Management Interface Enhancements**:
    - Add bulk actions to `manage.php` (e.g., bulk mark as human-edited, bulk delete).
-   - Add validation for HTML content in `edit_form.php` to ensure safe input.
+   - Add validation for HTML content in `edit_form.php` and `create_form.php` to ensure safe input.
    - Consider adding an asynchronous option for the "Rebuild Translations" button to improve user experience for large courses.
 5. **Documentation**:
-   - Create a README or user guide for the plugin, explaining its features, configuration, and usage for admins and developers, including the dynamic tagging behavior of the `text_filter`.
-   - Document the "Rebuild Translations" feature, including its synchronous nature, how to trigger it via CLI, and its impact on dynamically tagged content.
+   - The `README.md` has been updated to reflect the current state, including the "Add" button in the "Actions" column, context level inheritance, and dynamic content handling during rebuilds.
+   - Document any new features or changes in both `README.md` and this `ai-instructions.md` file to maintain a comprehensive record.
 
 ### Instructions for Development
 
@@ -167,3 +185,4 @@ The plugin follows these design principles:
 - If adding new utility functions, place them in `helper.php`.
 - If adding new scheduled tasks, define them in `db/tasks.php` with appropriate documentation and place them in `/filter/autotranslate/classes/task/`.
 - If adding new utility classes, place them in `/filter/autotranslate/classes/` or a subdirectory like `/filter/autotranslate/classes/service/` if they provide a specific service.
+- Periodically remind the user to update `README.md` and `ai-instructions.md` to ensure documentation stays current with the plugin’s state.
