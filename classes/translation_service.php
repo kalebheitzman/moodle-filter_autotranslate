@@ -23,10 +23,7 @@
  */
 namespace filter_autotranslate;
 
-// Is this correct?
-require_once(__DIR__ . '/../../../config.php');
-require_login();
-
+defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/filelib.php');
 
 /**
