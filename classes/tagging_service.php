@@ -29,38 +29,17 @@ require_once($CFG->dirroot . '/filter/autotranslate/classes/helper.php');
 
 /**
  * Service class for handling tagging-related database operations in the filter_autotranslate plugin.
- *
- * Purpose:
- * This class encapsulates all database operations related to tagging content with {t:hash} tags,
- * ensuring a clear separation of concerns. It is used by tagcontent_task.php and observer.php to
- * tag content, store hash-course mappings, and manage source translations in the database.
- *
- * Design Decisions:
- * - Focuses on database operations only, adhering to the principle of separation of concerns.
- *   Coordination logic is handled by tagging_manager.php, and utility functions are in helper.php.
- * - Function names use snake_case (e.g., tag_content) to follow Moodle's coding style.
- * - The tag_content function handles MLang tags by processing them via helper.php and storing
- *   the resulting translations in filter_autotranslate_translations.
- * - Ensures hashes are reused for identical strings (after trimming) to limit database growth.
- * - Rewrites @@PLUGINFILE@@ URLs in the source text and translations before storing them in
- *   filter_autotranslate_translations, ensuring the stored text has fully resolved URLs and eliminating
- *   the need for rewriting at display time.
- *
- * Dependencies:
- * - helper.php: Provides utility functions for tag detection, hash extraction, and MLang tag processing.
  */
 class tagging_service {
     /**
-     * The Moodle database instance.
-     *
      * @var \moodle_database
      */
     private $db;
 
     /**
-     * Constructor for the tagging service.
+     * Constructor for the tagging_service class.
      *
-     * @param \moodle_database $db The Moodle database instance.
+     * @param \moodle_database $db The database object.
      */
     public function __construct(\moodle_database $db) {
         $this->db = $db;
@@ -68,10 +47,6 @@ class tagging_service {
 
     /**
      * Tags content in a record and updates the database.
-     *
-     * This function processes each field in the record, tagging untagged content with {t:hash} tags,
-     * storing the source text and translations in filter_autotranslate_translations, and associating the
-     * hash with a course ID in filter_autotranslate_hid_cids. It also marks translations for revision if needed.
      *
      * @param string $table The table name (e.g., 'course', 'book_chapters').
      * @param object $record The record object containing the fields to tag.
@@ -90,19 +65,17 @@ class tagging_service {
             $content = $record->$field;
             if (helper::is_tagged($content)) {
                 // Update hash-course mapping and source translation for already tagged content.
-                $this->update_hash_course_mapping($content, $courseid);
+                $this->update_hash_course_mapping($content, $courseid, 'other');
                 $this->create_or_update_source_translation($content, $context->contextlevel);
                 continue;
             }
 
-            // Process MLang tags if present.
             $mlangresult = helper::process_mlang_tags($content, $context);
             $sourcetext = $mlangresult['source_text'];
             $displaytext = $mlangresult['display_text'];
             $translations = $mlangresult['translations'];
 
             if (!empty($sourcetext)) {
-                // Check if the source text already has a hash.
                 $params = ['lang' => 'other', 'text' => $sourcetext];
                 $sql = "SELECT hash FROM {filter_autotranslate_translations} WHERE lang = :lang
                         AND " . $this->db->sql_compare_text('translated_text') . " = " . $this->db->sql_compare_text(':text');
@@ -111,10 +84,7 @@ class tagging_service {
                 $hash = $existing ? $existing->hash : helper::generate_unique_hash();
 
                 if (!$existing) {
-                    // Rewrite @@PLUGINFILE@@ URLs in the source text before storing.
                     $sourcetext = $this->rewrite_pluginfile_urls($sourcetext, $context, $table, $field, $record->id);
-
-                    // Store the source text.
                     $recorddata = new \stdClass();
                     $recorddata->hash = $hash;
                     $recorddata->lang = 'other';
@@ -126,7 +96,6 @@ class tagging_service {
                     $recorddata->human = 1;
                     $this->db->insert_record('filter_autotranslate_translations', $recorddata);
 
-                    // Rewrite @@PLUGINFILE@@ URLs in translations before storing.
                     foreach ($translations as $lang => $translatedtext) {
                         $translatedtext = $this->rewrite_pluginfile_urls($translatedtext, $context, $table, $field, $record->id);
                         $transrecord = new \stdClass();
@@ -144,19 +113,15 @@ class tagging_service {
 
                 $taggedcontent = $displaytext . " {t:$hash}";
             } else {
-                // No MLang tags, tag the content directly.
                 $taggedcontent = helper::tag_content($content, $context);
                 $hash = helper::extract_hash($taggedcontent);
-
-                // Rewrite @@PLUGINFILE@@ URLs in the source text before storing.
                 $content = $this->rewrite_pluginfile_urls($content, $context, $table, $field, $record->id);
                 $this->create_or_update_source_translation($taggedcontent, $context->contextlevel);
             }
 
-            // Update the hash-course mapping.
-            $this->update_hash_course_mapping($taggedcontent, $courseid);
+            // Only update hid_cids for 'other' language.
+            $this->update_hash_course_mapping($taggedcontent, $courseid, 'other');
 
-            // Update the record field with the tagged content.
             $record->$field = $taggedcontent;
             $updated = true;
         }
@@ -165,8 +130,6 @@ class tagging_service {
             $record->timemodified = time();
             $this->db->update_record($table, $record);
             $context->mark_dirty();
-
-            // Mark translations for revision.
             $this->mark_translations_for_revision($table, $record->id, $fields, $context);
         }
 
@@ -176,23 +139,24 @@ class tagging_service {
     /**
      * Updates the filter_autotranslate_hid_cids table with the hash and courseid mapping.
      *
-     * This function stores the mapping between a hash and a course ID in filter_autotranslate_hid_cids,
-     * allowing translations to be filtered by course on the manage page.
-     *
      * @param string $content The tagged content (containing the hash).
      * @param int $courseid The course ID to map.
+     * @param string $lang The language of the translation (only 'other' updates hid_cids).
      */
-    public function update_hash_course_mapping($content, $courseid) {
+    public function update_hash_course_mapping($content, $courseid, $lang = 'other') {
         $hash = helper::extract_hash($content);
-        if (!$hash || !$courseid) {
-            return;
+        if (!$hash || !$courseid || $lang !== 'other') {
+            return; // Only update hid_cids for 'other' language.
         }
 
         $exists = $this->db->record_exists('filter_autotranslate_hid_cids', ['hash' => $hash, 'courseid' => $courseid]);
         if (!$exists) {
             try {
-                $this->db->execute("INSERT INTO {filter_autotranslate_hid_cids} (hash, courseid) VALUES (?, ?)
-                            ON DUPLICATE KEY UPDATE hash = hash", [$hash, $courseid]);
+                $this->db->execute(
+                    "INSERT INTO {filter_autotranslate_hid_cids} (hash, courseid) VALUES (?, ?)
+                     ON DUPLICATE KEY UPDATE hash = hash",
+                    [$hash, $courseid]
+                );
             } catch (\dml_exception $e) {
                 debugging($e->getMessage(), DEBUG_DEVELOPER);
             }

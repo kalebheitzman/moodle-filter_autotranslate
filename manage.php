@@ -22,28 +22,8 @@
  * translations stored in the filter_autotranslate_translations table. It allows administrators to filter
  * translations by language, human status, review status, and records per page, with support for
  * pagination, sorting, and editing individual translations. The page also handles right-to-left (RTL)
- * languages for proper text alignment.
- *
- * Design Decisions:
- * - Uses Moodle's standard page setup (require_login, context_system, set_url) to ensure proper
- *   integration with Moodle's framework.
- * - Leverages translation_manager and translation_repository classes for database operations,
- *   maintaining separation of concerns.
- * - Implements filtering via manage_form.php, which renders a form with filter buttons for language,
- *   human status, review status, and records per page.
- * - Supports RTL languages by applying dir="rtl" and right-aligned text for translated text in the
- *   Mustache template, using helper::is_rtl_language().
- * - Uses Moodle's paging_bar for pagination, ensuring a consistent user experience.
- * - URLs are rewritten at storage time (in tagging_service.php and translation_service.php), so
- *   no additional URL rewriting is performed here; text is formatted using format_text().
- * - Error handling is implemented with a try-catch block to catch and log unexpected errors.
- *
- * Dependencies:
- * - translation_manager.php: For fetching paginated translations.
- * - translation_repository.php: For database operations related to translations.
- * - helper.php: For utility functions like map_language_to_other() and is_rtl_language().
- * - manage_form.php: For rendering the filter form.
- * - manage.mustache: For rendering the table of translations.
+ * languages for proper text alignment. When a target language is selected, it shows all 'other' translations
+ * with an option to add missing translations.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -97,13 +77,10 @@ try {
 
     // Handle rebuild translations action.
     if ($action === 'rebuild' && $courseid > 0) {
-        require_once($CFG->dirroot . '/filter/autotranslate/classes/rebuild_course_translations.php'); // Include the new class.
+        require_once($CFG->dirroot . '/filter/autotranslate/classes/rebuild_course_translations.php');
         $rebuilder = new \filter_autotranslate\rebuild_course_translations();
-        // Clear existing mappings for this course to ensure a fresh rebuild.
         $DB->delete_records('filter_autotranslate_hid_cids', ['courseid' => $courseid]);
-        // Execute the rebuild process for the specified course.
         $rebuilder->execute($courseid);
-        // Redirect back to the manage page with a success notification.
         redirect(
             new \moodle_url('/filter/autotranslate/manage.php', ['courseid' => $courseid]),
             get_string('translationsrebuilt', 'filter_autotranslate')
@@ -133,69 +110,138 @@ try {
     // Map the filter language to 'other' if it matches the site language.
     $internalfilterlang = helper::map_language_to_other($filterlang);
 
-    // Fetch translations with courseid filter.
-    $result = $manager->get_paginated_translations(
-        $page,
-        $perpage,
-        $internalfilterlang,
-        $filterhuman,
-        $sort,
-        $dir,
-        $courseid,
-        $filterneedsreview
-    );
-    $translations = $result['translations'];
-    $total = $result['total'];
+    // Fetch translations differently based on filterlang.
+    if (!empty($internalfilterlang) && $internalfilterlang !== 'all' && $internalfilterlang !== 'other') {
+        // For target languages, fetch all 'other' translations and join with target language if exists.
+        $sql = "SELECT t_other.hash, t_other.translated_text AS source_text,
+                       t_target.id AS target_id, t_target.lang AS target_lang,
+                       t_target.translated_text AS target_text, t_target.human,
+                       t_other.contextlevel AS source_contextlevel, t_target.contextlevel AS target_contextlevel,
+                       t_target.timecreated, t_target.timemodified, t_target.timereviewed
+                FROM {filter_autotranslate_translations} t_other
+                LEFT JOIN {filter_autotranslate_translations} t_target
+                    ON t_other.hash = t_target.hash AND t_target.lang = :targetlang
+                WHERE t_other.lang = 'other'";
+        $params = ['targetlang' => $internalfilterlang];
+
+        if ($courseid > 0) {
+            $sql .= " AND t_other.hash IN (
+                        SELECT hash FROM {filter_autotranslate_hid_cids} WHERE courseid = :courseid
+                      )";
+            $params['courseid'] = $courseid;
+        }
+
+        $sql .= " ORDER BY t_other.$sort $dir";
+        $total = $DB->count_records_sql(
+            "SELECT COUNT(*) FROM {filter_autotranslate_translations} t_other
+             WHERE t_other.lang = 'other'" . ($courseid > 0 ? " AND t_other.hash IN (
+                SELECT hash FROM {filter_autotranslate_hid_cids} WHERE courseid = :countcourseid
+             )" : ""),
+            $courseid > 0 ? ['countcourseid' => $courseid] : []
+        );
+        $translations = $DB->get_records_sql($sql, $params, $page * $perpage, $perpage);
+    } else {
+        // For 'all' or 'other', use the existing manager method.
+        $result = $manager->get_paginated_translations(
+            $page,
+            $perpage,
+            $internalfilterlang,
+            $filterhuman,
+            $sort,
+            $dir,
+            $courseid,
+            $filterneedsreview
+        );
+        $translations = $result['translations'];
+        $total = $result['total'];
+    }
 
     // Prepare table data for Mustache.
     $tablerows = [];
     foreach ($translations as $translation) {
-        // URLs are already rewritten when stored, so just format the text for display.
-        $translatedtext = format_text($translation->translated_text, FORMAT_HTML);
-        $sourcetext = $translation->source_text !== 'N/A' ? format_text($translation->source_text, FORMAT_HTML) : 'N/A';
+        $row = new \stdClass();
+        $row->hash = $translation->hash;
 
-        // Determine if the translation needs review based on the target language record.
-        $needsreview = $translation->timereviewed < $translation->timemodified;
-        $reviewstatus = $needsreview ? $OUTPUT->pix_icon(
-            'i/warning',
-            get_string('needsreview', 'filter_autotranslate'),
-            'moodle',
-            ['class' => 'text-danger align-middle']
-        ) : '';
-
-        // Format the dates as small text to append below the translated text.
-        $dateshtml = '<small class="text-muted" dir="ltr">' .
-                      get_string('last_modified', 'filter_autotranslate') . ': ' . userdate($translation->timemodified) . '<br>' .
-                      get_string('last_reviewed', 'filter_autotranslate') . ': ' . userdate($translation->timereviewed) .
-                      '</small>';
-
-        // Append the dates below the translated text.
-        $translatedtextwithdates = $translatedtext . '<br>' . $dateshtml;
-
-        // Determine if the "Edit" link should be shown.
-        $showeditlink = ($translation->lang !== 'other' && $internalfilterlang !== 'other');
-
-        // Determine if the language is RTL.
-        $isrtl = helper::is_rtl_language($translation->lang);
-
-        $row = [
-            'hash' => $translation->hash,
-            'lang' => $translation->lang,
-            'translated_text' => $translatedtextwithdates,
-            'human' => $translation->human ? get_string('yes') : get_string('no'),
-            'contextlevel' => $translation->contextlevel,
-            'review_status' => $reviewstatus,
-            'show_edit_link' => $showeditlink,
-            'edit_url' => (new \moodle_url(
-                '/filter/autotranslate/edit.php',
-                ['hash' => $translation->hash,
-                'tlang' => $translation->lang]
-            ))->out(false),
-            'edit_label' => get_string('edit'),
-            'is_rtl' => $isrtl,
-        ];
         if (!empty($internalfilterlang) && $internalfilterlang !== 'all' && $internalfilterlang !== 'other') {
-            $row['source_text'] = $sourcetext;
+            // Target language view.
+            $row->lang = $internalfilterlang;
+            $row->source_text = format_text($translation->source_text, FORMAT_HTML);
+
+            if ($translation->target_id) {
+                // Existing target translation.
+                $translatedtext = format_text($translation->target_text, FORMAT_HTML);
+                $dateshtml = '<small class="text-muted" dir="ltr">' .
+                            get_string('last_modified', 'filter_autotranslate') . ': ' .
+                            userdate($translation->timemodified) . '<br>' .
+                            get_string('last_reviewed', 'filter_autotranslate') . ': ' .
+                            userdate($translation->timereviewed) .
+                            '</small>';
+                $row->translated_text = $translatedtext . '<br>' . $dateshtml;
+                $row->human = $translation->human ? get_string('yes') : get_string('no');
+                $row->contextlevel = $translation->target_contextlevel; // Use target contextlevel if available.
+                $needsreview = $translation->timereviewed < $translation->timemodified;
+                $row->review_status = $needsreview ? $OUTPUT->pix_icon(
+                    'i/warning',
+                    get_string('needsreview', 'filter_autotranslate'),
+                    'moodle',
+                    ['class' => 'text-danger align-middle']
+                ) : '';
+                $row->show_edit_link = true;
+                $row->edit_url = (new \moodle_url('/filter/autotranslate/edit.php', [
+                    'hash' => $translation->hash,
+                    'tlang' => $internalfilterlang,
+                ]))->out(false);
+            } else {
+                // No target translation, show Add button.
+                $row->translated_text = ''; // Will be replaced by Add button in template.
+                $row->show_add_link = true;
+                $row->add_url = (new \moodle_url('/filter/autotranslate/create.php', [
+                    'hash' => $translation->hash,
+                    'tlang' => $internalfilterlang,
+                    'courseid' => $courseid,
+                ]))->out(false);
+                $row->human = '';
+                $row->contextlevel = $translation->source_contextlevel; // Use source contextlevel for untranslated entries.
+                $row->review_status = '';
+                $row->show_edit_link = false;
+            }
+            $row->edit_label = get_string('edit');
+            $row->add_label = get_string('add', 'core');
+            $row->is_rtl = helper::is_rtl_language($internalfilterlang);
+        } else {
+            // Filter 'all' or 'other' view (unchanged).
+            $translatedtext = format_text($translation->translated_text, FORMAT_HTML);
+            $sourcetext = $translation->source_text !== 'N/A' ? format_text($translation->source_text, FORMAT_HTML) : 'N/A';
+            $needsreview = $translation->timereviewed < $translation->timemodified;
+            $reviewstatus = $needsreview ? $OUTPUT->pix_icon(
+                'i/warning',
+                get_string('needsreview', 'filter_autotranslate'),
+                'moodle',
+                ['class' => 'text-danger align-middle']
+            ) : '';
+            $dateshtml = '<small class="text-muted" dir="ltr">' .
+                        get_string('last_modified', 'filter_autotranslate') . ': ' . userdate($translation->timemodified) . '<br>' .
+                        get_string('last_reviewed', 'filter_autotranslate') . ': ' . userdate($translation->timereviewed) .
+                        '</small>';
+            $translatedtextwithdates = $translatedtext . '<br>' . $dateshtml;
+            $showeditlink = ($translation->lang !== 'other' && $internalfilterlang !== 'other');
+            $isrtl = helper::is_rtl_language($translation->lang);
+
+            $row->lang = $translation->lang;
+            $row->translated_text = $translatedtextwithdates;
+            $row->human = $translation->human ? get_string('yes') : get_string('no');
+            $row->contextlevel = $translation->contextlevel;
+            $row->review_status = $reviewstatus;
+            $row->show_edit_link = $showeditlink;
+            $row->edit_url = (new \moodle_url('/filter/autotranslate/edit.php', [
+                'hash' => $translation->hash,
+                'tlang' => $translation->lang,
+            ]))->out(false);
+            $row->edit_label = get_string('edit');
+            $row->is_rtl = $isrtl;
+            if (!empty($internalfilterlang) && $internalfilterlang !== 'all' && $internalfilterlang !== 'other') {
+                $row->source_text = $sourcetext;
+            }
         }
         $tablerows[] = $row;
     }
@@ -206,8 +252,8 @@ try {
         get_string('language', 'filter_autotranslate'),
     ];
     if (!empty($internalfilterlang) && $internalfilterlang !== 'all' && $internalfilterlang !== 'other') {
-        $tableheaders[] = 'Source Text';
-        $tableheaders[] = 'Translated Text';
+        $tableheaders[] = get_string('sourcetext', 'filter_autotranslate');
+        $tableheaders[] = get_string('translatedtext', 'filter_autotranslate');
     } else {
         $tableheaders[] = get_string('translatedtext', 'filter_autotranslate');
     }
@@ -228,18 +274,17 @@ try {
     ]);
     $paginationhtml = $OUTPUT->paging_bar($total, $page, $perpage, $baseurl);
 
-    // Prepare data for the template, including the filter form and rebuild button.
+    // Prepare data for the template.
     $data = [
         'filter_form' => $filterformhtml,
         'table_headers' => $tableheaders,
         'table_rows' => $tablerows,
         'pagination' => $paginationhtml,
-        'has_courseid' => $courseid > 0, // Flag to show the rebuild button.
-        'rebuild_url' => $courseid > 0 ? (new \moodle_url(
-            '/filter/autotranslate/manage.php',
-            ['courseid' => $courseid,
-            'action' => 'rebuild']
-        ))->out(false) : '',
+        'has_courseid' => $courseid > 0,
+        'rebuild_url' => $courseid > 0 ? (new \moodle_url('/filter/autotranslate/manage.php', [
+            'courseid' => $courseid,
+            'action' => 'rebuild',
+        ]))->out(false) : '',
         'rebuild_label' => get_string('rebuildtranslations', 'filter_autotranslate'),
     ];
 

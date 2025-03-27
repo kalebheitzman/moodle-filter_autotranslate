@@ -20,6 +20,7 @@
     This template renders a responsive table displaying translations, with filtering and pagination
     controls. It is used by manage.php to display a list of translations with columns for hash,
     language, source text, translated text, human status, context level, review status, and actions.
+    When a target language is selected, it shows an "Add" button for missing translations in the Actions column.
 
     Classes required for JS:
     * none
@@ -43,16 +44,31 @@
         "table_rows": [
             {
                 "hash": "abc123",
-                "lang": "ar",
+                "lang": "es",
                 "source_text": "Hello world",
-                "translated_text": "مرحبا بالعالم<br>Modified: 2025-03-25<br>Reviewed: 2025-03-25",
-                "human": "No",
+                "translated_text": "Hola mundo<br>Modified: 2025-03-25<br>Reviewed: 2025-03-25",
+                "human": "Yes",
                 "contextlevel": "Course",
-                "review_status": "<span class=\"icon-warning\"></span>",
+                "review_status": "",
                 "show_edit_link": true,
-                "edit_url": "https://example.com/edit.php?id=1",
+                "edit_url": "https://example.com/edit.php?hash=abc123&tlang=es",
                 "edit_label": "Edit",
-                "is_rtl": true
+                "is_rtl": false,
+                "show_add_link": false
+            },
+            {
+                "hash": "xyz789",
+                "lang": "es",
+                "source_text": "Goodbye",
+                "translated_text": "",
+                "human": "",
+                "contextlevel": "Module",
+                "review_status": "",
+                "show_edit_link": false,
+                "show_add_link": true,
+                "add_url": "https://example.com/create.php?hash=xyz789&tlang=es",
+                "add_label": "Add",
+                "is_rtl": false
             }
         ],
         "pagination": "<nav>...</nav>",
@@ -90,7 +106,9 @@
                     <td class="text-left">{{lang}}</td>
                     {{#source_text}}
                         <td class="col-6 text-left">{{{source_text}}}</td>
-                        <td class="col-6" {{#is_rtl}}dir="rtl" style="text-align: right;"{{/is_rtl}}>{{{translated_text}}}</td>
+                        <td class="col-6" {{#is_rtl}}dir="rtl" style="text-align: right;"{{/is_rtl}}>
+                            {{{translated_text}}}
+                        </td>
                     {{/source_text}}
                     {{^source_text}}
                         <td class="col-12" {{#is_rtl}}dir="rtl" style="text-align: right;"{{/is_rtl}}>{{{translated_text}}}</td>
@@ -100,8 +118,11 @@
                     <td class="text-left">{{{review_status}}}</td>
                     <td class="text-left">
                         {{#show_edit_link}}
-                            <a href="{{edit_url}}">{{edit_label}}</a>
+                            <a href="{{edit_url}}" class="btn btn-outline-secondary">{{edit_label}}</a>
                         {{/show_edit_link}}
+                        {{#show_add_link}}
+                            <a href="{{add_url}}" class="btn btn-outline-secondary">{{add_label}}</a>
+                        {{/show_add_link}}
                     </td>
                 </tr>
             {{/table_rows}}

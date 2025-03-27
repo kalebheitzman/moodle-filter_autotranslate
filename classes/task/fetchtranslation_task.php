@@ -317,7 +317,27 @@ class fetchtranslation_task extends scheduled_task {
                         $translationsummary[] = "hash=" . $record->hash . ": $langstranslated langs";
                         foreach ($langtranslations as $lang => $translatedtext) {
                             $translatedtext = is_array($translatedtext) ? implode(' ', $translatedtext) : $translatedtext;
-                            $translationservice->store_translation($record->hash, $lang, $translatedtext, $record->contextlevel);
+                            $courseid = $DB->get_field(
+                                'filter_autotranslate_hid_cids',
+                                'courseid',
+                                ['hash' => $record->hash],
+                                IGNORE_MULTIPLE
+                            );
+                            // Fetch the source ("other") record's contextlevel.
+                            $sourcecontextlevel = $DB->get_field(
+                                'filter_autotranslate_translations',
+                                'contextlevel',
+                                ['hash' => $record->hash, 'lang' => 'other']
+                            );
+                            $contextlevel = $sourcecontextlevel ?: CONTEXT_COURSE; // Fallback to course if not found.
+                            $translationservice->store_translation(
+                                $record->hash,
+                                $lang,
+                                $translatedtext,
+                                $contextlevel,
+                                $courseid,
+                                $lang
+                            );
                         }
                     }
 

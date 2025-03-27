@@ -92,41 +92,32 @@ class translation_service {
     /**
      * Stores a translation in filter_autotranslate_translations, updating if it already exists.
      *
-     * This function inserts a new translation record or updates an existing one if a record
-     * with the same hash and language already exists. It is used by fetchtranslation_task.php
-     * to store translations fetched from an external API.
-     *
      * @param string $hash The unique hash of the translation.
      * @param string $lang The language code (e.g., 'es', 'fr').
      * @param string|array $translatedtext The translated text (string or array to handle potential API responses).
      * @param int $contextlevel The context level for the translation.
+     * @param int|null $courseid Optional course ID to determine the context for URL rewriting.
      */
-    public function store_translation($hash, $lang, $translatedtext, $contextlevel) {
-        // Ensure translated_text is a string.
+    public function store_translation($hash, $lang, $translatedtext, $contextlevel, $courseid = null) {
         $translatedtext = is_array($translatedtext) ? implode(' ', $translatedtext) : (string)$translatedtext;
 
-        // Fetch the context for the translation (based on contextlevel and hash).
-        $context = $this->get_context_for_hash($hash, $contextlevel);
+        $context = $this->get_context_for_hash($hash, $contextlevel, $courseid, $lang);
         if ($context) {
-            // Rewrite @@PLUGINFILE@@ URLs in the translated text.
             $translatedtext = $this->rewrite_pluginfile_urls($translatedtext, $context, $hash);
         }
 
-        // Check if a translation already exists for this hash and lang.
         $existing = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
         if ($existing) {
-            // Update the existing record.
             $record = new \stdClass();
             $record->id = $existing->id;
             $record->translated_text = $translatedtext;
             $record->contextlevel = $contextlevel;
             $record->timemodified = time();
             $record->timereviewed = time();
-            $record->human = 0; // Machine-generated translation.
+            $record->human = 0;
 
             $this->db->update_record('filter_autotranslate_translations', $record);
         } else {
-            // Insert a new record.
             $record = new \stdClass();
             $record->hash = $hash;
             $record->lang = $lang;
@@ -135,7 +126,7 @@ class translation_service {
             $record->timecreated = time();
             $record->timemodified = time();
             $record->timereviewed = time();
-            $record->human = 0; // Machine-generated translation.
+            $record->human = 0;
 
             $this->db->insert_record('filter_autotranslate_translations', $record);
         }
@@ -144,50 +135,110 @@ class translation_service {
     /**
      * Fetches the context for a hash based on its context level and course mapping.
      *
-     * This function retrieves the context associated with a hash by looking up the course ID
-     * in filter_autotranslate_hid_cids and determining the context level from filter_autotranslate_translations.
-     *
      * @param string $hash The hash to look up.
      * @param int $contextlevel The context level from the translation record.
+     * @param int|null $courseid Optional course ID to use instead of querying hid_cids.
+     * @param string $lang The language of the translation (affects context fetching logic).
      * @return \context|null The context object, or null if not found.
      */
-    private function get_context_for_hash($hash, $contextlevel) {
-        // Fetch the course ID from filter_autotranslate_hid_cids.
-        $courseid = $this->db->get_field('filter_autotranslate_hid_cids', 'courseid', ['hash' => $hash]);
-        if (!$courseid) {
-            return null;
+    private function get_context_for_hash($hash, $contextlevel, $courseid = null, $lang = 'other') {
+        // Use provided courseid if available.
+        if ($courseid !== null && $courseid > 0) {
+            $effectivecourseid = $courseid;
+        } else {
+            $courseids = $this->db->get_fieldset_select(
+                'filter_autotranslate_hid_cids',
+                'courseid',
+                'hash = :hash',
+                ['hash' => $hash]
+            );
+            if (empty($courseids)) {
+                return null;
+            }
+            $effectivecourseid = reset($courseids);
+            if (count($courseids) > 1) {
+                debugging(
+                    "Multiple course IDs found for hash '$hash' (" . implode(', ', $courseids) . "). " .
+                    "Using first course ID ($effectivecourseid) as fallback.",
+                    DEBUG_DEVELOPER
+                );
+            }
         }
 
         try {
+            // For target languages, use course context for URL rewriting to avoid module ambiguity.
+            if ($lang !== 'other') {
+                return \context_course::instance($effectivecourseid);
+            }
+
+            // For 'other', respect the original contextlevel.
             if ($contextlevel == CONTEXT_COURSE) {
-                return \context_course::instance($courseid);
+                return \context_course::instance($effectivecourseid);
             } else if ($contextlevel == CONTEXT_MODULE) {
-                // Fetch the course module ID (requires joining with course_modules).
                 $sql = "SELECT cm.id
                         FROM {course_modules} cm
                         JOIN {filter_autotranslate_hid_cids} hc ON hc.courseid = cm.course
-                        WHERE hc.hash = :hash";
-                $cmid = $this->db->get_field_sql($sql, ['hash' => $hash]);
+                        WHERE hc.hash = :hash AND cm.course = :courseid
+                        LIMIT 1";
+                $cmid = $this->db->get_field_sql($sql, ['hash' => $hash, 'courseid' => $effectivecourseid]);
                 if ($cmid) {
+                    $cmidcount = $this->db->count_records_sql(
+                        "SELECT COUNT(cm.id)
+                         FROM {course_modules} cm
+                         JOIN {filter_autotranslate_hid_cids} hc ON hc.courseid = cm.course
+                         WHERE hc.hash = :hash AND cm.course = :courseid",
+                        ['hash' => $hash, 'courseid' => $effectivecourseid]
+                    );
+                    if ($cmidcount > 1) {
+                        debugging(
+                            "Multiple course module IDs found for hash '$hash' in " .
+                            "course '$effectivecourseid' ($cmidcount found). " .
+                            "Using first cmid ($cmid) for context.",
+                            DEBUG_DEVELOPER
+                        );
+                    }
                     return \context_module::instance($cmid);
                 }
+                return null;
             } else if ($contextlevel == CONTEXT_BLOCK) {
                 $sql = "SELECT bi.id
                         FROM {block_instances} bi
                         JOIN {context} ctx ON ctx.instanceid = bi.id AND ctx.contextlevel = :contextlevel
                         JOIN {filter_autotranslate_hid_cids} hc ON hc.courseid = ctx.instanceid
-                        WHERE hc.hash = :hash";
-                $blockid = $this->db->get_field_sql($sql, ['hash' => $hash, 'contextlevel' => CONTEXT_BLOCK]);
+                        WHERE hc.hash = :hash AND hc.courseid = :courseid
+                        LIMIT 1";
+                $blockid = $this->db->get_field_sql($sql, [
+                    'hash' => $hash,
+                    'courseid' => $effectivecourseid,
+                    'contextlevel' => CONTEXT_BLOCK,
+                ]);
                 if ($blockid) {
+                    $blockidcount = $this->db->count_records_sql(
+                        "SELECT COUNT(bi.id)
+                         FROM {block_instances} bi
+                         JOIN {context} ctx ON ctx.instanceid = bi.id AND ctx.contextlevel = :contextlevel
+                         JOIN {filter_autotranslate_hid_cids} hc ON hc.courseid = ctx.instanceid
+                         WHERE hc.hash = :hash AND hc.courseid = :courseid",
+                        ['hash' => $hash, 'courseid' => $effectivecourseid, 'contextlevel' => CONTEXT_BLOCK]
+                    );
+                    if ($blockidcount > 1) {
+                        debugging(
+                            "Multiple block IDs found for hash '$hash' in course '$effectivecourseid' ($blockidcount found). " .
+                            "Using first blockid ($blockid) for context.",
+                            DEBUG_DEVELOPER
+                        );
+                    }
                     return \context_block::instance($blockid);
                 }
+                return null;
             } else if ($contextlevel == CONTEXT_SYSTEM) {
                 return \context_system::instance();
             } else if ($contextlevel == CONTEXT_USER) {
                 $sql = "SELECT u.id
                         FROM {user} u
                         JOIN {filter_autotranslate_hid_cids} hc ON hc.courseid = 0
-                        WHERE hc.hash = :hash";
+                        WHERE hc.hash = :hash
+                        LIMIT 1";
                 $userid = $this->db->get_field_sql($sql, ['hash' => $hash]);
                 if ($userid) {
                     return \context_user::instance($userid);
@@ -196,7 +247,8 @@ class translation_service {
                 $sql = "SELECT cc.id
                         FROM {course_categories} cc
                         JOIN {filter_autotranslate_hid_cids} hc ON hc.courseid = 0
-                        WHERE hc.hash = :hash";
+                        WHERE hc.hash = :hash
+                        LIMIT 1";
                 $catid = $this->db->get_field_sql($sql, ['hash' => $hash]);
                 if ($catid) {
                     return \context_coursecat::instance($catid);
