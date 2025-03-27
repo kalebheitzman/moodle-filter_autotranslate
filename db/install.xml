@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="filter/autotranslate/db" VERSION="20250315" COMMENT="XMLDB structure for filter_autotranslate">
+<XMLDB PATH="filter/autotranslate/db" VERSION="20250326" COMMENT="XMLDB structure for filter_autotranslate">
     <TABLES>
         <TABLE NAME="filter_autotranslate_translations" COMMENT="Stores translations for the autotranslate filter">
             <FIELDS>
@@ -11,14 +11,16 @@
                 <FIELD NAME="human" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Flag indicating if the translation was manually edited by a human (0 = automatic, 1 = manual)"/>
                 <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp of creation"/>
                 <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp of last modification"/>
-                <FIELD NAME="timereviewed" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Timestamp when the translation was last reviewed"/>            </FIELDS>
+                <FIELD NAME="timereviewed" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Timestamp when the translation was last reviewed"/>
+            </FIELDS>
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
                 <KEY NAME="hash_lang" TYPE="unique" FIELDS="hash,lang" COMMENT="Ensures one translation per language per hash"/>
             </KEYS>
             <INDEXES>
                 <INDEX NAME="mdl_autotran_con_ix" UNIQUE="false" FIELDS="contextlevel" COMMENT="Index for context-based recovery"/>
-                <INDEX NAME="mdl_autotran_timereviewed_ix" UNIQUE="false" FIELDS="timereviewed" COMMENT="Index for review tracking"/>            </INDEXES>
+                <INDEX NAME="mdl_autotran_timereviewed_ix" UNIQUE="false" FIELDS="timereviewed" COMMENT="Index for review tracking"/>
+            </INDEXES>
         </TABLE>
         <TABLE NAME="filter_autotranslate_hid_cids" COMMENT="Maps translation hashes to course IDs">
             <FIELDS>
@@ -33,6 +35,24 @@
             <INDEXES>
                 <INDEX NAME="hash" UNIQUE="false" FIELDS="hash"/>
                 <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
+            </INDEXES>
+        </TABLE>
+        <TABLE NAME="filter_autotranslate_task_progress" COMMENT="Stores progress for autotranslate and rebuild tasks">
+            <FIELDS>
+                <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
+                <FIELD NAME="taskid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="ID of the adhoc task"/>
+                <FIELD NAME="tasktype" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="Type of task (autotranslate or rebuild)"/>
+                <FIELD NAME="total_entries" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Total number of entries to process"/>
+                <FIELD NAME="processed_entries" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Number of entries processed"/>
+                <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="queued" SEQUENCE="false" COMMENT="Status of the task (queued, running, completed, failed)"/>
+                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when the task was created"/>
+                <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when the progress was last modified"/>
+            </FIELDS>
+            <KEYS>
+                <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+            </KEYS>
+            <INDEXES>
+                <INDEX NAME="taskid" UNIQUE="false" FIELDS="taskid" COMMENT="Index for task lookup"/>
             </INDEXES>
         </TABLE>
     </TABLES>

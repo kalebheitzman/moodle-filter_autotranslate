@@ -34,8 +34,11 @@
     * table_rows: Array of table rows (with subfields like hash, lang, etc.).
     * pagination: HTML for the pagination bar.
     * has_courseid: Boolean indicating if a courseid is provided.
+    * istargetlang: Boolean indicating if a target language is selected.
     * rebuild_url: URL for the rebuild translations action.
     * rebuild_label: Label for the rebuild translations button.
+    * autotranslate_label: Label for the autotranslate button.
+    * filter_params: JSON-encoded filter parameters for JavaScript.
 
     Example context (json):
     {
@@ -73,22 +76,31 @@
         ],
         "pagination": "<nav>...</nav>",
         "has_courseid": true,
+        "istargetlang": true,
         "rebuild_url": "https://example.com/rebuild.php?courseid=1",
-        "rebuild_label": "Rebuild Translations"
+        "rebuild_label": "Rebuild Translations",
+        "autotranslate_label": "Autotranslate",
+        "filter_params": "{\"targetlang\":\"es\",\"courseid\":1,\"filter_human\":\"\",\"filter_needsreview\":\"\"}"
     }
 }}
-{{! Create a flex container to align the filter form and rebuild button }}
+{{! Create a flex container to align the filter form and action buttons }}
 <div class="d-flex justify-content-between align-items-start mb-3">
     {{! Filter form on the left }}
     <div class="flex-grow-1">
         {{{filter_form}}}
     </div>
-    {{! Rebuild Translations button on the right, if courseid is provided }}
-    {{#has_courseid}}
-        <div class="ml-4 align-self-start">
-            <a href="{{rebuild_url}}" class="btn btn-primary">{{rebuild_label}}</a>
+    {{! Action buttons on the right }}
+    <div class="ml-4 align-self-start">
+        {{#has_courseid}}
+            <button id="rebuild-button" class="btn btn-primary mb-2" data-filter-params="{{filter_params}}">{{rebuild_label}}</button>
+        {{/has_courseid}}
+        {{#istargetlang}}
+            <button id="autotranslate-button" class="btn btn-primary mb-2" data-filter-params="{{filter_params}}">{{autotranslate_label}}</button>
+        {{/istargetlang}}
+        <div id="task-progress" class="progress mt-2" style="display: none; height: 20px;">
+            <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
         </div>
-    {{/has_courseid}}
+    </div>
 </div>
 <div class="table-responsive">
     <table class="table table-striped">
@@ -118,7 +130,7 @@
                     <td class="text-left">{{{review_status}}}</td>
                     <td class="text-left">
                         {{#show_edit_link}}
-                            <a href="{{edit_url}}" class="btn btn-outline-secondary">{{edit_label}}</a>
+                            <a href="{{edit_url}}">{{edit_label}}</a>
                         {{/show_edit_link}}
                         {{#show_add_link}}
                             <a href="{{add_url}}" class="btn btn-outline-secondary">{{add_label}}</a>

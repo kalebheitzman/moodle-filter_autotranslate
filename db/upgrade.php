@@ -95,5 +95,34 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2025031830, 'filter', 'autotranslate');
     }
 
+    if ($oldversion < 2025032602) {
+        // Define the new table filter_autotranslate_task_progress.
+        $table = new xmldb_table('filter_autotranslate_task_progress');
+
+        // Define fields.
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('taskid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('tasktype', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('total_entries', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('processed_entries', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('status', XMLDB_TYPE_CHAR, '20', null, XMLDB_NOTNULL, null, 'queued');
+        $table->add_field('timecreated', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, null);
+
+        // Define keys.
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+
+        // Define indexes.
+        $table->add_index('taskid', XMLDB_INDEX_NOTUNIQUE, ['taskid']);
+
+        // Create the table if it doesn't exist.
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        // Save the upgrade point.
+        upgrade_plugin_savepoint(true, 2025032602, 'filter', 'autotranslate');
+    }
+
     return true;
 }

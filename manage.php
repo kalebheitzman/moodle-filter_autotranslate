@@ -75,22 +75,11 @@ try {
 
     global $DB, $OUTPUT;
 
-    // Handle rebuild translations action.
-    if ($action === 'rebuild' && $courseid > 0) {
-        require_once($CFG->dirroot . '/filter/autotranslate/classes/rebuild_course_translations.php');
-        $rebuilder = new \filter_autotranslate\rebuild_course_translations();
-        $DB->delete_records('filter_autotranslate_hid_cids', ['courseid' => $courseid]);
-        $rebuilder->execute($courseid);
-        redirect(
-            new \moodle_url('/filter/autotranslate/manage.php', ['courseid' => $courseid]),
-            get_string('translationsrebuilt', 'filter_autotranslate')
-        );
-    }
+    // Map the filter language to 'other' if it matches the site language.
+    $internalfilterlang = helper::map_language_to_other($filterlang);
 
-    $repository = new translation_repository($DB);
-    $manager = new translation_manager($repository);
-
-    echo $OUTPUT->header();
+    // Determine if we're in a target language view.
+    $istargetlang = !empty($internalfilterlang) && $internalfilterlang !== 'all' && $internalfilterlang !== 'other';
 
     // Filter form.
     $mform = new \filter_autotranslate\form\manage_form(null, [
@@ -107,11 +96,8 @@ try {
     ]);
     $filterformhtml = $mform->render();
 
-    // Map the filter language to 'other' if it matches the site language.
-    $internalfilterlang = helper::map_language_to_other($filterlang);
-
     // Fetch translations differently based on filterlang.
-    if (!empty($internalfilterlang) && $internalfilterlang !== 'all' && $internalfilterlang !== 'other') {
+    if ($istargetlang) {
         // For target languages, fetch all 'other' translations and join with target language if exists.
         $sql = "SELECT t_other.hash, t_other.translated_text AS source_text,
                        t_target.id AS target_id, t_target.lang AS target_lang,
@@ -142,6 +128,8 @@ try {
         $translations = $DB->get_records_sql($sql, $params, $page * $perpage, $perpage);
     } else {
         // For 'all' or 'other', use the existing manager method.
+        $repository = new translation_repository($DB);
+        $manager = new translation_manager($repository);
         $result = $manager->get_paginated_translations(
             $page,
             $perpage,
@@ -162,7 +150,7 @@ try {
         $row = new \stdClass();
         $row->hash = $translation->hash;
 
-        if (!empty($internalfilterlang) && $internalfilterlang !== 'all' && $internalfilterlang !== 'other') {
+        if ($istargetlang) {
             // Target language view.
             $row->lang = $internalfilterlang;
             $row->source_text = format_text($translation->source_text, FORMAT_HTML);
@@ -251,7 +239,7 @@ try {
         get_string('hash', 'filter_autotranslate'),
         get_string('language', 'filter_autotranslate'),
     ];
-    if (!empty($internalfilterlang) && $internalfilterlang !== 'all' && $internalfilterlang !== 'other') {
+    if ($istargetlang) {
         $tableheaders[] = get_string('sourcetext', 'filter_autotranslate');
         $tableheaders[] = get_string('translatedtext', 'filter_autotranslate');
     } else {
@@ -274,6 +262,18 @@ try {
     ]);
     $paginationhtml = $OUTPUT->paging_bar($total, $page, $perpage, $baseurl);
 
+    // Prepare filter parameters for JavaScript.
+    $filterparams = [
+        'targetlang' => $internalfilterlang,
+        'courseid' => $courseid,
+        'filter_human' => $filterhuman,
+        'filter_needsreview' => $filterneedsreview,
+        'perpage' => $perpage,
+        'page' => $page,
+        'sort' => $sort,
+        'dir' => $dir,
+    ];
+
     // Prepare data for the template.
     $data = [
         'filter_form' => $filterformhtml,
@@ -281,16 +281,21 @@ try {
         'table_rows' => $tablerows,
         'pagination' => $paginationhtml,
         'has_courseid' => $courseid > 0,
+        'istargetlang' => $istargetlang,
         'rebuild_url' => $courseid > 0 ? (new \moodle_url('/filter/autotranslate/manage.php', [
             'courseid' => $courseid,
             'action' => 'rebuild',
         ]))->out(false) : '',
         'rebuild_label' => get_string('rebuildtranslations', 'filter_autotranslate'),
+        'autotranslate_label' => get_string('autotranslate', 'filter_autotranslate'),
+        'filter_params' => json_encode($filterparams),
     ];
 
-    // Render the template.
-    echo $OUTPUT->render_from_template('filter_autotranslate/manage', $data);
+    // Load JavaScript for asynchronous actions.
+    $PAGE->requires->js_call_amd('filter_autotranslate/autotranslate', 'init');
 
+    echo $OUTPUT->header();
+    echo $OUTPUT->render_from_template('filter_autotranslate/manage', $data);
     echo $OUTPUT->footer();
 } catch (\Exception $e) {
     debugging("Fatal error in manage.php: " . $e->getMessage());
