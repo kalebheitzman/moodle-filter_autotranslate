@@ -59,6 +59,10 @@ defined('MOODLE_INTERNAL') || die();
 use filter_autotranslate\content_service;
 use filter_autotranslate\admin_setting_configfieldmatrix;
 
+// Include the CSS file for the settings page.
+global $PAGE;
+$PAGE->requires->css('/filter/autotranslate/styles/settings.css');
+
 if ($hassiteconfig) {
     if ($ADMIN->fulltree) {
         // Load content_service and matrix setting class.
@@ -269,25 +273,28 @@ if ($hassiteconfig) {
         // Instantiate content_service for field options.
         $contentservice = new content_service($DB);
 
-        /**
-         * Builds default selections for the field matrix.
-         *
-         * Creates a default array of table.field => 1 for common fields (name, intro, summary) to
-         * pre-check them in the matrix, improving usability.
-         *
-         * @param array $tables Associative array of table => fields from content_service.
-         * @return array Default selections (e.g., ['course.name' => 1]).
-         */
-        function build_field_defaults($tables) {
-            $defaults = [];
-            foreach ($tables as $table => $fields) {
-                foreach ($fields as $field) {
-                    if (in_array($field, ['name', 'intro', 'summary', 'description', 'fullname', 'content'])) {
-                        $defaults["$table.$field"] = 1;
+        // Define build_field_defaults only if it doesn't exist.
+        if (!function_exists('build_field_defaults')) {
+            /**
+             * Builds default selections for the field matrix.
+             *
+             * Creates a default array of table.field => 1 for common fields (name, intro, summary) to
+             * pre-check them in the matrix, improving usability.
+             *
+             * @param array $tables Associative array of table => fields from content_service.
+             * @return array Default selections (e.g., ['course.name' => 1]).
+             */
+            function build_field_defaults($tables) {
+                $defaults = [];
+                foreach ($tables as $table => $fields) {
+                    foreach ($fields as $field) {
+                        if (in_array($field, ['name', 'intro', 'summary'])) {
+                            $defaults["$table.$field"] = 1;
+                        }
                     }
                 }
+                return $defaults;
             }
-            return $defaults;
         }
 
         // Fetch field options from content_service.

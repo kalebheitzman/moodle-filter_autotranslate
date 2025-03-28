@@ -84,7 +84,11 @@ class admin_setting_configfieldmatrix extends \admin_setting {
      * @return array|null Array of table.field => 1, or null if not set.
      */
     public function get_setting() {
-        return $this->config_read($this->name);
+        $value = $this->config_read($this->name);
+        if ($value === false || $value === null) {
+            return null;
+        }
+        return unserialize($value);
     }
 
     /**
@@ -110,11 +114,13 @@ class admin_setting_configfieldmatrix extends \admin_setting {
             }
         }
 
-        return $this->config_write($this->name, $value) ? '' : get_string('errorsetting', 'admin');
+        // Serialize the array before saving.
+        $serializedvalue = serialize($value);
+        return $this->config_write($this->name, $serializedvalue) ? '' : get_string('errorsetting', 'admin');
     }
 
     /**
-     * Renders the matrix as an HTML table with horizontal scrolling and borders.
+     * Renders the matrix as an HTML table with horizontal scrolling.
      *
      * @param array $data Current form data.
      * @param string $query Search query (not used).
@@ -174,35 +180,6 @@ class admin_setting_configfieldmatrix extends \admin_setting {
 
         $html .= '</tbody></table>';
         $html .= '</div>';
-
-        // Add inline CSS for borders, spacing, and table column styling.
-        $html .= '<style>
-            .autotranslate-matrix {
-                border-collapse: collapse;
-                width: 100%;
-            }
-            .autotranslate-matrix th,
-            .autotranslate-matrix td {
-                border: 1px solid #ddd;
-                padding: 8px;
-                text-align: center;
-                vertical-align: middle;
-            }
-            .autotranslate-matrix th.table-column,
-            .autotranslate-matrix td.table-column {
-                text-align: left;
-                min-width: 150px;
-                max-width: 200px;
-                white-space: nowrap;
-            }
-            .autotranslate-matrix th {
-                background-color: #f2f2f2;
-                font-weight: bold;
-            }
-            .autotranslate-matrix tr:nth-child(even) {
-                background-color: #f9f9f9;
-            }
-        </style>';
 
         return format_admin_setting($this, $this->visiblename, $html, $this->description);
     }

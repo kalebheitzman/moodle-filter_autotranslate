@@ -1,0 +1,32 @@
+/* Styles for the Autotranslate settings page matrices */
+
+/* Matrix table styling */
+.autotranslate-matrix {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+.autotranslate-matrix th,
+.autotranslate-matrix td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+    vertical-align: middle;
+}
+
+.autotranslate-matrix th.table-column,
+.autotranslate-matrix td.table-column {
+    text-align: left;
+    min-width: 150px;
+    max-width: 200px;
+    white-space: nowrap;
+}
+
+.autotranslate-matrix th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+}
+
+.autotranslate-matrix tr:nth-child(even) {
+    background-color: #f9f9f9;
+}

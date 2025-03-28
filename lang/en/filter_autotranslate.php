@@ -139,6 +139,7 @@ $string['translations_needing_review'] = 'Translations Needing Review';
 $string['translationsaved'] = 'Translation saved successfully';
 $string['translationsrebuilt'] = 'Translations have been rebuilt successfully.';
 $string['translationsupdated'] = 'Translations updated successfully';
+$string['translatedtext'] = 'Translated Text';
 $string['unknown_course'] = 'Unknown Course';
 $string['updatetranslations'] = 'Update Translations';
 $string['yes'] = 'Yes';
