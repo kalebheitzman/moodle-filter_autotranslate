@@ -15,42 +15,37 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Text Filter for the Autotranslate Plugin
+ * Text filter class for the filter_autotranslate plugin.
  *
  * Purpose:
- * This file defines the text filter for the filter_autotranslate plugin, acting as a lean entry
- * point to process Moodle text by replacing `{t:hash}` tags with translations or delegating
- * untagged or stale content for tagging and storage. It integrates with Moodle’s filtering system
- * to dynamically enhance text during page rendering, leveraging caching for performance and
- * ensuring minimal logic by offloading complex operations to other components.
- *
- * Structure:
- * Contains the `text_filter` class, extending Moodle’s core text filter, with properties for
- * `$contentservice` (tagging/storage), `$translationsource` (data retrieval), and `$cache`
- * (performance). Key methods include `filter` (main processing), `has_tags` (tag detection),
- * `replace_tags` (translation replacement), `get_courseid_from_context` (course ID resolution),
- * and `get_indicator` (UI markup).
- *
- * Usage:
- * Called by Moodle’s filtering system when text needs processing, typically during page rendering.
- * It checks context settings, replaces existing `{t:hash}` tags with translations from
- * `translationsource`, or delegates untagged/stale text to `contentservice` for processing.
+ * This class implements the text filter for the filter_autotranslate plugin, replacing {t:hash} tags
+ * in content with translations based on the user's current language. It dynamically tags untagged
+ * translatable content during filtering, delegates storage to content_service, and caches results
+ * for performance. The filter operates only in CONTEXT_COURSE, CONTEXT_MODULE, and CONTEXT_COURSECAT
+ * to focus on educational content, leaving other contexts unchanged.
  *
  * Design Decisions:
- * - Keeps logic minimal to ensure maintainability, delegating tagging and staleness handling to
- *   `contentservice` and translation retrieval to `translationsource`.
- * - Uses application-level caching (via `cache.php`) to store tagged content, reducing redundant
- *   database operations across requests.
- * - Retains context validation (`selectctx`) to control where filtering applies, aligning with
- *   dynamic settings from the plugin’s configuration.
- * - Preserves the auto-translation indicator as a simple UI enhancement, with potential to move
- *   to `ui_manager` in future iterations.
+ * - Originally focused on read-only translation retrieval, now includes dynamic tagging and write
+ *   operations via content_service to handle untagged content and third-party modules without manual
+ *   configuration in tagging_config.php.
+ * - Restricts filtering to CONTEXT_COURSE (50), CONTEXT_MODULE (70), and CONTEXT_COURSECAT (40) using
+ *   $this->context, ensuring translations apply only to course-related content.
+ * - Uses Moodle's cache API (taggedcontent cache) to store filtered text, reducing redundant database
+ *   queries across multiple filter invocations.
+ * - Delegates MLang tag processing, content tagging, and database operations to content_service and
+ *   text_utils, keeping the filter lean and focused on replacement.
+ * - Employs a robust fallback chain: translation -> source text -> original content, avoiding 'N/A'
+ *   outputs when source text is unavailable.
+ * - Maintains Moodle-extra coding style with lowercase variables and no underscores, though internal
+ *   method names (e.g., getcourseidfromcontext) follow this convention implicitly.
+ * - Includes error handling via content_service transactions, with debugging support for tracing issues.
  *
  * Dependencies:
- * - `content_service.php`: Handles tagging, storage, and staleness logic for untagged or stale content.
- * - `translation_source.php`: Provides read-only access to translation data for tag replacement.
- * - `text_utils.php`: Supplies utility functions (e.g., tag detection, used indirectly via `contentservice`).
- * - `cache.php`: Defines the `taggedcontent` cache for performance optimization.
+ * - content_service.php: Manages tagging, MLang parsing, and database writes for translations and
+ *   hash-course mappings.
+ * - translation_source.php: Provides read-only access to translation data from filter_autotranslate_translations.
+ * - text_utils.php: Supplies utility functions for tag detection, hash generation, and MLang processing.
+ * - cache.php: Defines the taggedcontent cache for performance optimization.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -87,7 +82,7 @@ class text_filter extends \core_filters\text_filter {
      * Initializes the filter with its dependencies, setting up the content service, translation
      * source, and cache for efficient text processing.
      *
-     * @param \context $context The context in which the filter is applied.
+     * @param \context $this->context The context in which the filter is applied.
      * @param array $options Filter options (e.g., 'noclean' for HTML handling).
      */
     public function __construct($context, array $options = []) {
@@ -111,10 +106,14 @@ class text_filter extends \core_filters\text_filter {
             return $text;
         }
 
-        $context = $options['context'] ?? \context_system::instance();
-        $courseid = $this->get_courseid_from_context($context);
+        $allowedcontexts = [CONTEXT_COURSE, CONTEXT_MODULE, CONTEXT_COURSECAT];
+        if (!in_array($this->context->contextlevel, $allowedcontexts)) {
+            return $text;
+        }
+
+        $courseid = $this->get_courseid_from_context($this->context);
         $currentlang = current_language();
-        $cachekey = md5($text . $context->id . $currentlang);
+        $cachekey = md5($text . $this->context->id . $currentlang);
 
         $cached = $this->cache->get($cachekey);
         if ($cached !== false) {
@@ -125,7 +124,7 @@ class text_filter extends \core_filters\text_filter {
         $hastags = preg_match($pattern, trim($text), $matches);
 
         if (!$hastags) {
-            $text = $this->contentservice->process_content($text, $context, $courseid);
+            $text = $this->contentservice->process_content($text, $this->context, $courseid);
         }
 
         $filteredtext = preg_replace_callback($pattern, function($matches) use ($currentlang) {
@@ -133,7 +132,10 @@ class text_filter extends \core_filters\text_filter {
             $hash = $matches[2];
             $translation = $this->translationsource->get_translation($hash, $currentlang);
             $sourcetext = $this->translationsource->get_source_text($hash);
-            return ($translation && $translation->translated_text) ? $translation->translated_text : ($sourcetext ?: $content);
+            if ($translation && $translation->translated_text) {
+                return $translation->translated_text;
+            }
+            return $sourcetext && $sourcetext !== 'N/A' ? $sourcetext : $content;
         }, $text);
 
         $this->cache->set($cachekey, $filteredtext);
@@ -197,15 +199,15 @@ class text_filter extends \core_filters\text_filter {
      * @return int The course ID, or 0 if not applicable.
      */
     private function get_courseid_from_context() {
-        $context = $this->context;
+        $this->context = $this->context;
 
-        if ($context->contextlevel == CONTEXT_COURSE) {
-            return $context->instanceid;
-        } else if ($context->contextlevel == CONTEXT_MODULE) {
-            $cm = get_coursemodule_from_id('', $context->instanceid);
+        if ($this->context->contextlevel == CONTEXT_COURSE) {
+            return $this->context->instanceid;
+        } else if ($this->context->contextlevel == CONTEXT_MODULE) {
+            $cm = get_coursemodule_from_id('', $this->context->instanceid);
             return $cm ? $cm->course : 0;
-        } else if ($context->contextlevel == CONTEXT_BLOCK) {
-            $parentcontext = $context->get_parent_context();
+        } else if ($this->context->contextlevel == CONTEXT_BLOCK) {
+            $parentcontext = $this->context->get_parent_context();
             if ($parentcontext && $parentcontext->contextlevel == CONTEXT_COURSE) {
                 return $parentcontext->instanceid;
             }
