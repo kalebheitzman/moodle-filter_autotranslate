@@ -147,12 +147,12 @@ class admin_setting_configfieldmatrix extends \admin_setting {
         ksort($allfields);
 
         // Start building the HTML with a scrollable wrapper.
-        $html = '<div style="overflow-x: auto; max-width: 100%;">';
-        $html .= '<table class="generaltable autotranslate-matrix">';
+        $html = '<div style="table-responsive">';
+        $html .= '<table class="autotranslate-matrix table table-striped table-hover table-bordered">';
         $html .= '<thead><tr>';
         $html .= '<th class="table-column">' . get_string('table', 'filter_autotranslate') . '</th>';
         foreach ($allfields as $field) {
-            $html .= '<th>' . htmlspecialchars($field) . '</th>';
+            $html .= '<th class="text-center">' . htmlspecialchars($field) . '</th>';
         }
         $html .= '</tr></thead><tbody>';
 
@@ -161,7 +161,7 @@ class admin_setting_configfieldmatrix extends \admin_setting {
             $html .= '<tr>';
             $html .= '<td class="table-column">' . htmlspecialchars($table) . '</td>';
             foreach ($allfields as $field) {
-                $html .= '<td>';
+                $html .= '<td class="text-center">';
                 if (in_array($field, $fields)) {
                     $key = "$table.$field";
                     $checked = (isset($data[$key]) && $data[$key] == 1) ||

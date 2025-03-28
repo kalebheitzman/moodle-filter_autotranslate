@@ -87,4 +87,12 @@ $definitions = [
         'canuselocalstore' => true,
         'persistent' => true,
     ],
+    // Cache for selected fields (used in get_selected_fields).
+    'selectedfields' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'staticacceleration' => true,
+        'staticaccelerationsize' => 10,
+    ],
 ];

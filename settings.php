@@ -59,10 +59,6 @@ defined('MOODLE_INTERNAL') || die();
 use filter_autotranslate\content_service;
 use filter_autotranslate\admin_setting_configfieldmatrix;
 
-// Include the CSS file for the settings page.
-global $PAGE;
-$PAGE->requires->css('/filter/autotranslate/styles/settings.css');
-
 if ($hassiteconfig) {
     if ($ADMIN->fulltree) {
         // Load content_service and matrix setting class.
