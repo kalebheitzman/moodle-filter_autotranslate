@@ -172,6 +172,9 @@ class content_service {
         $instanceid = $context->instanceid;
 
         switch ($contextlevel) {
+            case CONTEXT_SYSTEM:
+                break;
+
             case CONTEXT_USER:
                 break;
 
@@ -225,6 +228,9 @@ class content_service {
                 $this->update_field_if_match('course_categories', 'id', $instanceid, [
                     'description' => $category->description,
                 ], $sourcetext, $taggedcontent);
+                break;
+
+            case CONTEXT_BLOCK:
                 break;
 
             default:

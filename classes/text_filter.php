@@ -100,35 +100,47 @@ class text_filter extends \core_filters\text_filter {
     }
 
     /**
-     * Filters text by replacing `{t:hash}` tags or delegating untagged content.
+     * Filters the given text, replacing {t:hash} tags with translated content.
      *
-     * Processes the input text based on context settings: if tagged, replaces tags with translations;
-     * if untagged or stale, delegates to the content service for tagging and storage. Uses caching
-     * to optimize performance.
+     * Processes untagged content by tagging it and persisting it in the source table via
+     * `content_service`, then replaces all {t:hash} tags with the appropriate translation for the
+     * current language using `translation_source`. Ensures tags are processed only once to prevent
+     * duplication.
      *
      * @param string $text The text to filter.
-     * @param array $options Filter options (e.g., 'noclean' to allow HTML).
-     * @return string The filtered text with tags replaced or newly tagged content.
+     * @param array $options Filter options, including 'context'.
+     * @return string The filtered text with translations applied.
      */
     public function filter($text, array $options = []) {
-        // Skip processing if text is empty or numeric.
         if (empty($text) || is_numeric($text)) {
             return $text;
         }
 
-        // Check if the current context level is enabled for filtering.
-        $selectedctx = get_config('filter_autotranslate', 'selectctx') ?: '40,50,70,80';
-        $selectedctx = array_map('trim', explode(',', $selectedctx));
-        if (!in_array((string)$this->context->contextlevel, $selectedctx)) {
-            return $text;
+        $context = $options['context'] ?? \context_system::instance();
+        $courseid = $this->get_courseid_from_context($context);
+
+        // Step 1: Tag untagged content only if no {t:hash} tags exist.
+        $pattern = '/{t:([a-zA-Z0-9]{10})}/';
+        if (!preg_match($pattern, $text)) {
+            $text = $this->contentservice->process_content($text, $context, $courseid);
         }
 
-        // Process tagged text or delegate untagged/stale content.
-        if ($this->has_tags($text)) {
-            return $this->replace_tags($text, $options);
-        }
+        // Step 2: Replace {t:hash} tags with translations, avoiding reprocessing.
+        $currentlang = current_language();
+        $filteredtext = preg_replace_callback($pattern, function($matches) use ($currentlang, $context) {
+            $hash = $matches[1];
+            $translation = $this->translationsource->get_translation($hash, $currentlang);
 
-        return $this->contentservice->process_content($text, $this->context, $this->get_courseid_from_context());
+            if ($translation && $translation->translated_text) {
+                return $translation->translated_text; // Use translated text if available.
+            }
+
+            // Fallback to source text (lang = 'other') if no translation exists.
+            $sourcetext = $this->translationsource->get_source_text($hash);
+            return $sourcetext ?: $matches[0]; // Return original tag if no source text.
+        }, $text);
+
+        return $filteredtext;
     }
 
     /**
