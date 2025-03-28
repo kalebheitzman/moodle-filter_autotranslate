@@ -27,12 +27,13 @@
  * Structure:
  * Contains the `translation_source` class with a single property `$db` (database access). Key
  * methods include `get_translation` (single translation fetch), `get_source_text` (source text
- * retrieval), `get_all_languages` (language list), and `get_paginated_translations` (UI data).
+ * retrieval), `get_all_languages` (language list), `get_paginated_translations` (UI data), and
+ * `get_untranslated_hashes` (autotranslate tasks).
  *
  * Usage:
- * Called by `text_filter` to retrieve translations for `{t:hash}` tags during text processing, and
- * by `ui_manager` to fetch paginated translation data for management interfaces. It queries the
- * `filter_autotranslate_translations` table to provide data without modifying it.
+ * Called by `text_filter` to retrieve translations for `{t:hash}` tags during text processing, by
+ * `ui_manager` to fetch paginated translation data for management interfaces, and by `external.php`
+ * to fetch untranslated entries for autotranslate tasks.
  *
  * Design Decisions:
  * - Focuses solely on read operations to maintain separation of concerns, leaving writes to
@@ -157,20 +158,20 @@ class translation_source {
         $sitelang = get_config('core', 'lang') ?: 'en';
         $internalfilterlang = ($filterlang === $sitelang) ? 'other' : $filterlang;
 
+        $params = [];
+        $where = [];
+        $joins = [];
+
+        // For UI display: Fetch all translations with their source text.
         $sql = "SELECT t.*, t2.translated_text AS source_text
                 FROM {filter_autotranslate_translations} t
                 LEFT JOIN {filter_autotranslate_translations} t2 ON t.hash = t2.hash AND t2.lang = 'other'";
-        $params = [];
-
-        $where = [];
-        if (!empty($internalfilterlang) && $internalfilterlang !== 'all') {
+        if ($internalfilterlang !== 'all') {
             $where[] = "t.lang = :lang";
             $params['lang'] = $internalfilterlang;
         }
-        if ($filterhuman !== '') {
-            $where[] = "t.human = :human";
-            $params['human'] = (int)$filterhuman;
-        }
+
+        // Filter by course ID.
         if ($courseid > 0) {
             $hashes = $this->db->get_fieldset_select(
                 'filter_autotranslate_hid_cids',
@@ -186,6 +187,14 @@ class translation_source {
                 $where[] = '1=0'; // No matches if no hashes found.
             }
         }
+
+        // Filter by human status.
+        if ($filterhuman !== '') {
+            $where[] = "t.human = :human";
+            $params['human'] = (int)$filterhuman;
+        }
+
+        // Filter by needs review.
         if ($filterneedsreview !== '') {
             if ($filterneedsreview == '1') {
                 $where[] = "t.timereviewed < t.timemodified";
@@ -194,8 +203,11 @@ class translation_source {
             }
         }
 
+        if (!empty($joins)) {
+            $sql .= ' ' . implode(' ', $joins);
+        }
         if (!empty($where)) {
-            $sql .= " WHERE " . implode(" AND ", $where);
+            $sql .= ' WHERE ' . implode(' AND ', $where);
         }
 
         $validsorts = ['hash', 'lang', 'translated_text', 'human', 'contextlevel', 'timereviewed', 'timemodified'];
@@ -203,11 +215,102 @@ class translation_source {
         $dir = strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC';
         $sql .= " ORDER BY t.$sort $dir";
 
-        $countsql = "SELECT COUNT(*) FROM {filter_autotranslate_translations} t" .
-                    (empty($where) ? "" : " WHERE " . implode(" AND ", $where));
+        $countsql = "SELECT COUNT(*) FROM {filter_autotranslate_translations} t " .
+                    (empty($joins) ? '' : implode(' ', $joins)) .
+                    (empty($where) ? '' : ' WHERE ' . implode(' AND ', $where));
         $total = $this->db->count_records_sql($countsql, $params);
         $translations = $this->db->get_records_sql($sql, $params, $page * $perpage, $perpage);
 
         return ['translations' => $translations, 'total' => $total];
+    }
+
+    /**
+     * Fetches hashes of untranslated source translations for a target language with pagination.
+     *
+     * Retrieves the hashes of source translations (`lang = 'other'`) that do not have a corresponding
+     * target translation for the specified language, applying filters for course ID, human status,
+     * review status, and supporting pagination and sorting. Used by `external.php` for autotranslate tasks.
+     *
+     * @param int $page The current page number (0-based).
+     * @param int $perpage The number of records per page (0 for no limit).
+     * @param string $targetlang The target language to check for untranslated entries (e.g., 'es').
+     * @param string $filterhuman The human status to filter by ('' for all, '1' for human, '0' for auto).
+     * @param string $sort The column to sort by (e.g., 'hash', 'translated_text').
+     * @param string $dir The sort direction ('ASC' or 'DESC').
+     * @param int $courseid The course ID to filter by (0 for all).
+     * @param string $filterneedsreview Filter by review status ('' for all, '1' for needs review, '0' for reviewed).
+     * @return array List of hashes for untranslated entries.
+     */
+    public function get_untranslated_hashes(
+        $page,
+        $perpage,
+        $targetlang,
+        $filterhuman,
+        $sort,
+        $dir,
+        $courseid = 0,
+        $filterneedsreview = ''
+    ) {
+        $params = [];
+        $where = [];
+        $joins = [];
+
+        // Fetch source translations that lack a target translation.
+        $sql = "SELECT DISTINCT t.hash
+                FROM {filter_autotranslate_translations} t
+                LEFT JOIN {filter_autotranslate_translations} t2 ON t.hash = t2.hash AND t2.lang = :targetlang";
+        $params['targetlang'] = $targetlang;
+
+        // Always filter for source translations and ensure no target translation exists.
+        $where[] = "t.lang = 'other'";
+        $where[] = "t2.id IS NULL";
+
+        // Filter by course ID.
+        if ($courseid > 0) {
+            $hashes = $this->db->get_fieldset_select(
+                'filter_autotranslate_hid_cids',
+                'hash',
+                'courseid = :courseid',
+                ['courseid' => $courseid]
+            );
+            if (!empty($hashes)) {
+                [$insql, $inparams] = $this->db->get_in_or_equal($hashes, SQL_PARAMS_NAMED);
+                $where[] = "t.hash $insql";
+                $params = array_merge($params, $inparams);
+            }
+            // If no hashes are found for the course, we don't exclude all records.
+            // Let the query proceed to find untranslated entries.
+        }
+
+        // Filter by human status.
+        if ($filterhuman !== '') {
+            $where[] = "t.human = :human";
+            $params['human'] = (int)$filterhuman;
+        }
+
+        // Filter by needs review.
+        if ($filterneedsreview !== '') {
+            if ($filterneedsreview == '1') {
+                $where[] = "t.timereviewed < t.timemodified";
+            } else if ($filterneedsreview == '0') {
+                $where[] = "t.timereviewed >= t.timemodified";
+            }
+        }
+
+        if (!empty($joins)) {
+            $sql .= ' ' . implode(' ', $joins);
+        }
+        if (!empty($where)) {
+            $sql .= ' WHERE ' . implode(' AND ', $where);
+        }
+
+        // Apply sorting.
+        $validsorts = ['hash', 'translated_text', 'human', 'contextlevel', 'timereviewed', 'timemodified'];
+        $sort = in_array($sort, $validsorts) ? $sort : 'hash';
+        $dir = strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC';
+        $sql .= " ORDER BY t.$sort $dir";
+
+        // Apply pagination.
+        return $this->db->get_fieldset_sql($sql, $params, $page * $perpage, $perpage);
     }
 }

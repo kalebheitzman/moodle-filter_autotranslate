@@ -665,7 +665,7 @@ class content_service {
      * @param int $courseid The course ID for mapping.
      * @param \context $context The context for URL rewriting.
      */
-    private function store_translation($hash, $lang, $text, $contextlevel, $courseid, $context) {
+    public function store_translation($hash, $lang, $text, $contextlevel, $courseid, $context) {
         if (!$this->db->record_exists('filter_autotranslate_translations', ['hash' => $hash, 'lang' => $lang])) {
             $record = (object)[
                 'hash' => $hash,

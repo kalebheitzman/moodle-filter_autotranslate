@@ -105,14 +105,26 @@ class external extends external_api {
         self::validate_context($context);
         require_capability('filter/autotranslate:manage', $context);
 
+        // Validate target language against enabled languages in settings.
         if (empty($params['targetlang']) || $params['targetlang'] === 'other' || $params['targetlang'] === 'all') {
             throw new \invalid_parameter_exception('Target language must be a valid language code (not "other" or "all").');
         }
 
+        $enabledlangs = get_config('filter_autotranslate', 'targetlangs');
+        if ($enabledlangs === false || $enabledlangs === null || $enabledlangs === '') {
+            throw new \invalid_parameter_exception('No target languages are enabled in the settings.');
+        }
+
+        // Parse the CSV list of enabled languages.
+        $enabledlangs = array_map('trim', explode(',', $enabledlangs));
+        if (empty($enabledlangs) || !in_array($params['targetlang'], $enabledlangs)) {
+            throw new \invalid_parameter_exception("Target language '{$params['targetlang']}' is not enabled in the settings.");
+        }
+
         $translationsource = new \filter_autotranslate\translation_source($DB);
-        $records = $translationsource->get_paginated_translations(
-            0, // Fetch all, not paginated here.
-            0, // No limit.
+        $hashes = $translationsource->get_untranslated_hashes(
+            $params['page'],
+            $params['perpage'],
             $params['targetlang'],
             $params['filter_human'],
             $params['sort'],
@@ -120,13 +132,6 @@ class external extends external_api {
             $params['courseid'],
             $params['filter_needsreview']
         );
-
-        $hashes = [];
-        foreach ($records['translations'] as $record) {
-            if (!$record->target_id) { // Untranslated entries lack a target_id.
-                $hashes[] = $record->hash;
-            }
-        }
 
         $total = count($hashes);
         if (empty($hashes)) {
