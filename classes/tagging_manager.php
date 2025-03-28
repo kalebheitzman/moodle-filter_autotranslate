@@ -23,9 +23,7 @@
  */
 namespace filter_autotranslate;
 
-defined('MOODLE_INTERNAL') || die();
-
-require_once($CFG->dirroot . '/filter/autotranslate/classes/tagging_config.php');
+use filter_autotranslate\tagging_config;
 
 /**
  * Class to manage the tagging process for the filter_autotranslate plugin.

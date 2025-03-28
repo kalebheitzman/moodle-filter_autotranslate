@@ -170,7 +170,9 @@ class tagcontent_task extends scheduled_task {
                                     }
                                     continue;
                                 }
-                                $context = isset($record->cmid) ? \context_module::instance($record->cmid) : \context_system::instance();
+                                $context = isset($record->cmid)
+                                    ? \context_module::instance($record->cmid)
+                                    : \context_system::instance();
                                 $record->id = $record->instanceid;
                                 unset($record->instanceid);
                                 $record->$field = $record->content;
@@ -294,7 +296,9 @@ class tagcontent_task extends scheduled_task {
                                     }
                                     $context = \context_module::instance($record->cmid);
                                     foreach ($secondaryfields as $field) {
-                                        $sql = str_replace("DISTINCT s.id AS instanceid", "s.id AS instanceid, s.$field AS content", $sql) .
+                                        $sql = str_replace(
+                                                "DISTINCT s.id AS instanceid", "s.id AS instanceid, s.$field AS content", $sql
+                                            ) .
                                             " WHERE s.id = :instanceid AND s.$field IS NOT NULL AND s.$field != ''";
                                         $params['instanceid'] = $record->instanceid;
                                         $fieldrecord = $DB->get_record_sql($sql, $params);

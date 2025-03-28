@@ -209,13 +209,15 @@ if ($mform->is_cancelled()) {
     $translation->timemodified = time();
     $translation->timereviewed = time();
 
+    // Derive context from courseid if available, otherwise null.
+    $context = ($data->courseid > 0) ? \context_course::instance($data->courseid) : null;
     $service->store_translation(
         $translation->hash,
         $translation->lang,
         $translation->translated_text,
         $translation->contextlevel,
         $data->courseid,
-        $translation->lang
+        $context
     );
 
     redirect(

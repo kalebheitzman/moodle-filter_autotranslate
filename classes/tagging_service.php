@@ -23,10 +23,8 @@
  */
 namespace filter_autotranslate;
 
-defined('MOODLE_INTERNAL') || die();
-
-require_once($CFG->dirroot . '/filter/autotranslate/classes/helper.php');
-require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_service.php');
+use filter_autotranslate\helper;
+use filter_autotranslate\translation_service;
 
 /**
  * Service class for handling tagging-related database operations in the filter_autotranslate plugin.
@@ -110,12 +108,26 @@ class tagging_service {
         try {
             // Only store source text if it doesn't exist.
             if (!$this->db->record_exists('filter_autotranslate_translations', ['hash' => $hash, 'lang' => 'other'])) {
-                $this->translationservice->store_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
+                $this->translationservice->store_translation(
+                    $hash,
+                    'other',
+                    $sourcetext,
+                    $context->contextlevel,
+                    $courseid,
+                    $context
+                );
             }
             // Store MLang translations if present, only if they don't exist.
             foreach ($translations as $lang => $translatedtext) {
                 if (!$this->db->record_exists('filter_autotranslate_translations', ['hash' => $hash, 'lang' => $lang])) {
-                    $this->translationservice->store_translation($hash, $lang, $translatedtext, $context->contextlevel, $courseid, $context);
+                    $this->translationservice->store_translation(
+                        $hash,
+                        $lang,
+                        $translatedtext,
+                        $context->contextlevel,
+                        $courseid,
+                        $context
+                    );
                 }
             }
             $taggedcontent = $displaytext . " {t:$hash}";
@@ -227,7 +239,10 @@ class tagging_service {
 
         // Extract the source text by removing the {t:hash} tag.
         $sourcetext = preg_replace('/\{t:[a-zA-Z0-9]{10}\}(?:\s*(?:<\/p>)?)?$/s', '', $content);
-        $this->restore_missing_source_text($hash, $sourcetext, \context::instance_by_id($this->db->get_field('context', 'id', ['contextlevel' => $contextlevel])), 0);
+        $this->restore_missing_source_text($hash, $sourcetext, \context::instance_by_id(
+            $this->db->get_field('context', 'id', ['contextlevel' => $contextlevel])),
+            0
+        );
     }
 
     /**

@@ -23,9 +23,7 @@
  */
 namespace filter_autotranslate;
 
-defined('MOODLE_INTERNAL') || die();
-
-require_once($CFG->dirroot . '/filter/autotranslate/classes/translation_service.php');
+use filter_autotranslate\translation_service;
 
 /**
  * Class to coordinate translation management for the filter_autotranslate plugin.
