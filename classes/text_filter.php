@@ -102,11 +102,6 @@ class text_filter extends \core_filters\text_filter {
     /**
      * Filters the given text, replacing {t:hash} tags with translated content.
      *
-     * Processes untagged content by tagging it and persisting it in the source table via
-     * `content_service`, then replaces all {t:hash} tags with the appropriate translation for the
-     * current language using `translation_source`. Ensures tags are processed only once to prevent
-     * duplication.
-     *
      * @param string $text The text to filter.
      * @param array $options Filter options, including 'context'.
      * @return string The filtered text with translations applied.
@@ -118,28 +113,30 @@ class text_filter extends \core_filters\text_filter {
 
         $context = $options['context'] ?? \context_system::instance();
         $courseid = $this->get_courseid_from_context($context);
+        $currentlang = current_language();
+        $cachekey = md5($text . $context->id . $currentlang);
 
-        // Step 1: Tag untagged content only if no {t:hash} tags exist.
-        $pattern = '/{t:([a-zA-Z0-9]{10})}/';
-        if (!preg_match($pattern, $text)) {
+        $cached = $this->cache->get($cachekey);
+        if ($cached !== false) {
+            return $cached;
+        }
+
+        $pattern = '/^(.*)\s*\{t:([a-zA-Z0-9]{10})\}$/s';
+        $hastags = preg_match($pattern, trim($text), $matches);
+
+        if (!$hastags) {
             $text = $this->contentservice->process_content($text, $context, $courseid);
         }
 
-        // Step 2: Replace {t:hash} tags with translations, avoiding reprocessing.
-        $currentlang = current_language();
-        $filteredtext = preg_replace_callback($pattern, function($matches) use ($currentlang, $context) {
-            $hash = $matches[1];
+        $filteredtext = preg_replace_callback($pattern, function($matches) use ($currentlang) {
+            $content = $matches[1];
+            $hash = $matches[2];
             $translation = $this->translationsource->get_translation($hash, $currentlang);
-
-            if ($translation && $translation->translated_text) {
-                return $translation->translated_text; // Use translated text if available.
-            }
-
-            // Fallback to source text (lang = 'other') if no translation exists.
             $sourcetext = $this->translationsource->get_source_text($hash);
-            return $sourcetext ?: $matches[0]; // Return original tag if no source text.
+            return ($translation && $translation->translated_text) ? $translation->translated_text : ($sourcetext ?: $content);
         }, $text);
 
+        $this->cache->set($cachekey, $filteredtext);
         return $filteredtext;
     }
 

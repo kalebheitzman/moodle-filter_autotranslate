@@ -168,6 +168,10 @@ class content_service {
      * @param int $courseid The course ID for mapping.
      */
     private function persist_tagged_content($taggedcontent, $sourcetext, $context, $courseid) {
+        if ($this->textutils->is_tagged($sourcetext)) {
+            return; // Skip if source text is already tagged.
+        }
+
         $contextlevel = $context->contextlevel;
         $instanceid = $context->instanceid;
 
