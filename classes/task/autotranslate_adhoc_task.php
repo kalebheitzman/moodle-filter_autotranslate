@@ -160,9 +160,9 @@ class autotranslate_adhoc_task extends adhoc_task {
             return;
         }
 
-        // Build prompt for translation.
+        // Build arrays for texts, record indices, and context levels.
         $texts = [];
-        $recordids = [];
+        $recordindices = [];
         $contextlevels = [];
         $processed = 0;
         $requests = 0;
@@ -176,10 +176,9 @@ class autotranslate_adhoc_task extends adhoc_task {
                 $this->update_progress('running', $processed, $totalentries);
                 continue;
             }
-            $textindex = $index + 1;
-            $texts[$textindex] = $record->translated_text;
-            $recordids[$textindex] = $index;
-            $contextlevels[$textindex] = $record->contextlevel;
+            $texts[$index] = $record->translated_text;
+            $recordindices[$index] = $index;
+            $contextlevels[$index] = $record->contextlevel;
         }
 
         $batchsize = 5; // Process in batches to manage API load.
@@ -210,8 +209,11 @@ class autotranslate_adhoc_task extends adhoc_task {
 
             $textcount = count($batch);
             $textlist = '';
+            $batchindices = array_keys($batch);
             foreach ($batch as $index => $text) {
-                $textlist .= "$index. " . addslashes($text) . "\n";
+                // Use 1-based index for the API prompt, but relative to the batch.
+                $textindex = (array_search($index, $batchindices) + 1);
+                $textlist .= "$textindex. " . addslashes($text) . "\n";
             }
 
             $example = "[{\"$targetlang\": \"Example translation in $targetlang\"}]";
@@ -306,12 +308,13 @@ class autotranslate_adhoc_task extends adhoc_task {
                             );
                         }
 
-                        foreach ($translationsarray as $index => $langtranslations) {
-                            $recordid = (string)($index + 1);
+                        foreach ($translationsarray as $responseindex => $langtranslations) {
                             if (!is_array($langtranslations) || !isset($langtranslations[$targetlang])) {
                                 continue;
                             }
-                            $translations[$recordid] = $langtranslations[$targetlang];
+                            // Map the response index (0-based) to the original index in the batch.
+                            $batchindex = $batchindices[$responseindex];
+                            $translations[$batchindex] = $langtranslations[$targetlang];
                         }
                         $success = true;
                     } else {
@@ -344,8 +347,7 @@ class autotranslate_adhoc_task extends adhoc_task {
 
             // Store translations.
             foreach ($translations as $index => $translatedtext) {
-                $recordindex = $recordids[$index];
-                $hash = $hashes[$recordindex];
+                $hash = $hashes[$index];
                 $contextlevel = $contextlevels[$index];
                 $context = $courseid ? \context_course::instance($courseid) : null;
                 $contentservice->store_translation($hash, $targetlang, $translatedtext, $contextlevel, $courseid, $context);
