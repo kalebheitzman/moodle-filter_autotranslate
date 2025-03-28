@@ -320,7 +320,8 @@ class autotranslate_adhoc_task extends adhoc_task {
                 $recordindex = $recordids[$index];
                 $hash = $hashes[$recordindex];
                 $contextlevel = $contextlevels[$index];
-                $translationservice->store_translation($hash, $targetlang, $translatedtext, $contextlevel, $courseid);
+                $context = $courseid ? \context_course::instance($courseid) : null;
+                $translationservice->store_translation($hash, $targetlang, $translatedtext, $contextlevel, $courseid, $context);
                 $processed++;
                 $this->update_progress('running', $processed, $totalentries);
             }

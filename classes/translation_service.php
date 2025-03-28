@@ -39,8 +39,8 @@ require_once($CFG->libdir . '/filelib.php');
  *   Coordination logic is handled by translation_manager.php, and read-only access is provided
  *   by translation_repository.php.
  * - Function names use snake_case (e.g., update_translation) to follow Moodle's coding style.
- * - The store_translation function ensures translations are either inserted or updated, handling
- *   both new translations and updates to existing ones.
+ * - The store_translation function only inserts new translations, while updates are handled by
+ *   update_translation() to preserve existing contextlevel unless explicitly changed.
  * - Rewrites @@PLUGINFILE@@ URLs in the translated text before storing it in filter_autotranslate_translations,
  *   ensuring the stored text has fully resolved URLs and eliminating the need for rewriting at display time.
  *
@@ -90,7 +90,10 @@ class translation_service {
     }
 
     /**
-     * Stores a translation in filter_autotranslate_translations, updating if it already exists.
+     * Stores a new translation in filter_autotranslate_translations if it doesn't exist.
+     *
+     * This function inserts a new translation record if no entry exists for the given hash and language.
+     * It does not update existing records; use update_translation() for updates.
      *
      * @param string $hash The unique hash of the translation.
      * @param string $lang The language code (e.g., 'es', 'fr', 'other').
@@ -108,18 +111,8 @@ class translation_service {
             $translatedtext = $this->rewrite_pluginfile_urls($translatedtext, $effectivecontext, $hash);
         }
 
-        $existing = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
-        if ($existing) {
-            $record = new \stdClass();
-            $record->id = $existing->id;
-            $record->translated_text = $translatedtext;
-            $record->contextlevel = $contextlevel;
-            $record->timemodified = time();
-            $record->timereviewed = time();
-            $record->human = 0;
-
-            $this->db->update_record('filter_autotranslate_translations', $record);
-        } else {
+        // Only insert if the record doesn't exist.
+        if (!$this->db->record_exists('filter_autotranslate_translations', ['hash' => $hash, 'lang' => $lang])) {
             $record = new \stdClass();
             $record->hash = $hash;
             $record->lang = $lang;
@@ -132,6 +125,7 @@ class translation_service {
 
             $this->db->insert_record('filter_autotranslate_translations', $record);
         }
+        // No update logic here; existing records are preserved.
     }
 
     /**

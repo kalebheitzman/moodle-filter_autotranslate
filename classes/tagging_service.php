@@ -83,7 +83,7 @@ class tagging_service {
         // Check if content is already tagged and extract hash.
         $hash = helper::extract_hash($content);
         if ($hash) {
-            // If tagged, ensure source text exists or restore it.
+            // If tagged, ensure source text exists but do not update if it already does.
             $this->restore_missing_source_text($hash, $sourcetext, $context, $courseid);
             $taggedcontent = $displaytext . " {t:$hash}";
             $this->update_hash_course_mapping($taggedcontent, $courseid);
@@ -108,10 +108,15 @@ class tagging_service {
         // Store or update source text and translations in the database.
         $transaction = $this->db->start_delegated_transaction();
         try {
-            // Pass the context for precise URL rewriting.
-            $this->translationservice->store_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
+            // Only store source text if it doesn't exist.
+            if (!$this->db->record_exists('filter_autotranslate_translations', ['hash' => $hash, 'lang' => 'other'])) {
+                $this->translationservice->store_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
+            }
+            // Store MLang translations if present, only if they don't exist.
             foreach ($translations as $lang => $translatedtext) {
-                $this->translationservice->store_translation($hash, $lang, $translatedtext, $context->contextlevel, $courseid, $context);
+                if (!$this->db->record_exists('filter_autotranslate_translations', ['hash' => $hash, 'lang' => $lang])) {
+                    $this->translationservice->store_translation($hash, $lang, $translatedtext, $context->contextlevel, $courseid, $context);
+                }
             }
             $taggedcontent = $displaytext . " {t:$hash}";
             $this->update_hash_course_mapping($taggedcontent, $courseid);
@@ -187,7 +192,7 @@ class tagging_service {
     }
 
     /**
-     * Restores missing source text for an existing hash.
+     * Restores missing source text for an existing hash only if it doesn't exist.
      *
      * @param string $hash The hash from the content.
      * @param string $sourcetext The source text to restore.
@@ -197,17 +202,12 @@ class tagging_service {
     public function restore_missing_source_text($hash, $sourcetext, $context, $courseid) {
         $existing = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => 'other']);
         if (!$existing) {
+            // Only store if missing, no update if it exists.
             $sourcetext = $this->translationservice->rewrite_pluginfile_urls($sourcetext, $context, $hash);
-            // Pass the context for precise URL rewriting.
             $this->translationservice->store_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
             $this->update_hash_course_mapping("{t:$hash}", $courseid);
-        } else if (trim($existing->translated_text) !== trim($sourcetext)) {
-            $sourcetext = $this->translationservice->rewrite_pluginfile_urls($sourcetext, $context, $hash);
-            $existing->translated_text = $sourcetext;
-            $existing->timemodified = time();
-            $existing->human = 1;
-            $this->translationservice->update_translation($existing);
         }
+        // If it exists, do not update (preserve original contextlevel and text).
     }
 
     /**
