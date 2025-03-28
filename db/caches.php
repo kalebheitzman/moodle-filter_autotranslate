@@ -78,4 +78,13 @@ $definitions = [
         // memory usage and performance. Adjust this value based on your site's usage patterns if needed.
         'staticaccelerationsize' => 1000,
     ],
+    'modschemas' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'staticacceleration' => true,
+        'staticaccelerationsize' => 10,
+        'canuselocalstore' => true,
+        'persistent' => true,
+    ],
 ];

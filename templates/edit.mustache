@@ -29,14 +29,14 @@
 
     Context variables required for this template:
     * form: HTML for the edit form (rendered by edit_form.php).
-    * source_text: The source text (lang = 'other') for the translation.
-    * source_text_label: The label for the source text section (e.g., "Source Text").
+    * sourcetext: The source text (lang = 'other') for the translation.
+    * sourcetextlabel: The label for the source text section (e.g., "Source Text").
 
     Example context (json):
     {
         "form": "<form action=\"edit.php\" method=\"post\"><input type=\"text\" name=\"translated_text\" value=\"Hello world\" /></form>",
-        "source_text": "Hola mundo",
-        "source_text_label": "Source Text"
+        "sourcetext": "Hola mundo",
+        "sourcetextlabel": "Source Text"
     }
 }}
 <div class="row mb-3">
@@ -51,9 +51,14 @@
     <div class="col-md-5">
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">{{source_text_label}}{{^source_text_label}}{{#str}}sourcetext, filter_autotranslate{{/str}}{{/source_text_label}}</h5>
+                <h5 class="card-title">
+                    {{sourcetextlabel}}
+                    {{^sourcetextlabel}}
+                        {{#str}}sourcetext, filter_autotranslate{{/str}}
+                    {{/sourcetextlabel}}
+                </h5>
                 <div class="card-text">
-                    {{{source_text}}}
+                    {{{sourcetext}}}
                 </div>
             </div>
         </div>

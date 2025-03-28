@@ -17,6 +17,16 @@
 /**
  * External services definition for the filter_autotranslate plugin.
  *
+ * Purpose:
+ * Defines the external API functions and service for the filter_autotranslate plugin, enabling
+ * AJAX calls from the manage page to queue autotranslate tasks and check their status.
+ *
+ * Design Decisions:
+ * - Removes `filter_autotranslate_rebuild_translations` as the rebuild feature is no longer used,
+ *   aligning with Option 3 (Mark Stale and Lazy Rebuild).
+ * - Retains `filter_autotranslate_autotranslate` and `filter_autotranslate_task_status` for the
+ *   autotranslate functionality on manage.php.
+ *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -33,18 +43,10 @@ $functions = [
         'ajax'        => true,
         'capabilities' => 'filter/autotranslate:manage',
     ],
-    'filter_autotranslate_rebuild_translations' => [
-        'classname'   => 'filter_autotranslate\external',
-        'methodname'  => 'rebuild_translations',
-        'description' => 'Queues an adhoc task to rebuild translations for a specific course.',
-        'type'        => 'write',
-        'ajax'        => true,
-        'capabilities' => 'filter/autotranslate:manage',
-    ],
     'filter_autotranslate_task_status' => [
         'classname'   => 'filter_autotranslate\external',
         'methodname'  => 'task_status',
-        'description' => 'Retrieves the status and progress of an autotranslate or rebuild task.',
+        'description' => 'Retrieves the status and progress of an autotranslate task.',
         'type'        => 'read',
         'ajax'        => true,
         'capabilities' => 'filter/autotranslate:manage',
@@ -55,7 +57,6 @@ $services = [
     'filter_autotranslate_services' => [
         'functions' => [
             'filter_autotranslate_autotranslate',
-            'filter_autotranslate_rebuild_translations',
             'filter_autotranslate_task_status',
         ],
         'restrictedusers' => 0,

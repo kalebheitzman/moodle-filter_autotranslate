@@ -1,34 +1,21 @@
 define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
     /**
-     * Initializes the autotranslate and rebuild buttons.
+     * Initializes the autotranslate button on the manage page.
      */
     function init() {
         console.log('Autotranslate JavaScript module loaded and initialized.');
 
         // Initialize the autotranslate button.
-        var autotranslateButton = document.getElementById('autotranslate-button');
-        if (autotranslateButton) {
-            console.log('Autotranslate button found:', autotranslateButton);
-            autotranslateButton.addEventListener('click', function () {
+        var autotranslatebutton = document.getElementById('autotranslate-button');
+        if (autotranslatebutton) {
+            console.log('Autotranslate button found:', autotranslatebutton);
+            autotranslatebutton.addEventListener('click', function () {
                 console.log('Autotranslate button clicked.');
-                var filterParams = JSON.parse(autotranslateButton.getAttribute('data-filter-params'));
-                startTask('filter_autotranslate_autotranslate', filterParams);
+                var filterparams = JSON.parse(autotranslatebutton.getAttribute('data-filter-params'));
+                startTask('filter_autotranslate_autotranslate', filterparams);
             });
         } else {
             console.log('Autotranslate button not found.');
-        }
-
-        // Initialize the rebuild button.
-        var rebuildButton = document.getElementById('rebuild-button');
-        if (rebuildButton) {
-            console.log('Rebuild button found:', rebuildButton);
-            rebuildButton.addEventListener('click', function () {
-                console.log('Rebuild button clicked.');
-                var filterParams = JSON.parse(rebuildButton.getAttribute('data-filter-params'));
-                startTask('filter_autotranslate_rebuild_translations', { courseid: filterParams.courseid });
-            });
-        } else {
-            console.log('Rebuild button not found.');
         }
     }
 
@@ -39,25 +26,21 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
      * @param {object} params Parameters to pass to the webservice.
      */
     function startTask(methodname, params) {
-        // Disable both buttons.
-        var autotranslateButton = document.getElementById('autotranslate-button');
-        var rebuildButton = document.getElementById('rebuild-button');
-        if (autotranslateButton) {
-            autotranslateButton.setAttribute('disabled', 'disabled');
-        }
-        if (rebuildButton) {
-            rebuildButton.setAttribute('disabled', 'disabled');
+        // Disable the autotranslate button.
+        var autotranslatebutton = document.getElementById('autotranslate-button');
+        if (autotranslatebutton) {
+            autotranslatebutton.setAttribute('disabled', 'disabled');
         }
 
         // Show the progress bar.
-        var progressContainer = document.getElementById('task-progress');
-        progressContainer.style.display = 'block';
-        var progressBar = progressContainer.querySelector('.progress-bar');
-        progressBar.classList.remove('bg-danger'); // Reset any previous failure state
-        progressBar.classList.add('bg-primary'); // Set to default blue
-        progressBar.style.width = '0%';
-        progressBar.setAttribute('aria-valuenow', '0');
-        progressBar.textContent = '0%';
+        var progresscontainer = document.getElementById('task-progress');
+        progresscontainer.style.display = 'block';
+        var progressbar = progresscontainer.querySelector('.progress-bar');
+        progressbar.classList.remove('bg-danger');
+        progressbar.classList.add('bg-primary');
+        progressbar.style.width = '0%';
+        progressbar.setAttribute('aria-valuenow', '0');
+        progressbar.textContent = '0%';
 
         // Call the webservice to queue the task.
         Ajax.call([{
@@ -98,16 +81,15 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
             methodname: 'filter_autotranslate_task_status',
             args: { taskid: taskid },
             done: function (response) {
-                var progressBar = document.querySelector('#task-progress .progress-bar');
-                if (progressBar) {
-                    progressBar.style.width = response.percentage + '%';
-                    progressBar.setAttribute('aria-valuenow', response.percentage);
-                    progressBar.textContent = response.percentage + '%';
+                var progressbar = document.querySelector('#task-progress .progress-bar');
+                if (progressbar) {
+                    progressbar.style.width = response.percentage + '%';
+                    progressbar.setAttribute('aria-valuenow', response.percentage);
+                    progressbar.textContent = response.percentage + '%';
 
-                    // If the task failed, change the progress bar to red.
                     if (response.status === 'failed') {
-                        progressBar.classList.remove('bg-primary');
-                        progressBar.classList.add('bg-danger');
+                        progressbar.classList.remove('bg-primary');
+                        progressbar.classList.add('bg-danger');
                     }
                 }
 
@@ -126,10 +108,9 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
                     });
                     resetUI();
                 } else {
-                    // Continue polling.
                     setTimeout(function () {
                         pollTaskStatus(taskid);
-                    }, 1000); // Poll every 1 seconds.
+                    }, 1000);
                 }
             },
             fail: function (error) {
@@ -137,10 +118,10 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
                     message: 'Error checking task status: ' + error.message,
                     type: 'error'
                 });
-                var progressBar = document.querySelector('#task-progress .progress-bar');
-                if (progressBar) {
-                    progressBar.classList.remove('bg-primary');
-                    progressBar.classList.add('bg-danger');
+                var progressbar = document.querySelector('#task-progress .progress-bar');
+                if (progressbar) {
+                    progressbar.classList.remove('bg-primary');
+                    progressbar.classList.add('bg-danger');
                 }
                 resetUI();
             }
@@ -151,22 +132,18 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
      * Resets the UI after a task completes or fails.
      */
     function resetUI() {
-        var autotranslateButton = document.getElementById('autotranslate-button');
-        var rebuildButton = document.getElementById('rebuild-button');
-        if (autotranslateButton) {
-            autotranslateButton.removeAttribute('disabled');
-        }
-        if (rebuildButton) {
-            rebuildButton.removeAttribute('disabled');
+        var autotranslatebutton = document.getElementById('autotranslate-button');
+        if (autotranslatebutton) {
+            autotranslatebutton.removeAttribute('disabled');
         }
 
-        var progressContainer = document.getElementById('task-progress');
-        progressContainer.style.display = 'none';
-        var progressBar = progressContainer.querySelector('.progress-bar');
-        if (progressBar) {
-            progressBar.style.width = '0%';
-            progressBar.setAttribute('aria-valuenow', '0');
-            progressBar.textContent = '0%';
+        var progresscontainer = document.getElementById('task-progress');
+        progresscontainer.style.display = 'none';
+        var progressbar = progresscontainer.querySelector('.progress-bar');
+        if (progressbar) {
+            progressbar.style.width = '0%';
+            progressbar.setAttribute('aria-valuenow', '0');
+            progressbar.textContent = '0%';
         }
     }
 

@@ -19,11 +19,31 @@
  *
  * Purpose:
  * This script renders the manage page for the filter_autotranslate plugin, displaying a table of
- * translations stored in the filter_autotranslate_translations table. It allows administrators to filter
- * translations by language, human status, review status, and records per page, with support for
- * pagination, sorting, and editing individual translations. The page also handles right-to-left (RTL)
- * languages for proper text alignment. When a target language is selected, it shows all 'other' translations
- * with an option to add missing translations.
+ * translations from the `filter_autotranslate_translations` table. It allows administrators to
+ * filter translations by language, human status, review status, and records per page, with support
+ * for pagination, sorting, and editing individual translations, handling right-to-left (RTL)
+ * languages for proper alignment.
+ *
+ * Usage:
+ * Accessed via the URL '/filter/autotranslate/manage.php', typically by administrators with the
+ * 'filter/autotranslate:manage' capability. It renders a filter form and a table of translations,
+ * with options to edit existing translations or add missing ones for target languages.
+ *
+ * Design Decisions:
+ * - Uses `ui_manager` for data retrieval and staleness actions, aligning with the plugin’s core
+ *   structure and Option 3 (Mark Stale and Lazy Rebuild).
+ * - Removes the 'Rebuild Translations' feature, relying on dynamic staleness handling via
+ *   `ui_manager` and `content_service`.
+ * - Supports target language views with 'Add' buttons for missing translations, using direct SQL
+ *   for efficiency while maintaining consistency with `ui_manager` for other views.
+ * - Integrates Moodle’s output API and Mustache templating for a responsive, user-friendly interface.
+ *
+ * Dependencies:
+ * - `ui_manager.php`: Coordinates UI data retrieval and staleness actions.
+ * - `translation_source.php`: Provides translation data via `ui_manager`.
+ * - `text_utils.php`: Handles RTL language detection.
+ * - `form/manage_form.php`: Renders the filter form.
+ * - `templates/manage.mustache`: Template for the manage page layout.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -33,9 +53,10 @@
 namespace filter_autotranslate;
 
 require_once(__DIR__ . '/../../config.php');
-use filter_autotranslate\translation_manager;
-use filter_autotranslate\translation_repository;
-use filter_autotranslate\helper;
+
+use filter_autotranslate\ui_manager;
+use filter_autotranslate\translation_source;
+use filter_autotranslate\text_utils;
 
 try {
     require_login();
@@ -75,8 +96,8 @@ try {
 
     global $DB, $OUTPUT;
 
-    // Map the filter language to 'other' if it matches the site language.
-    $internalfilterlang = helper::map_language_to_other($filterlang);
+    // Map filter language to 'other' if it matches the site language.
+    $internalfilterlang = text_utils::map_language_to_other($filterlang);
 
     // Determine if we're in a target language view.
     $istargetlang = !empty($internalfilterlang) && $internalfilterlang !== 'all' && $internalfilterlang !== 'other';
@@ -96,9 +117,13 @@ try {
     ]);
     $filterformhtml = $mform->render();
 
-    // Fetch translations differently based on filterlang.
+    // Initialize ui_manager.
+    $translationsource = new translation_source($DB);
+    $uimanager = new ui_manager($translationsource);
+
+    // Fetch translations.
     if ($istargetlang) {
-        // For target languages, fetch all 'other' translations and join with target language if exists.
+        // Target language view: Fetch 'other' translations and join with target if exists.
         $sql = "SELECT t_other.hash, t_other.translated_text AS source_text,
                        t_target.id AS target_id, t_target.lang AS target_lang,
                        t_target.translated_text AS target_text, t_target.human,
@@ -127,10 +152,8 @@ try {
         );
         $translations = $DB->get_records_sql($sql, $params, $page * $perpage, $perpage);
     } else {
-        // For 'all' or 'other', use the existing manager method.
-        $repository = new translation_repository($DB);
-        $manager = new translation_manager($repository);
-        $result = $manager->get_paginated_translations(
+        // Options: 'All' or 'other' view: Use ui_manager.
+        $result = $uimanager->get_paginated_translations(
             $page,
             $perpage,
             $internalfilterlang,
@@ -151,12 +174,10 @@ try {
         $row->hash = $translation->hash;
 
         if ($istargetlang) {
-            // Target language view.
             $row->lang = $internalfilterlang;
             $row->source_text = format_text($translation->source_text, FORMAT_HTML);
 
             if ($translation->target_id) {
-                // Existing target translation.
                 $translatedtext = format_text($translation->target_text, FORMAT_HTML);
                 $dateshtml = '<small class="text-muted" dir="ltr">' .
                             get_string('last_modified', 'filter_autotranslate') . ': ' .
@@ -166,7 +187,7 @@ try {
                             '</small>';
                 $row->translated_text = $translatedtext . '<br>' . $dateshtml;
                 $row->human = $translation->human ? get_string('yes') : get_string('no');
-                $row->contextlevel = $translation->target_contextlevel; // Use target contextlevel if available.
+                $row->contextlevel = $translation->target_contextlevel ?? $translation->source_contextlevel;
                 $needsreview = $translation->timereviewed < $translation->timemodified;
                 $row->review_status = $needsreview ? $OUTPUT->pix_icon(
                     'i/warning',
@@ -174,30 +195,28 @@ try {
                     'moodle',
                     ['class' => 'text-danger align-middle']
                 ) : '';
-                $row->show_edit_link = true;
-                $row->edit_url = (new \moodle_url('/filter/autotranslate/edit.php', [
+                $row->showEditLink = true;
+                $row->editUrl = (new \moodle_url('/filter/autotranslate/edit.php', [
                     'hash' => $translation->hash,
                     'tlang' => $internalfilterlang,
                 ]))->out(false);
             } else {
-                // No target translation, show Add button.
-                $row->translated_text = ''; // Will be replaced by Add button in template.
-                $row->show_add_link = true;
-                $row->add_url = (new \moodle_url('/filter/autotranslate/create.php', [
+                $row->translated_text = '';
+                $row->showAddLink = true;
+                $row->addUrl = (new \moodle_url('/filter/autotranslate/create.php', [
                     'hash' => $translation->hash,
                     'tlang' => $internalfilterlang,
                     'courseid' => $courseid,
                 ]))->out(false);
                 $row->human = '';
-                $row->contextlevel = $translation->source_contextlevel; // Use source contextlevel for untranslated entries.
+                $row->contextlevel = $translation->source_contextlevel;
                 $row->review_status = '';
-                $row->show_edit_link = false;
+                $row->showEditLink = false;
             }
-            $row->edit_label = get_string('edit');
-            $row->add_label = get_string('add', 'core');
-            $row->is_rtl = helper::is_rtl_language($internalfilterlang);
+            $row->editLabel = get_string('edit');
+            $row->addLabel = get_string('add', 'core');
+            $row->isRtl = text_utils::is_rtl_language($internalfilterlang);
         } else {
-            // Filter 'all' or 'other' view (unchanged).
             $translatedtext = format_text($translation->translated_text, FORMAT_HTML);
             $sourcetext = $translation->source_text !== 'N/A' ? format_text($translation->source_text, FORMAT_HTML) : 'N/A';
             $needsreview = $translation->timereviewed < $translation->timemodified;
@@ -213,20 +232,20 @@ try {
                         '</small>';
             $translatedtextwithdates = $translatedtext . '<br>' . $dateshtml;
             $showeditlink = ($translation->lang !== 'other' && $internalfilterlang !== 'other');
-            $isrtl = helper::is_rtl_language($translation->lang);
+            $isrtl = text_utils::is_rtl_language($translation->lang);
 
             $row->lang = $translation->lang;
             $row->translated_text = $translatedtextwithdates;
             $row->human = $translation->human ? get_string('yes') : get_string('no');
             $row->contextlevel = $translation->contextlevel;
             $row->review_status = $reviewstatus;
-            $row->show_edit_link = $showeditlink;
-            $row->edit_url = (new \moodle_url('/filter/autotranslate/edit.php', [
+            $row->showEditLink = $showeditlink;
+            $row->editUrl = (new \moodle_url('/filter/autotranslate/edit.php', [
                 'hash' => $translation->hash,
                 'tlang' => $translation->lang,
             ]))->out(false);
-            $row->edit_label = get_string('edit');
-            $row->is_rtl = $isrtl;
+            $row->editLabel = get_string('edit');
+            $row->isRtl = $isrtl;
             if (!empty($internalfilterlang) && $internalfilterlang !== 'all' && $internalfilterlang !== 'other') {
                 $row->source_text = $sourcetext;
             }
@@ -262,7 +281,7 @@ try {
     ]);
     $paginationhtml = $OUTPUT->paging_bar($total, $page, $perpage, $baseurl);
 
-    // Prepare filter parameters for JavaScript.
+    // Prepare filter parameters for JavaScript (no rebuild).
     $filterparams = [
         'targetlang' => $internalfilterlang,
         'courseid' => $courseid,
@@ -282,22 +301,17 @@ try {
         'pagination' => $paginationhtml,
         'has_courseid' => $courseid > 0,
         'istargetlang' => $istargetlang,
-        'rebuild_url' => $courseid > 0 ? (new \moodle_url('/filter/autotranslate/manage.php', [
-            'courseid' => $courseid,
-            'action' => 'rebuild',
-        ]))->out(false) : '',
-        'rebuild_label' => get_string('rebuildtranslations', 'filter_autotranslate'),
         'autotranslate_label' => get_string('autotranslate', 'filter_autotranslate'),
         'filter_params' => json_encode($filterparams),
     ];
 
-    // Load JavaScript for asynchronous actions.
+    // Load JavaScript for asynchronous actions (e.g., autotranslate).
     $PAGE->requires->js_call_amd('filter_autotranslate/autotranslate', 'init');
 
     echo $OUTPUT->header();
     echo $OUTPUT->render_from_template('filter_autotranslate/manage', $data);
     echo $OUTPUT->footer();
 } catch (\Exception $e) {
-    debugging("Fatal error in manage.php: " . $e->getMessage());
+    debugging("Fatal error in manage.php: " . $e->getMessage(), DEBUG_DEVELOPER);
     echo "An error occurred: " . $e->getMessage();
 }

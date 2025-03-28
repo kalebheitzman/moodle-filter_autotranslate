@@ -15,42 +15,66 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Auto Translate Filter
+ * Text Filter for the Autotranslate Plugin
+ *
+ * Purpose:
+ * This file defines the text filter for the filter_autotranslate plugin, acting as a lean entry
+ * point to process Moodle text by replacing `{t:hash}` tags with translations or delegating
+ * untagged or stale content for tagging and storage. It integrates with Moodle’s filtering system
+ * to dynamically enhance text during page rendering, leveraging caching for performance and
+ * ensuring minimal logic by offloading complex operations to other components.
+ *
+ * Structure:
+ * Contains the `text_filter` class, extending Moodle’s core text filter, with properties for
+ * `$contentservice` (tagging/storage), `$translationsource` (data retrieval), and `$cache`
+ * (performance). Key methods include `filter` (main processing), `has_tags` (tag detection),
+ * `replace_tags` (translation replacement), `get_courseid_from_context` (course ID resolution),
+ * and `get_indicator` (UI markup).
+ *
+ * Usage:
+ * Called by Moodle’s filtering system when text needs processing, typically during page rendering.
+ * It checks context settings, replaces existing `{t:hash}` tags with translations from
+ * `translationsource`, or delegates untagged/stale text to `contentservice` for processing.
+ *
+ * Design Decisions:
+ * - Keeps logic minimal to ensure maintainability, delegating tagging and staleness handling to
+ *   `contentservice` and translation retrieval to `translationsource`.
+ * - Uses application-level caching (via `cache.php`) to store tagged content, reducing redundant
+ *   database operations across requests.
+ * - Retains context validation (`selectctx`) to control where filtering applies, aligning with
+ *   dynamic settings from the plugin’s configuration.
+ * - Preserves the auto-translation indicator as a simple UI enhancement, with potential to move
+ *   to `ui_manager` in future iterations.
+ *
+ * Dependencies:
+ * - `content_service.php`: Handles tagging, storage, and staleness logic for untagged or stale content.
+ * - `translation_source.php`: Provides read-only access to translation data for tag replacement.
+ * - `text_utils.php`: Supplies utility functions (e.g., tag detection, used indirectly via `contentservice`).
+ * - `cache.php`: Defines the `taggedcontent` cache for performance optimization.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
 namespace filter_autotranslate;
 
-use filter_autotranslate\translation_repository;
-use filter_autotranslate\translation_service;
-use filter_autotranslate\tagging_service;
-use filter_autotranslate\helper;
+use filter_autotranslate\content_service;
+use filter_autotranslate\translation_source;
 
 /**
  * Text filter class for the filter_autotranslate plugin.
  */
 class text_filter extends \core_filters\text_filter {
     /**
-     * @var translation_repository The translation repository instance for fetching translations.
+     * @var content_service The service instance for tagging, storing, and managing content.
      */
-    private $translationrepository;
+    private $contentservice;
 
     /**
-     * @var translation_service The translation service instance for updating translations.
+     * @var translation_source The source instance for fetching translation data.
      */
-    private $translationservice;
-
-    /**
-     * @var tagging_service The tagging service instance for tagging content.
-     */
-    private $taggingservice;
-
-    /**
-     * @var array Cache of hashes processed in the current request to avoid redundant updates.
-     */
-    private $processedhashes = [];
+    private $translationsource;
 
     /**
      * @var \cache The cache instance for storing tagged content across requests.
@@ -60,168 +84,112 @@ class text_filter extends \core_filters\text_filter {
     /**
      * Constructor for the text filter.
      *
+     * Initializes the filter with its dependencies, setting up the content service, translation
+     * source, and cache for efficient text processing.
+     *
      * @param \context $context The context in which the filter is applied.
-     * @param array $options Filter options.
+     * @param array $options Filter options (e.g., 'noclean' for HTML handling).
      */
     public function __construct($context, array $options = []) {
         parent::__construct($context, $options);
         global $DB;
-        $this->translationrepository = new translation_repository($DB);
-        $this->translationservice = new translation_service($DB);
-        $this->taggingservice = new tagging_service($DB);
+
+        $this->contentservice = new content_service($DB);
+        $this->translationsource = new translation_source($DB);
         $this->cache = \cache::make('filter_autotranslate', 'taggedcontent');
     }
 
     /**
-     * Filters the given text, replacing {t:hash} tags with translations and dynamically tagging untagged content.
+     * Filters text by replacing `{t:hash}` tags or delegating untagged content.
+     *
+     * Processes the input text based on context settings: if tagged, replaces tags with translations;
+     * if untagged or stale, delegates to the content service for tagging and storage. Uses caching
+     * to optimize performance.
      *
      * @param string $text The text to filter.
      * @param array $options Filter options (e.g., 'noclean' to allow HTML).
-     * @return string The filtered text with {t:hash} tags replaced by translations.
+     * @return string The filtered text with tags replaced or newly tagged content.
      */
     public function filter($text, array $options = []) {
-        global $USER;
-
+        // Skip processing if text is empty or numeric.
         if (empty($text) || is_numeric($text)) {
             return $text;
         }
 
-        // Get configured contexts.
-        $selectedctx = get_config('filter_autotranslate', 'selectctx');
-        $selectedctx = $selectedctx ? array_map('trim', explode(',', $selectedctx)) : ['40', '50', '70', '80'];
-        $currentcontext = $this->context->contextlevel;
-
-        if (!in_array((string)$currentcontext, $selectedctx)) {
+        // Check if the current context level is enabled for filtering.
+        $selectedctx = get_config('filter_autotranslate', 'selectctx') ?: '40,50,70,80';
+        $selectedctx = array_map('trim', explode(',', $selectedctx));
+        if (!in_array((string)$this->context->contextlevel, $selectedctx)) {
             return $text;
         }
 
-        // First, check if the text already contains {t:hash} tags.
-        $pattern = '/((?:[^<{]*(?:<[^>]+>[^<{]*)*)?)\s*(?:<p>\s*)?\{t:([a-zA-Z0-9]{10})\}(?:\s*<\/p>)?/s';
-        $matches = [];
-        $hastags = preg_match_all($pattern, $text, $matches, PREG_SET_ORDER);
-
-        if ($hastags) {
-            // Process existing {t:hash} tags.
-            $replacements = [];
-            $courseid = $this->get_courseid_from_context();
-            foreach ($matches as $match) {
-                $fulltag = $match[0];
-                $hash = $match[2];
-                $sourcetext = trim($match[1]);
-
-                // Ensure source text exists or restore it.
-                $this->taggingservice->restore_missing_source_text($hash, $sourcetext, $this->context, $courseid);
-                $this->taggingservice->update_hash_course_mapping($fulltag, $courseid);
-
-                // Skip if we've already processed this hash in the current request.
-                if (isset($this->processedhashes[$hash])) {
-                    $displaytext = $this->processedhashes[$hash]['display_text'];
-                    $isautotranslated = $this->processedhashes[$hash]['is_autotranslated'];
-                } else {
-                    // Fetch the translation for the user's language.
-                    $userlang = current_language();
-                    $sitelang = get_config('core', 'lang') ?: 'en';
-                    $effectivelang = ($userlang === $sitelang) ? 'other' : $userlang;
-                    $translation = $this->translationrepository->get_translation($hash, $effectivelang);
-                    if (!$translation) {
-                        $debugenabled = get_config('filter_autotranslate', 'debugtranslations');
-                        if ($debugenabled) {
-                            debugging(
-                                "Translation not found for hash '$hash' and language '$effectivelang' " .
-                                "in context {$this->context->id}. Source text: " . substr($sourcetext, 0, 50) . "...",
-                                DEBUG_DEVELOPER
-                            );
-                        }
-                        $displaytext = $this->get_fallback_text($hash, $sourcetext);
-                    } else {
-                        $displaytext = $translation->translated_text;
-                    }
-
-                    // Check if the translation is auto-translated.
-                    $isautotranslated = $translation ? $translation->human === 0 : false;
-
-                    // Cache the result for this hash.
-                    $this->processedhashes[$hash] = [
-                        'display_text' => $displaytext,
-                        'is_autotranslated' => $isautotranslated,
-                    ];
-                }
-
-                $autotranslatedindicator = $isautotranslated ? $this->get_autotranslate_indicator() : '';
-                $allowhtml = !empty($options['noclean']) ||
-                    ($this->context->contextlevel !== CONTEXT_COURSE && $this->context->contextlevel !== CONTEXT_MODULE);
-                $replacements[$fulltag] = $displaytext . ($allowhtml ? $autotranslatedindicator : "");
-            }
-
-            foreach ($replacements as $tag => $replacement) {
-                $text = str_replace($tag, $replacement, $text);
-            }
-
-            return $text;
+        // Process tagged text or delegate untagged/stale content.
+        if ($this->has_tags($text)) {
+            return $this->replace_tags($text, $options);
         }
 
-        // If no {t:hash} tags, dynamically tag the content.
-        $courseid = $this->get_courseid_from_context();
-        $taggedcontent = $this->taggingservice->tag_and_store_content($text, $this->context, $courseid);
-
-        // Process the tagged content.
-        if (preg_match_all($pattern, $taggedcontent, $matches, PREG_SET_ORDER)) {
-            $replacements = [];
-            foreach ($matches as $match) {
-                $fulltag = $match[0];
-                $hash = $match[2];
-                $sourcetext = trim($match[1]);
-
-                if (isset($this->processedhashes[$hash])) {
-                    $displaytext = $this->processedhashes[$hash]['display_text'];
-                    $isautotranslated = $this->processedhashes[$hash]['is_autotranslated'];
-                } else {
-                    $userlang = current_language();
-                    $sitelang = get_config('core', 'lang') ?: 'en';
-                    $effectivelang = ($userlang === $sitelang) ? 'other' : $userlang;
-                    $translation = $this->translationrepository->get_translation($hash, $effectivelang);
-                    if (!$translation) {
-                        $debugenabled = get_config('filter_autotranslate', 'debugtranslations');
-                        if ($debugenabled) {
-                            debugging(
-                                "Translation not found for hash '$hash' and language '$effectivelang' " .
-                                "in context {$this->context->id}. Source text: " . substr($sourcetext, 0, 50) . "...",
-                                DEBUG_DEVELOPER
-                            );
-                        }
-                        $displaytext = $this->get_fallback_text($hash, $sourcetext);
-                    } else {
-                        $displaytext = $translation->translated_text;
-                    }
-
-                    $isautotranslated = $translation ? $translation->human === 0 : false;
-                    $this->processedhashes[$hash] = [
-                        'display_text' => $displaytext,
-                        'is_autotranslated' => $isautotranslated,
-                    ];
-                }
-
-                $autotranslatedindicator = $isautotranslated ? $this->get_autotranslate_indicator() : '';
-                $allowhtml = !empty($options['noclean']) ||
-                    ($this->context->contextlevel !== CONTEXT_COURSE && $this->context->contextlevel !== CONTEXT_MODULE);
-                $replacements[$fulltag] = $displaytext . ($allowhtml ? $autotranslatedindicator : "");
-            }
-
-            foreach ($replacements as $tag => $replacement) {
-                $taggedcontent = str_replace($tag, $replacement, $taggedcontent);
-            }
-        }
-
-        return $taggedcontent;
+        return $this->contentservice->process_content($text, $this->context, $this->get_courseid_from_context());
     }
 
     /**
-     * Fetches the course ID from the current context.
+     * Checks if the text contains `{t:hash}` tags.
      *
-     * @return int The course ID, or 0 if not found.
+     * Uses a regular expression to detect the presence of `{t:hash}` tags, indicating the text
+     * has already been processed for translation.
+     *
+     * @param string $text The text to check.
+     * @return bool True if tags are present, false otherwise.
+     */
+    private function has_tags($text) {
+        return preg_match('/\{t:[a-zA-Z0-9]{10}\}/s', $text) === 1;
+    }
+
+    /**
+     * Replaces `{t:hash}` tags with translations.
+     *
+     * Processes text containing `{t:hash}` tags by fetching translations from `translationsource`
+     * and appending an indicator for auto-translated content if applicable.
+     *
+     * @param string $text The text with tags to replace.
+     * @param array $options Filter options (e.g., 'noclean' for HTML).
+     * @return string The text with tags replaced by translations.
+     */
+    private function replace_tags($text, array $options) {
+        $pattern = '/((?:[^<{]*(?:<[^>]+>[^<{]*)*)?)\s*(?:<p>\s*)?\{t:([a-zA-Z0-9]{10})\}(?:\s*<\/p>)?/s';
+        return preg_replace_callback($pattern, function ($match) use ($options) {
+            $sourcetext = trim($match[1]);
+            $hash = $match[2];
+
+            // Determine the effective language for translation.
+            $userlang = current_language();
+            $sitelang = get_config('core', 'lang') ?: 'en';
+            $effectivelang = ($userlang === $sitelang) ? 'other' : $userlang;
+
+            // Fetch translation and fall back to source text if unavailable.
+            $translation = $this->translationsource->get_translation($hash, $effectivelang);
+            $displaytext = $translation ? $translation->translated_text : $sourcetext;
+
+            // Add indicator for auto-translated content if not human-edited.
+            $indicator = $translation && !$translation->human ? $this->get_indicator() : '';
+            $allowhtml = !empty($options['noclean']) ||
+                         ($this->context->contextlevel !== CONTEXT_COURSE &&
+                          $this->context->contextlevel !== CONTEXT_MODULE);
+
+            return $displaytext . ($allowhtml ? $indicator : '');
+        }, $text);
+    }
+
+    /**
+     * Resolves the course ID from the current context.
+     *
+     * Determines the course ID based on the context level (course, module, or block) for use in
+     * tagging and mapping by `contentservice`.
+     *
+     * @return int The course ID, or 0 if not applicable.
      */
     private function get_courseid_from_context() {
         $context = $this->context;
+
         if ($context->contextlevel == CONTEXT_COURSE) {
             return $context->instanceid;
         } else if ($context->contextlevel == CONTEXT_MODULE) {
@@ -233,32 +201,28 @@ class text_filter extends \core_filters\text_filter {
                 return $parentcontext->instanceid;
             }
         }
-        return 0;
-    }
 
-    /**
-     * Fetches the fallback text for a hash if a translation is not available.
-     *
-     * @param string $hash The hash of the translation.
-     * @param string $sourcetext The original source text before the {t:hash} tag.
-     * @return string The fallback text (source text or original text).
-     */
-    private function get_fallback_text($hash, $sourcetext) {
-        $fallback = $this->translationrepository->get_source_text($hash);
-        return $fallback !== 'N/A' ? $fallback : $sourcetext;
+        return 0;
     }
 
     /**
      * Generates an indicator for auto-translated content.
      *
-     * @return string The HTML for the auto-translated indicator.
+     * Creates HTML markup to visually indicate that content was auto-translated, used in contexts
+     * where HTML is allowed.
+     *
+     * @return string The HTML indicator markup.
      */
-    private function get_autotranslate_indicator() {
+    private function get_indicator() {
         global $OUTPUT;
+
         $label = '<span class="text-secondary font-italic small mr-1">' .
-            get_string('autotranslated', 'filter_autotranslate') .
-            '</span>';
-        $icon = '<span class="text-secondary">' . $OUTPUT->pix_icon('i/siteevent', 'Autotranslated', 'moodle') . '</span>';
+                 get_string('autotranslated', 'filter_autotranslate') .
+                 '</span>';
+        $icon = '<span class="text-secondary">' .
+                $OUTPUT->pix_icon('i/siteevent', 'Autotranslated', 'moodle') .
+                '</span>';
+
         return '<div class="text-right">' . $label . $icon . '</div>';
     }
 }

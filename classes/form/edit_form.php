@@ -17,6 +17,25 @@
 /**
  * Autotranslate Edit Form
  *
+ * Purpose:
+ * This class defines the form used on the edit page (edit.php) in the filter_autotranslate plugin,
+ * allowing administrators to modify an existing translation. It includes fields for translated text
+ * and human status, with read-only displays for hash and language.
+ *
+ * Usage:
+ * Instantiated in edit.php to provide a form for updating a translation, with options for WYSIWYG
+ * or textarea based on the translated text’s HTML content.
+ *
+ * Design Decisions:
+ * - Extends Moodle’s `moodleform` class for consistency with Moodle’s form handling.
+ * - Uses hidden fields to preserve hash and lang during submission.
+ * - Displays hash and lang as static elements to inform users without allowing edits.
+ * - Switches between WYSIWYG editor and textarea based on the `use_wysiwyg` flag.
+ * - Uses all lowercase variable names per plugin convention.
+ *
+ * Dependencies:
+ * - None (uses Moodle’s core `formslib`).
+ *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -29,31 +48,14 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/formslib.php');
 
 /**
- * Form class for editing a translation in the filter_autotranslate plugin.
- *
- * Purpose:
- * This class defines the form used on the edit page (edit.php) to allow administrators to edit
- * a specific translation. It includes fields for the translated text and human status, with
- * read-only displays for the hash and language.
- *
- * Design Decisions:
- * - Uses Moodle's moodleform class to ensure consistency with Moodle's form handling.
- * - Includes hidden fields for hash and lang to preserve them during form submission.
- * - Displays hash and lang as static elements to inform the user without allowing edits.
- * - Uses a WYSIWYG editor for translated_text if use_wysiwyg is true (determined by edit.php),
- *   otherwise uses a textarea, to accommodate HTML content.
- * - Includes a help button for translated_text to guide users on translation best practices.
- * - Function names use snake_case (e.g., definition) to follow Moodle's coding style.
- *
- * Dependencies:
- * - None (uses Moodle's core formslib).
+ * Form class for editing a translation.
  */
 class edit_form extends \moodleform {
     /**
      * Defines the form elements for editing a translation.
      *
-     * This function sets up the form with fields for the translated text and human status,
-     * along with read-only displays for the hash and language.
+     * Sets up the form with fields for translated text and human status, along with read-only
+     * displays for hash and language.
      */
     protected function definition() {
         $mform = $this->_form;
@@ -68,17 +70,26 @@ class edit_form extends \moodleform {
         // Display hash and language as static elements (read-only).
         $mform->addElement(
             'static',
-            'hash_display',
+            'hashdisplay',
             get_string('hash', 'filter_autotranslate'),
             $this->_customdata['translation']->hash
         );
-        $mform->addElement('static', 'lang_display', get_string('language', 'filter_autotranslate'), $this->_customdata['tlang']);
+        $mform->addElement(
+            'static',
+            'langdisplay',
+            get_string('language', 'filter_autotranslate'),
+            $this->_customdata['tlang']
+        );
 
         // Translated text field.
         if ($this->_customdata['use_wysiwyg']) {
-            $mform->addElement('editor', 'translated_text', get_string('translatedtext', 'filter_autotranslate'), ['rows' => 10]);
+            $mform->addElement(
+                'editor',
+                'translated_text',
+                get_string('translatedtext', 'filter_autotranslate'),
+                ['rows' => 10]
+            );
             $mform->setType('translated_text', PARAM_RAW);
-            // Set default value as an array for the editor.
             $mform->setDefault('translated_text', [
                 'text' => $this->_customdata['translation']->translated_text,
                 'format' => FORMAT_HTML,
@@ -97,7 +108,11 @@ class edit_form extends \moodleform {
         $mform->addHelpButton('translated_text', 'translation', 'filter_autotranslate');
 
         // Human translated checkbox.
-        $mform->addElement('checkbox', 'human', get_string('humantranslated', 'filter_autotranslate'));
+        $mform->addElement(
+            'checkbox',
+            'human',
+            get_string('humantranslated', 'filter_autotranslate')
+        );
         $mform->setDefault('human', $this->_customdata['translation']->human);
 
         // Action buttons.
@@ -107,17 +122,16 @@ class edit_form extends \moodleform {
     /**
      * Validates the form data.
      *
-     * This function performs server-side validation of the form data. Currently, it relies on
-     * client-side validation for required fields (e.g., translated_text), but additional
-     * validation (e.g., for HTML content) could be added here if needed.
+     * Performs server-side validation, relying on client-side checks for required fields, with
+     * room for additional validation if needed (e.g., HTML content).
      *
      * @param array $data The submitted form data.
      * @param array $files The submitted files (not used).
-     * @return array An array of errors, or an empty array if validation passes.
+     * @return array An array of errors, or empty if validation passes.
      */
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
-        // Additional validation can be added here if needed (e.g., validate HTML content).
+        // Additional validation can be added here if needed.
         return $errors;
     }
 }

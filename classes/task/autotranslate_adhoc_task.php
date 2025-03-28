@@ -21,7 +21,25 @@ use core\task\adhoc_task;
 /**
  * Autotranslate Adhoc Task
  *
- * This task fetches translations for untranslated entries in a specific target language.
+ * Purpose:
+ * This task fetches translations for untranslated entries in a specific target language within
+ * the filter_autotranslate plugin, storing them in the `filter_autotranslate_translations` table.
+ * It processes a list of hashes, retrieves source text, calls an external API for translations,
+ * and updates progress in `filter_autotranslate_task_progress`.
+ *
+ * Usage:
+ * Queued via the 'Autotranslate' button on manage.php, passing target language, course ID, and
+ * hashes to translate. Runs as an adhoc task, polling progress until completion or failure.
+ *
+ * Design Decisions:
+ * - Uses `content_service` for storing translations, aligning with the plugin’s core structure.
+ * - Processes in batches to manage API load, with configurable retry attempts and rate limiting.
+ * - Updates progress in the database for UI feedback, re-queuing if runtime exceeds limits.
+ * - Employs all lowercase variable names per plugin convention.
+ *
+ * Dependencies:
+ * - `content_service.php`: For storing translated content.
+ * - `filter_autotranslate_task_progress` table: For tracking task progress.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -31,7 +49,7 @@ class autotranslate_adhoc_task extends adhoc_task {
     /**
      * Returns the name of the task.
      *
-     * @return string
+     * @return string The task name for display.
      */
     public function get_name() {
         return get_string('autotranslateadhoc', 'filter_autotranslate');
@@ -40,10 +58,13 @@ class autotranslate_adhoc_task extends adhoc_task {
     /**
      * Updates the task progress in the database.
      *
-     * @param string $status The status of the task (queued, running, completed, failed).
+     * Updates or logs the status, processed entries, and total entries in the
+     * `filter_autotranslate_task_progress` table, with an optional failure reason.
+     *
+     * @param string $status The task status (queued, running, completed, failed).
      * @param int $processed The number of entries processed.
      * @param int $total The total number of entries to process.
-     * @param string|null $failurereason Optional reason for failure, if the task failed.
+     * @param string|null $failurereason Optional reason for failure if the task failed.
      */
     private function update_progress($status, $processed, $total, $failurereason = null) {
         global $DB;
@@ -69,8 +90,10 @@ class autotranslate_adhoc_task extends adhoc_task {
     /**
      * Extracts a user-friendly error message from the API response.
      *
-     * @param string $response The API response body
-     * @return string The extracted error message
+     * Parses the API response to retrieve a meaningful error message for logging or display.
+     *
+     * @param string $response The API response body.
+     * @return string The extracted error message or a default if none found.
      */
     private function extract_error_message($response) {
         $data = json_decode($response, true);
@@ -83,8 +106,10 @@ class autotranslate_adhoc_task extends adhoc_task {
     /**
      * Extracts the HTTP status code from the exception message.
      *
-     * @param string $message The exception message
-     * @return string The HTTP status code or 'Unknown'
+     * Parses the exception message to retrieve the HTTP status code for error handling.
+     *
+     * @param string $message The exception message.
+     * @return string The HTTP status code or 'Unknown' if not found.
      */
     private function extract_http_code($message) {
         if (str_contains($message, 'HTTP')) {
@@ -96,6 +121,9 @@ class autotranslate_adhoc_task extends adhoc_task {
 
     /**
      * Executes the task to fetch translations.
+     *
+     * Fetches translations for a list of hashes in a target language using an external API,
+     * storing them via `content_service` and updating progress.
      */
     public function execute() {
         global $DB;
@@ -118,7 +146,7 @@ class autotranslate_adhoc_task extends adhoc_task {
 
         $this->update_progress('running', 0, $totalentries);
 
-        $translationservice = new \filter_autotranslate\translation_service($DB);
+        $contentservice = new \filter_autotranslate\content_service($DB);
         $apiendpoint = get_config('filter_autotranslate', 'apiendpoint')
             ?: 'https://generativelanguage.googleapis.com/v1beta/openai';
         $apikey = get_config('filter_autotranslate', 'apikey');
@@ -139,7 +167,7 @@ class autotranslate_adhoc_task extends adhoc_task {
         $processed = 0;
         $requests = 0;
         $starttime = time();
-        $maxruntime = 180; // 3 minutes, slightly less than the default 4-minute limit
+        $maxruntime = 180; // 3 minutes, less than the 4-minute default limit
 
         foreach ($hashes as $index => $hash) {
             $record = $DB->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => 'other']);
@@ -158,11 +186,14 @@ class autotranslate_adhoc_task extends adhoc_task {
         $textbatches = array_chunk($texts, $batchsize, true);
 
         foreach ($textbatches as $batch) {
-            // Check runtime to avoid exceeding the maximum runtime.
+            // Check runtime to avoid exceeding limit.
             if (time() - $starttime > $maxruntime) {
                 $this->update_progress(
-                    'running', $processed, $totalentries, 'Task runtime approaching limit. Will continue in the next run.');
-                // Re-queue the task with the remaining hashes.
+                    'running',
+                    $processed,
+                    $totalentries,
+                    'Task runtime approaching limit. Will continue in the next run.'
+                );
                 $remaininghashes = array_slice($hashes, $processed);
                 if (!empty($remaininghashes)) {
                     $task = new \filter_autotranslate\task\autotranslate_adhoc_task();
@@ -170,7 +201,7 @@ class autotranslate_adhoc_task extends adhoc_task {
                         'targetlang' => $targetlang,
                         'courseid' => $courseid,
                         'hashes' => $remaininghashes,
-                        'total_entries' => $totalentries, // Keep the original total for progress tracking.
+                        'total_entries' => $totalentries,
                     ]);
                     \core\task\manager::queue_adhoc_task($task);
                 }
@@ -183,7 +214,6 @@ class autotranslate_adhoc_task extends adhoc_task {
                 $textlist .= "$index. " . addslashes($text) . "\n";
             }
 
-            // Use only the target language for the example to simplify the prompt.
             $example = "[{\"$targetlang\": \"Example translation in $targetlang\"}]";
             $prompt = "Translate the following $textcount texts into the following language: $targetlang. " .
                 "Return the result as a JSON array where each element is a dictionary mapping the language " .
@@ -195,7 +225,6 @@ class autotranslate_adhoc_task extends adhoc_task {
                 $example . "\n" .
                 "Now translate the following texts:\n" . $textlist;
 
-            // Define dynamic JSON schema for an array of translation objects.
             $schema = [
                 'type' => 'array',
                 'items' => [
@@ -225,8 +254,8 @@ class autotranslate_adhoc_task extends adhoc_task {
                         'Accept: application/json',
                         "Authorization: Bearer $apikey",
                     ]);
-                    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); // 10 seconds to connect
-                    curl_setopt($ch, CURLOPT_TIMEOUT, 120); // 120 seconds total timeout
+                    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 120);
 
                     $postdata = json_encode([
                         'model' => $apimodel,
@@ -250,7 +279,6 @@ class autotranslate_adhoc_task extends adhoc_task {
                     curl_close($ch);
 
                     if ($httpcode == 429) {
-                        // Rate limit hit, sleep and retry.
                         sleep(60);
                         continue;
                     }
@@ -279,7 +307,7 @@ class autotranslate_adhoc_task extends adhoc_task {
                         }
 
                         foreach ($translationsarray as $index => $langtranslations) {
-                            $recordid = (string)($index + 1); // Map array index (0-based) to recordid (1-based).
+                            $recordid = (string)($index + 1);
                             if (!is_array($langtranslations) || !isset($langtranslations[$targetlang])) {
                                 continue;
                             }
@@ -300,10 +328,9 @@ class autotranslate_adhoc_task extends adhoc_task {
                         $this->update_progress('failed', $processed, $totalentries, 'API error: ' . $e->getMessage());
                         return;
                     }
-                    sleep(5); // Wait before retrying.
+                    sleep(5);
                 }
 
-                // Check rate limit threshold.
                 if ($requests >= $ratelimitthreshold) {
                     sleep(60);
                     $requests = 0;
@@ -321,7 +348,7 @@ class autotranslate_adhoc_task extends adhoc_task {
                 $hash = $hashes[$recordindex];
                 $contextlevel = $contextlevels[$index];
                 $context = $courseid ? \context_course::instance($courseid) : null;
-                $translationservice->store_translation($hash, $targetlang, $translatedtext, $contextlevel, $courseid, $context);
+                $contentservice->store_translation($hash, $targetlang, $translatedtext, $contextlevel, $courseid, $context);
                 $processed++;
                 $this->update_progress('running', $processed, $totalentries);
             }

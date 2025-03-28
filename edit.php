@@ -17,31 +17,31 @@
 /**
  * Autotranslate Edit Page
  *
- * Allows administrators to edit a specific translation in the filter_autotranslate plugin.
- *
  * Purpose:
- * This page enables administrators to edit a translation for a given hash and language in the
- * filter_autotranslate_translations table. It updates the translated_text, human status, and timereviewed
- * fields, ensuring that the 'other' language (site language) cannot be edited through this interface.
- * The page also provides a language switcher to navigate between translations for the same hash.
+ * This script renders the edit page for the filter_autotranslate plugin, allowing administrators
+ * to modify an existing translation in the `filter_autotranslate_translations` table. It updates
+ * the translated_text, human status, and timereviewed fields, preventing edits to the 'other'
+ * language record, and includes a language switcher for navigating translations of the same hash.
+ *
+ * Usage:
+ * Accessed via '/filter/autotranslate/edit.php' with required parameters `hash` and `tlang`,
+ * typically from the manage page’s "Edit" link. Displays a form alongside the source text and
+ * processes updates to the translation.
  *
  * Design Decisions:
- * - Uses translation_repository.php to fetch translation data, ensuring read-only database access.
- * - Uses translation_service.php to update translations, centralizing database write operations.
- * - Prevents editing of the 'other' language record, redirecting users to update the source content
- *   directly through normal Moodle workflows.
- * - Dynamically determines whether to use a WYSIWYG editor based on the presence of HTML in the
- *   translated text (not the source text), ensuring the editor matches the content's needs.
- * - Includes a language switcher to allow quick navigation between translations for the same hash.
- * - @@PLUGINFILE@@ URLs are rewritten when translations are stored (in tagging_service.php and
- *   translation_service.php), so no rewriting is needed here at display time.
+ * - Uses `translation_source` for read-only data access to fetch translation and source text.
+ * - Uses `content_service` to update translations, centralizing database writes.
+ * - Prevents editing of 'other' language records, redirecting to manage.php with an error.
+ * - Dynamically selects WYSIWYG editor or textarea based on HTML in the translated text.
+ * - Includes a language switcher for quick navigation between translations of the same hash.
+ * - Relies on `content_service` for @@PLUGINFILE@@ URL rewriting, so no local rewriting is needed.
  *
  * Dependencies:
- * - helper.php: For utility functions (e.g., map_language_to_other).
- * - translation_repository.php: For fetching translation data.
- * - translation_service.php: For updating translations.
- * - edit_form.php: For the edit form.
- * - edit.mustache: For rendering the page.
+ * - `text_utils.php`: For utility functions (e.g., map_language_to_other).
+ * - `translation_source.php`: For fetching translation data.
+ * - `content_service.php`: For updating translations.
+ * - `form/edit_form.php`: For the edit form.
+ * - `templates/edit.mustache`: For rendering the page.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -51,9 +51,9 @@
 namespace filter_autotranslate;
 
 use filter_autotranslate\form\edit_form;
-use filter_autotranslate\helper;
-use filter_autotranslate\translation_repository;
-use filter_autotranslate\translation_service;
+use filter_autotranslate\text_utils;
+use filter_autotranslate\translation_source;
+use filter_autotranslate\content_service;
 
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
@@ -67,38 +67,35 @@ require_capability('filter/autotranslate:manage', \context_system::instance());
 
 // Get parameters.
 $hash = required_param('hash', PARAM_ALPHANUMEXT);
-$tlang = required_param('tlang', PARAM_RAW); // Use PARAM_RAW to get the exact value.
+$tlang = required_param('tlang', PARAM_RAW);
 $contextid = optional_param('contextid', SYSCONTEXTID, PARAM_INT);
 
 // Validate and normalize tlang.
 if (empty($tlang)) {
     redirect(
-        new moodle_url('/filter/autotranslate/manage.php'),
+        new \moodle_url('/filter/autotranslate/manage.php'),
         get_string('invalidtlang', 'filter_autotranslate'),
         null,
         \core\output\notification::NOTIFY_ERROR
     );
-    exit();
 }
 
 $tlang = clean_param($tlang, PARAM_TEXT);
 $tlang = strtolower(trim($tlang));
 
-// Ensure tlang is not empty after cleaning.
 if (empty($tlang)) {
     redirect(
-        new moodle_url('/filter/autotranslate/manage.php'),
+        new \moodle_url('/filter/autotranslate/manage.php'),
         get_string('invalidtlang', 'filter_autotranslate'),
         null,
         \core\output\notification::NOTIFY_ERROR
     );
-    exit();
 }
 
 // Map the language to 'other' if it matches the site language.
-$queriedtlang = helper::map_language_to_other($tlang);
+$queriedtlang = text_utils::map_language_to_other($tlang);
 
-// Prevent editing the 'other' language record through this interface.
+// Prevent editing the 'other' language record.
 if ($tlang === 'other' || $queriedtlang === 'other') {
     redirect(
         new \moodle_url('/filter/autotranslate/manage.php'),
@@ -106,7 +103,6 @@ if ($tlang === 'other' || $queriedtlang === 'other') {
         null,
         \core\output\notification::NOTIFY_ERROR
     );
-    exit();
 }
 
 // Set up the page.
@@ -117,15 +113,15 @@ $PAGE->set_heading(get_string('edittranslation', 'filter_autotranslate'));
 
 global $DB, $OUTPUT;
 
-// Initialize the translation repository and service.
-$repository = new translation_repository($DB);
-$service = new translation_service($DB);
+// Initialize services.
+$translationsource = new translation_source($DB);
+$contentservice = new content_service($DB);
 
 // Fetch the translation record.
-$translation = $repository->get_translation($hash, $queriedtlang);
+$translation = $translationsource->get_translation($hash, $queriedtlang);
 if (!$translation) {
     redirect(
-        new moodle_url('/filter/autotranslate/manage.php'),
+        new \moodle_url('/filter/autotranslate/manage.php'),
         get_string('notranslationfound', 'filter_autotranslate'),
         null,
         \core\output\notification::NOTIFY_ERROR
@@ -133,22 +129,17 @@ if (!$translation) {
 }
 
 // Fetch source text.
-$sourcetext = $repository->get_source_text($hash);
+$sourcetext = $translationsource->get_source_text($hash);
 if (!$sourcetext || $sourcetext === 'N/A') {
-    $sourcetext = 'N/A'; // Fallback if no source text is found.
+    $sourcetext = 'N/A';
 }
-
-// URLs are already rewritten when stored, so just format the text for display.
 $sourcetext = format_text($sourcetext, FORMAT_HTML);
 
-// Determine if the translated text contains HTML to decide on editor type.
-$usewysiwyg = false;
-if ($translation->translated_text && preg_match('/<[^>]+>/', $translation->translated_text)) {
-    $usewysiwyg = true;
-}
+// Determine if translated text contains HTML for editor type.
+$usewysiwyg = $translation->translated_text && preg_match('/<[^>]+>/', $translation->translated_text);
 
-// Initialize the form with tlang explicitly passed and set the form action to preserve tlang.
-$mform = new form\edit_form(
+// Initialize the form.
+$mform = new edit_form(
     new \moodle_url('/filter/autotranslate/edit.php', ['hash' => $hash, 'tlang' => $tlang, 'contextid' => $contextid]),
     ['translation' => $translation, 'tlang' => $queriedtlang, 'use_wysiwyg' => $usewysiwyg]
 );
@@ -168,8 +159,8 @@ if ($mform->is_cancelled()) {
         );
     }
 
-    // Re-fetch the translation record to ensure it still exists.
-    $translation = $repository->get_translation($hash, $queriedtlang);
+    // Re-fetch to ensure it still exists.
+    $translation = $translationsource->get_translation($hash, $queriedtlang);
     if (!$translation) {
         redirect(
             new \moodle_url('/filter/autotranslate/manage.php'),
@@ -179,14 +170,14 @@ if ($mform->is_cancelled()) {
         );
     }
 
-    // Update the translation record.
-    $translation->translated_text = is_array($data->translated_text) ? $data->translated_text['text'] : $data->translated_text;
-    $translation->human = !empty($data->human) ? 1 : 0; // Handle checkbox submission.
-    $translation->timereviewed = time(); // Update timereviewed to indicate the translation has been reviewed.
-    $translation->timemodified = time();
-
-    // Use the translation service to update the record.
-    $service->update_translation($translation);
+    // Update the translation.
+    $translatedtext = is_array($data->translated_text) ? $data->translated_text['text'] : $data->translated_text;
+    $contentservice->update_translation(
+        $translation->id,
+        $translatedtext,
+        !empty($data->human) ? 1 : 0,
+        time()
+    );
 
     redirect(
         new \moodle_url('/filter/autotranslate/manage.php'),
@@ -208,20 +199,18 @@ echo \html_writer::link(
 );
 echo '</div>';
 
-// Get all languages for this hash to populate the language switcher.
-$alllangs = $repository->get_all_languages($hash);
-
-// Add language switcher as buttons, mapping 'other' to site language for display.
+// Language switcher.
+$alllangs = $translationsource->get_all_languages($hash);
 $sitelang = get_config('core', 'lang') ?: 'en';
 $langbuttons = [];
 foreach ($alllangs as $lang) {
     if ($lang === 'other') {
-        continue; // Skip the 'other' language in the switcher.
+        continue; // Skip 'other' in the switcher.
     }
     $displaylang = ($lang === 'other') ? $sitelang : $lang;
     $url = new \moodle_url('/filter/autotranslate/edit.php', ['hash' => $hash, 'tlang' => $lang, 'contextid' => $contextid]);
     $class = ($lang === $queriedtlang) ? 'btn btn-primary' : 'btn btn-secondary';
-    $langbuttons[] = \html_writer::link($url, strtoupper($displaylang), ['class' => $class . ' mr-1']);
+    $langbuttons[] = \html_writer::link($url, strtoupper($displaylang), ['class' => "$class mr-1"]);
 }
 echo \html_writer::tag(
     'div',

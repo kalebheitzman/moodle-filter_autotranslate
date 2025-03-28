@@ -17,24 +17,31 @@
 /**
  * Autotranslate Create Page
  *
- * Allows administrators to create a new translation for a specific hash and language in the
- * filter_autotranslate plugin. The page saves the translation to filter_autotranslate_translations
- * and redirects back to the manage page with preserved filters.
+ * Purpose:
+ * This script renders the create page for the filter_autotranslate plugin, allowing administrators
+ * to add a new translation for a specific hash and language. It saves the translation to the
+ * `filter_autotranslate_translations` table and redirects back to the manage page with preserved
+ * filters.
+ *
+ * Usage:
+ * Accessed via '/filter/autotranslate/create.php' with required parameters `hash` and `tlang`,
+ * typically from the manage page’s "Add" link. Displays a form alongside the source text and
+ * processes submissions to store the new translation.
  *
  * Design Decisions:
- * - Uses translation_repository.php to fetch source text, ensuring read-only database access.
- * - Uses translation_service.php to insert new translations, centralizing database writes.
+ * - Uses `translation_source` to fetch source text, ensuring read-only database access.
+ * - Uses `content_service` to store new translations, centralizing database writes.
  * - Prevents creation of 'other' language records, as source text should be updated via Moodle workflows.
- * - Dynamically uses a WYSIWYG editor or textarea based on source text HTML presence.
- * - Preserves all manage.php filters (courseid, filter_lang, etc.) in the redirect URL.
- * - @@PLUGINFILE@@ URLs are rewritten when stored (in translation_service.php), so no rewriting is needed here.
+ * - Dynamically selects WYSIWYG editor or textarea based on source text HTML presence.
+ * - Preserves manage.php filters in the redirect URL for seamless navigation.
+ * - Relies on `content_service` for @@PLUGINFILE@@ URL rewriting, so no local rewriting is needed.
  *
  * Dependencies:
- * - helper.php: For utility functions (e.g., map_language_to_other).
- * - translation_repository.php: For fetching source text.
- * - translation_service.php: For saving translations.
- * - create_form.php: For the creation form.
- * - create.mustache: For rendering the page.
+ * - `text_utils.php`: For utility functions (e.g., map_language_to_other).
+ * - `translation_source.php`: For fetching source text.
+ * - `content_service.php`: For saving translations.
+ * - `form/create_form.php`: For the creation form.
+ * - `templates/create.mustache`: For rendering the page.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -44,9 +51,9 @@
 namespace filter_autotranslate;
 
 use filter_autotranslate\form\create_form;
-use filter_autotranslate\helper;
-use filter_autotranslate\translation_repository;
-use filter_autotranslate\translation_service;
+use filter_autotranslate\text_utils;
+use filter_autotranslate\translation_source;
+use filter_autotranslate\content_service;
 
 require_once(__DIR__ . '/../../config.php');
 require_once($CFG->libdir . '/adminlib.php');
@@ -90,7 +97,7 @@ if (empty($tlang)) {
 }
 
 // Map the language to 'other' if it matches the site language.
-$queriedtlang = helper::map_language_to_other($tlang);
+$queriedtlang = text_utils::map_language_to_other($tlang);
 
 // Prevent creating 'other' language records.
 if ($tlang === 'other' || $queriedtlang === 'other') {
@@ -104,8 +111,8 @@ if ($tlang === 'other' || $queriedtlang === 'other') {
 
 // Check if a translation already exists.
 global $DB;
-$repository = new translation_repository($DB);
-if ($repository->get_translation($hash, $queriedtlang)) {
+$translationsource = new translation_source($DB);
+if ($translationsource->get_translation($hash, $queriedtlang)) {
     redirect(
         new \moodle_url('/filter/autotranslate/edit.php', ['hash' => $hash, 'tlang' => $tlang]),
         get_string('translationexists', 'filter_autotranslate'),
@@ -132,11 +139,11 @@ $PAGE->set_heading(get_string('createtranslation', 'filter_autotranslate'));
 
 global $OUTPUT;
 
-// Initialize the translation service.
-$service = new translation_service($DB);
+// Initialize the content service.
+$contentservice = new content_service($DB);
 
 // Fetch the source ("other") record to get its contextlevel.
-$sourcerecord = $repository->get_translation($hash, 'other');
+$sourcerecord = $translationsource->get_translation($hash, 'other');
 if (!$sourcerecord) {
     redirect(
         new \moodle_url('/filter/autotranslate/manage.php'),
@@ -147,7 +154,7 @@ if (!$sourcerecord) {
 }
 
 // Fetch source text.
-$sourcetext = $repository->get_source_text($hash);
+$sourcetext = $translationsource->get_source_text($hash);
 if (!$sourcetext || $sourcetext === 'N/A') {
     $sourcetext = 'N/A';
 }
@@ -197,25 +204,16 @@ if ($mform->is_cancelled()) {
         );
     }
 
-    // Create the new translation record.
-    $translation = new \stdClass();
-    $translation->hash = $data->hash;
-    $translation->lang = $data->tlang;
-    $translation->translated_text = is_array($data->translated_text) ? $data->translated_text['text'] : $data->translated_text;
-    $translation->human = !empty($data->human) ? 1 : 0;
-    // Use the contextlevel from the source ("other") record.
-    $translation->contextlevel = $sourcerecord->contextlevel ?? CONTEXT_COURSE; // Fallback to course if not found.
-    $translation->timecreated = time();
-    $translation->timemodified = time();
-    $translation->timereviewed = time();
-
     // Derive context from courseid if available, otherwise null.
     $context = ($data->courseid > 0) ? \context_course::instance($data->courseid) : null;
-    $service->store_translation(
-        $translation->hash,
-        $translation->lang,
-        $translation->translated_text,
-        $translation->contextlevel,
+
+    // Store the new translation.
+    $translatedtext = is_array($data->translated_text) ? $data->translated_text['text'] : $data->translated_text;
+    $contentservice->store_translation(
+        $data->hash,
+        $data->tlang,
+        $translatedtext,
+        $sourcerecord->contextlevel ?? CONTEXT_COURSE, // Fallback to course if not found.
         $data->courseid,
         $context
     );

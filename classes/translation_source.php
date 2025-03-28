@@ -15,41 +15,58 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Autotranslate Translation Repository
+ * Translation Source for the Autotranslate Plugin
+ *
+ * Purpose:
+ * This file defines the translation source for the filter_autotranslate plugin, providing read-only
+ * access to translation data stored in the `filter_autotranslate_translations` table. It serves
+ * as a data retrieval layer for `text_filter` to fetch translations during rendering and for
+ * `ui_manager` to display translation lists, ensuring a clear separation from database writes
+ * handled by `content_service`.
+ *
+ * Structure:
+ * Contains the `translation_source` class with a single property `$db` (database access). Key
+ * methods include `get_translation` (single translation fetch), `get_source_text` (source text
+ * retrieval), `get_all_languages` (language list), and `get_paginated_translations` (UI data).
+ *
+ * Usage:
+ * Called by `text_filter` to retrieve translations for `{t:hash}` tags during text processing, and
+ * by `ui_manager` to fetch paginated translation data for management interfaces. It queries the
+ * `filter_autotranslate_translations` table to provide data without modifying it.
+ *
+ * Design Decisions:
+ * - Focuses solely on read operations to maintain separation of concerns, leaving writes to
+ *   `content_service`.
+ * - Supports pagination and filtering for UI needs, joining source text (`lang = 'other'`) with
+ *   translations for comprehensive display.
+ * - Uses simple, efficient queries to minimize database load, leveraging existing indexes from
+ *   the schema (e.g., `contextlevel`, `timereviewed`).
+ * - Returns null or defaults (e.g., 'N/A') when data is unavailable, ensuring graceful fallbacks.
+ *
+ * Dependencies:
+ * - `db/xmldb_filter_autotranslate.xml`: Defines the `filter_autotranslate_translations` table
+ *   structure used for data retrieval.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
 namespace filter_autotranslate;
 
 /**
- * Database access layer for translations in the filter_autotranslate plugin.
- *
- * Purpose:
- * This class provides read-only access to translation data in the filter_autotranslate_translations
- * table, serving as the data access layer for translation-related operations. It is used by
- * translation_manager.php to fetch translations for the manage page and by other components
- * (e.g., text_filter.php) to retrieve translations for display.
- *
- * Design Decisions:
- * - Focuses on read-only operations to adhere to the principle of separation of concerns.
- *   Database writes (e.g., updating translations) are handled by translation_service.php.
- * - Function names use snake_case (e.g., get_translation) to follow Moodle's coding style.
- * - The get_paginated_translations function includes complex filtering logic to support the
- *   manage page, which could be simplified in the future if needed.
- *
- * Dependencies:
- * - None (interacts directly with the Moodle database).
+ * Data access layer for translations in the filter_autotranslate plugin.
  */
-class translation_repository {
+class translation_source {
     /**
-     * @var \moodle_database The Moodle database instance.
+     * @var \moodle_database The Moodle database instance for read operations.
      */
     private $db;
 
     /**
-     * Constructor for the translation repository.
+     * Constructor for the translation source.
+     *
+     * Initializes the source with database access for retrieving translation data.
      *
      * @param \moodle_database $db The Moodle database instance.
      */
@@ -58,25 +75,13 @@ class translation_repository {
     }
 
     /**
-     * Returns the Moodle database instance.
-     *
-     * This function provides access to the database instance for internal use within the class.
-     *
-     * @return \moodle_database The Moodle database instance.
-     */
-    public function get_db(): \moodle_database {
-        return $this->db;
-    }
-
-    /**
      * Fetches a translation by hash and language.
      *
-     * This function retrieves a specific translation record from filter_autotranslate_translations
-     * based on the provided hash and language. If no language is specified, it fetches the
-     * record by ID.
+     * Retrieves a specific translation record from `filter_autotranslate_translations` based on
+     * the provided hash and language, used by `text_filter` for tag replacement.
      *
-     * @param string $hash The hash of the translation.
-     * @param string|null $lang The language code (e.g., 'es', 'fr'), or null to fetch by ID.
+     * @param string $hash The hash of the translation (e.g., 'abc1234567').
+     * @param string|null $lang The language code (e.g., 'es', 'other'), or null to fetch by ID.
      * @return object|null The translation record, or null if not found.
      */
     public function get_translation(string $hash, ?string $lang = null) {
@@ -89,8 +94,8 @@ class translation_repository {
     /**
      * Fetches the source text for a hash.
      *
-     * This function retrieves the source text (lang = 'other') for a given hash from
-     * filter_autotranslate_translations, returning 'N/A' if not found.
+     * Retrieves the source text (where `lang = 'other'`) for a given hash, returning 'N/A' if not
+     * found, used as a fallback when translations are unavailable.
      *
      * @param string $hash The hash of the translation.
      * @return string The source text, or 'N/A' if not found.
@@ -99,8 +104,7 @@ class translation_repository {
         $sourcetext = $this->db->get_field(
             'filter_autotranslate_translations',
             'translated_text',
-            ['hash' => $hash,
-            'lang' => 'other']
+            ['hash' => $hash, 'lang' => 'other']
         );
         return $sourcetext ?: 'N/A';
     }
@@ -108,35 +112,37 @@ class translation_repository {
     /**
      * Fetches all languages for a hash.
      *
-     * This function retrieves a list of distinct language codes for a given hash from
-     * filter_autotranslate_translations, indicating which languages have translations.
+     * Returns a list of distinct language codes associated with a given hash, indicating available
+     * translations for UI display or validation.
      *
      * @param string $hash The hash of the translation.
-     * @return array List of language codes.
+     * @return array List of language codes (e.g., ['en', 'es', 'other']).
      */
     public function get_all_languages(string $hash) {
-        return $this->db->get_fieldset_select('filter_autotranslate_translations', 'DISTINCT lang', 'hash = ?', [$hash]);
+        return $this->db->get_fieldset_select(
+            'filter_autotranslate_translations',
+            'DISTINCT lang',
+            'hash = ?',
+            [$hash]
+        );
     }
 
     /**
-     * Fetches paginated translations with filtering for the manage page.
+     * Fetches paginated translations for UI display.
      *
-     * This function retrieves translations from filter_autotranslate_translations with pagination
-     * and filtering options (e.g., by language, human status, course ID, needs review).
-     * It joins with the source text (lang = 'other') for display purposes.
+     * Retrieves a paginated list of translations with filtering options (language, human status,
+     * course ID, review status), joining with source text (`lang = 'other'`) for comprehensive data,
+     * used by `ui_manager` for management interfaces.
      *
-     * @param int $page The current page number.
+     * @param int $page The current page number (0-based).
      * @param int $perpage The number of records per page.
-     * @param string $filterlang The language to filter by (or 'all').
-     * @param string $filterhuman The human status to filter by ('' for all, '1' for human, '0' for machine).
+     * @param string $filterlang The language to filter by (e.g., 'es', 'all').
+     * @param string $filterhuman The human status to filter by ('' for all, '1' for human, '0' for auto).
      * @param string $sort The column to sort by (e.g., 'hash', 'lang').
      * @param string $dir The sort direction ('ASC' or 'DESC').
-     * @param string $sitelang The site language (e.g., 'en').
      * @param int $courseid The course ID to filter by (0 for all).
-     * @param string $filterneedsreview Filter by needs review status ('' for all, '1' for needs review, '0' for reviewed).
-     * @return array An array containing:
-     *               - 'translations': The paginated translation records.
-     *               - 'total': The total number of matching records.
+     * @param string $filterneedsreview Filter by review status ('' for all, '1' for needs review, '0' for reviewed).
+     * @return array An array with 'translations' (records) and 'total' (count of matching records).
      */
     public function get_paginated_translations(
         $page,
@@ -145,10 +151,10 @@ class translation_repository {
         $filterhuman,
         $sort,
         $dir,
-        $sitelang,
         $courseid = 0,
         $filterneedsreview = ''
     ) {
+        $sitelang = get_config('core', 'lang') ?: 'en';
         $internalfilterlang = ($filterlang === $sitelang) ? 'other' : $filterlang;
 
         $sql = "SELECT t.*, t2.translated_text AS source_text
@@ -177,7 +183,7 @@ class translation_repository {
                 $where[] = "t.hash $insql";
                 $params = array_merge($params, $inparams);
             } else {
-                $where[] = '1=0'; // No matches if no hashes for courseid.
+                $where[] = '1=0'; // No matches if no hashes found.
             }
         }
         if ($filterneedsreview !== '') {
@@ -198,7 +204,7 @@ class translation_repository {
         $sql .= " ORDER BY t.$sort $dir";
 
         $countsql = "SELECT COUNT(*) FROM {filter_autotranslate_translations} t" .
-            (empty($where) ? "" : " WHERE " . implode(" AND ", $where));
+                    (empty($where) ? "" : " WHERE " . implode(" AND ", $where));
         $total = $this->db->count_records_sql($countsql, $params);
         $translations = $this->db->get_records_sql($sql, $params, $page * $perpage, $perpage);
 

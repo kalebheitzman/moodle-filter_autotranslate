@@ -1,11 +1,35 @@
 # Changelog
 
-## 2025032601
+## 2025032800
 
-- **UI Adjustment for Management Interface**: Moved the "Add" button from the "Translated Text" column to the "Actions" column in the target language view on the "Manage Translations" page (`manage.php`), improving user experience by grouping all actions ("Add" and "Edit") together.
-- **Context Level Inheritance for New Translations**: Updated `create.php` and `fetchtranslation_task.php` to set the `contextlevel` of new target language translations to match the source ("other") record, ensuring consistency across languages for the same `hash` (e.g., `contextlevel = 70` for `1tnFRRPSlo`).
-- **Fixed `create.php` Error with Multiple Course Modules**: Resolved the error "Error: mdb->get_record() found more than one record!" in `create.php` by ensuring `get_context_for_hash()` in `translation_service.php` uses `CONTEXT_COURSE` for URL rewriting in target language translations, avoiding ambiguity with multiple course modules while preserving the source `contextlevel` in the translation record.
-- **Context Level Display for Untranslated Entries**: Updated `manage.php` to display the source ("other") record’s `contextlevel` for untranslated entries in target language views, ensuring visibility of the context even when no translation exists (e.g., `contextlevel = 70` for `1tnFRRPSlo` in "es" view).
+- **Total Rewrite of Plugin Architecture**: Overhauled the `filter_autotranslate` plugin with a new structure for improved maintainability, performance, and flexibility. Replaced `translation_repository.php`, `translation_service.php`, and `tagging_service.php` with `content_service.php` (database writes), `translation_source.php` (read-only access), `ui_manager.php` (UI coordination), and `text_utils.php` (utilities), while keeping `text_filter.php` as the lean entry point. Retained `tagging_config.php` for settings configuration in `settings.php`.
+- **Dynamic Tagging in Text Filter**: Enhanced `text_filter.php` to dynamically tag untagged content with `{t:hash}` during page rendering, supporting all content (including third-party modules) without reliance on `tagging_config.php` for runtime tagging. Configuration moved to context-based tagging via `selectctx` settings.
+- **Lazy Rebuild Mechanism (Option 3)**: Replaced scheduled rebuild tasks and the "Rebuild Translations" button with a lazy rebuild approach. Added `mark_course_stale()` in `ui_manager.php` and `content_service.php` to flag translations as stale, refreshing them on next page load when `timereviewed` < `timemodified`. Removed `rebuild_course_translations.php` and related CLI functionality.
+- **Management Interface Updates**:
+  - Updated `/filter/autotranslate/manage.php` to use `ui_manager.php` and `translation_source.php` for viewing, filtering, and editing translations.
+  - Retained filters for language, human status, review status, and course ID (via `mdl_filter_autotranslate_hid_cids`).
+  - Kept editing via `edit.php` (WYSIWYG or textarea) and adding via `create.php`, updating `translated_text`, `human`, and `timereviewed`.
+  - Removed "Rebuild Translations" button, with optional "Mark Stale" trigger (not yet in UI).
+- **Multilang Tag Processing**: Improved handling of `<span>` and `{mlang}` tags in `text_utils.php`, extracting translations into `mdl_filter_autotranslate_translations` and replacing them with `{t:hash}` tags (destructive, non-reversible).
+- **Scheduled Tasks**:
+  - Updated `autotranslate_adhoc_task.php` to fetch translations via API, triggered by the "Autotranslate" button in `manage.php`, using `content_service.php` for storage.
+  - Removed `fetchtranslation_task` as autotranslation is now adhoc; dynamic tagging handles initial content.
+- **Database Schema**:
+  - Kept `mdl_filter_autotranslate_translations` with `contextlevel`, `human`, `timecreated`, `timemodified`, `timereviewed` for context and review tracking.
+  - Retained `mdl_filter_autotranslate_hid_cids` for course-hash mappings.
+  - Added `update_translation()` to `content_service.php` for editing translations via `edit.php`.
+- **URL Rewriting**: Ensured `@@PLUGINFILE@@` URLs are rewritten in `content_service.php` during storage, with documentation in `text_filter.php` and `content_service.php`.
+- **Course Mapping**: Fixed `text_filter.php` to update `mdl_filter_autotranslate_hid_cids` for all `{t:hash}` tags dynamically, ensuring accurate course filtering.
+- **Duplicate Hash Fix**: Improved `text_utils.php` to reuse existing hashes for identical text, preventing duplicates (e.g., in wiki content).
+- **Permissions**:
+  - Kept `filter/autotranslate:manage` for system-level management (default: Manager, Editing Teacher).
+  - Kept `filter/autotranslate:edit` for course-level editing (default: Teacher, Editing Teacher, Manager).
+- **Performance**:
+  - Leveraged dynamic tagging in `text_filter.php` for immediate processing, with optional caching via `cache.php`.
+  - Removed batch processing for rebuilds, relying on lazy rebuilds for efficiency.
+- **Settings Configuration**: Retained `tagging_config.php` for use in `settings.php`, providing admins with a multicheckbox to configure tables and fields, though no longer used by the core tagging logic.
+- **Documentation**: Updated `CHANGES.md`, `README.md`, and added `ai-instructions.md` to reflect new architecture, dynamic tagging, lazy rebuild, and retention of `tagging_config.php` for settings.
+- **Removed Features**: Eliminated `rebuild_translations_adhoc_task.php` and related CLI tools, simplifying the plugin with Option 3, while keeping `tagging_config.php` for settings.
 
 ## 2025032600
 
