@@ -17,43 +17,53 @@
 /**
  * Autotranslate Settings
  *
- *  * Defines the admin settings for the filter_autotranslate plugin.
- *
  * Purpose:
  * This file sets up the configuration options for the filter_autotranslate plugin, allowing
- * administrators to customize API settings, translation settings, task settings, and tagging
- * configuration. It is displayed under Site administration > Plugins > Filters > Autotranslate.
+ * administrators to customize API settings, translation settings, task settings, and field selection
+ * for translation. It is displayed under Site administration > Plugins > Filters > Autotranslate.
  *
  * Structure:
  * The settings are organized into sections using admin_setting_heading:
  * - API Configuration: Settings for the translation API (e.g., endpoint, key, model).
  * - Translation Settings: Settings for translation behavior (e.g., target languages, batch size).
  * - Task Configuration: Settings for scheduled tasks (e.g., fetch limits, task frequency).
- * - Tagging Configuration: Settings for selecting tables and fields to tag.
+ * - Core Fields: Dynamic matrices for selecting fields from core Moodle components and modules,
+ *   split by context level (course, course_sections, course_categories) and per module (e.g., forum).
+ * - Third-Party Fields: Dynamic matrices for selecting fields from third-party modules, split per
+ *   module (e.g., bigbluebuttonbn, chat).
  *
  * Design Decisions:
  * - Uses Moodle's admin settings API (admin_setting_configcheckbox, admin_setting_configtext, etc.)
  *   to define form elements, ensuring consistency with Moodle's admin interface.
  * - The apiendpoint and apimodel defaults are set to match the Google Generative AI API used in
  *   fetchtranslation_task.php, ensuring compatibility out of the box.
- * - The tagging_config multicheckbox defaults to a selective set of commonly used tables (e.g., course,
- *   course_sections, page, assign, forum, quiz, resource, folder) to avoid overwhelming admins,
- *   while allowing full customization.
+ * - Leverages content_service::get_field_selection_options to fetch dynamic field options for the
+ *   field selection sections, keeping this file focused on presentation.
+ * - Uses a custom admin_setting_configfieldmatrix to render field selection as a true matrix
+ *   (rows = tables, columns = fields), split by context level and module for better usability.
  * - Includes validation for fields (e.g., PARAM_URL for apiendpoint, PARAM_INT for batchsize) to
  *   ensure valid input.
  *
  * Dependencies:
- * - tagging_config.php: Used to generate the tagging_config multicheckbox options.
+ * - content_service.php: Provides field discovery and selection options for field matrices.
+ * - admin_setting_configfieldmatrix.php: Custom setting class for matrix UI.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
 defined('MOODLE_INTERNAL') || die();
+
+// Import required classes at the top level.
+use filter_autotranslate\content_service;
+use filter_autotranslate\admin_setting_configfieldmatrix;
 
 if ($hassiteconfig) {
     if ($ADMIN->fulltree) {
-        require_once($CFG->dirroot . '/filter/autotranslate/classes/tagging_config.php');
+        // Load content_service and matrix setting class.
+        require_once($CFG->dirroot . '/filter/autotranslate/classes/content_service.php');
+        require_once($CFG->dirroot . '/filter/autotranslate/classes/admin_setting_configfieldmatrix.php');
 
         // Section: API Configuration.
         $settings->add(
@@ -80,7 +90,7 @@ if ($hassiteconfig) {
                 'filter_autotranslate/apiendpoint',
                 get_string('apiendpoint', 'filter_autotranslate'),
                 get_string('apiendpoint_desc', 'filter_autotranslate'),
-                'https://generativelanguage.googleapis.com/v1beta/openai', // Default to Google Generative AI API.
+                'https://generativelanguage.googleapis.com/v1beta/openai',
                 PARAM_URL
             )
         );
@@ -103,7 +113,7 @@ if ($hassiteconfig) {
                 'filter_autotranslate/apimodel',
                 get_string('apimodel', 'filter_autotranslate'),
                 get_string('apimodel_desc', 'filter_autotranslate'),
-                'gemini-1.5-pro-latest', // Default to Google Generative AI model.
+                'gemini-1.5-pro-latest',
                 PARAM_TEXT
             )
         );
@@ -119,8 +129,8 @@ if ($hassiteconfig) {
 
         // Target languages for translation (checkboxes of enabled languages, excluding site language).
         $enabledlangs = get_string_manager()->get_list_of_translations();
-        $sitelang = get_config('core', 'lang') ?: 'en'; // Get site language, default to 'en'.
-        unset($enabledlangs[$sitelang]); // Remove site language from the list.
+        $sitelang = get_config('core', 'lang') ?: 'en';
+        unset($enabledlangs[$sitelang]);
 
         if (empty($enabledlangs)) {
             $settings->add(
@@ -131,11 +141,8 @@ if ($hassiteconfig) {
                 )
             );
         } else {
-            // Define default languages (Spanish, French, German).
             $defaultlangs = ['es' => 1, 'fr' => 1, 'de' => 1];
-            // Ensure defaults only include enabled languages.
             $defaultlangs = array_intersect_key($defaultlangs, $enabledlangs);
-            // If no defaults match enabled languages, select none by default.
             if (empty($defaultlangs)) {
                 $defaultlangs = [];
             }
@@ -220,7 +227,7 @@ if ($hassiteconfig) {
                 'filter_autotranslate/recordsperrun',
                 get_string('recordsperrun', 'filter_autotranslate'),
                 get_string('recordsperrun_desc', 'filter_autotranslate'),
-                1000, // Default to 1000 records per table per run.
+                1000,
                 PARAM_INT
             )
         );
@@ -232,26 +239,8 @@ if ($hassiteconfig) {
                 get_string('managelimit', 'filter_autotranslate', null, true) ?: 'Manage Limit',
                 get_string('managelimit_desc', 'filter_autotranslate', null, true) ?:
                 'The maximum number of records to process in a single batch for the tagcontent_task.',
-                20, // Default to 20 records per batch.
+                20,
                 PARAM_INT
-            )
-        );
-
-        // Select context levels for autotranslation.
-        $settings->add(
-            new admin_setting_configmulticheckbox(
-                'filter_autotranslate/selectctx',
-                get_string('selectctx', 'filter_autotranslate'),
-                get_string('selectctx_desc', 'filter_autotranslate'),
-                ['40', '50', '70', '80'], // Default to Course Category, Course, Module, Block.
-                [
-                    '10' => get_string('ctx_system', 'filter_autotranslate'),
-                    '30' => get_string('ctx_user', 'filter_autotranslate'),
-                    '40' => get_string('ctx_coursecat', 'filter_autotranslate'),
-                    '50' => get_string('ctx_course', 'filter_autotranslate'),
-                    '70' => get_string('ctx_module', 'filter_autotranslate'),
-                    '80' => get_string('ctx_block', 'filter_autotranslate'),
-                ]
             )
         );
 
@@ -261,7 +250,7 @@ if ($hassiteconfig) {
                 'filter_autotranslate/taskfrequency',
                 get_string('taskfrequency', 'filter_autotranslate'),
                 get_string('taskfrequency_desc', 'filter_autotranslate'),
-                60, // Default to hourly.
+                60,
                 PARAM_INT
             )
         );
@@ -276,84 +265,93 @@ if ($hassiteconfig) {
             )
         );
 
-        // Section: Tagging Configuration.
-        $settings->add(
-            new admin_setting_heading(
-                'filter_autotranslate_taggingconfig',
-                get_string('taggingconfig', 'filter_autotranslate'),
-                get_string('taggingconfig_desc', 'filter_autotranslate')
-            )
-        );
+        // Section: Field Selection (dynamic matrices).
+        // Instantiate content_service for field options.
+        $contentservice = new content_service($DB);
 
-        // Build the form elements for selecting tables and fields.
-        $defaulttables = \filter_autotranslate\tagging_config::get_default_tables();
-        $taggingoptions = [];
-        foreach ($defaulttables as $contextlevel => $tables) {
-            $contextname = get_string("ctx_{$contextlevel}", 'filter_autotranslate');
-            foreach ($tables as $table => $config) {
-                // Handle primary table fields.
-                $fields = $config['fields'] ?? [];
+        /**
+         * Builds default selections for the field matrix.
+         *
+         * Creates a default array of table.field => 1 for common fields (name, intro, summary) to
+         * pre-check them in the matrix, improving usability.
+         *
+         * @param array $tables Associative array of table => fields from content_service.
+         * @return array Default selections (e.g., ['course.name' => 1]).
+         */
+        function build_field_defaults($tables) {
+            $defaults = [];
+            foreach ($tables as $table => $fields) {
                 foreach ($fields as $field) {
-                    $key = "ctx{$contextlevel}_{$table}_{$field}";
-                    $label = "$contextname: $table.$field";
-                    $taggingoptions[$key] = $label;
-                }
-
-                // Handle secondary table fields.
-                if (isset($config['secondary'])) {
-                    foreach ($config['secondary'] as $secondarytable => $secondaryconfig) {
-                        $secondaryfields = $secondaryconfig['fields'] ?? [];
-                        foreach ($secondaryfields as $field) {
-                            $key = "ctx{$contextlevel}_{$secondarytable}_{$field}";
-                            $label = "$contextname: $secondarytable.$field";
-                            $taggingoptions[$key] = $label;
-                        }
+                    if (in_array($field, ['name', 'intro', 'summary', 'description', 'fullname', 'content'])) {
+                        $defaults["$table.$field"] = 1;
                     }
+                }
+            }
+            return $defaults;
+        }
+
+        // Fetch field options from content_service.
+        $fieldoptions = $contentservice->get_field_selection_options();
+
+        // Core Fields Section.
+        $settings->add(new admin_setting_heading(
+            'filter_autotranslate_corefields',
+            get_string('corefields', 'filter_autotranslate'),
+            get_string('corefields_desc', 'filter_autotranslate')
+        ));
+
+        // Add matrices for core non-module contexts (course, course_sections, course_categories).
+        foreach (['course', 'course_sections', 'course_categories'] as $contextkey) {
+            if (!empty($fieldoptions['core'][$contextkey])) {
+                $settings->add(new admin_setting_configfieldmatrix(
+                    "filter_autotranslate/{$contextkey}_fields",
+                    get_string($contextkey, 'filter_autotranslate'),
+                    get_string("{$contextkey}_desc", 'filter_autotranslate'),
+                    $fieldoptions['core'][$contextkey],
+                    build_field_defaults($fieldoptions['core'][$contextkey])
+                ));
+            }
+        }
+
+        // Add matrices for each core module.
+        if (!empty($fieldoptions['core']['modules'])) {
+            foreach ($fieldoptions['core']['modules'] as $modname => $tables) {
+                if (!empty($tables)) {
+                    // Use the module's own language file for the display name (e.g., "Assignment" for assign).
+                    $moddisplayname = get_string('pluginname', "mod_$modname", null, false) ?: ucfirst($modname);
+                    $settings->add(new admin_setting_configfieldmatrix(
+                        "filter_autotranslate/{$modname}_fields",
+                        $moddisplayname . ' Fields',
+                        get_string('corefields_desc', 'filter_autotranslate'),
+                        $tables,
+                        build_field_defaults($tables)
+                    ));
                 }
             }
         }
 
-        // Define default selected options (selective to include commonly used activities).
-        $defaulttagging = [
-            // Course context.
-            'ctx50_course_fullname' => 1,
-            'ctx50_course_shortname' => 1,
-            'ctx50_course_summary' => 1,
-            'ctx50_course_sections_name' => 1,
-            'ctx50_course_sections_summary' => 1,
-            // Module context (commonly used activities: page, assign, forum, quiz, resource, folder).
-            'ctx70_page_name' => 1,
-            'ctx70_page_intro' => 1,
-            'ctx70_page_content' => 1,
-            'ctx70_assign_name' => 1,
-            'ctx70_assign_intro' => 1,
-            'ctx70_assign_activity' => 1,
-            'ctx70_forum_name' => 1,
-            'ctx70_forum_intro' => 1,
-            'ctx70_forum_discussions_name' => 1,
-            'ctx70_forum_posts_subject' => 1,
-            'ctx70_forum_posts_message' => 1,
-            'ctx70_quiz_name' => 1,
-            'ctx70_quiz_intro' => 1,
-            'ctx70_quiz_question_name' => 1,
-            'ctx70_quiz_question_questiontext' => 1,
-            'ctx70_quiz_question_generalfeedback' => 1,
-            'ctx70_quiz_question_answers_answer' => 1,
-            'ctx70_quiz_question_answers_feedback' => 1,
-            'ctx70_resource_name' => 1,
-            'ctx70_resource_intro' => 1,
-            'ctx70_folder_name' => 1,
-            'ctx70_folder_intro' => 1,
-        ];
+        // Third-Party Fields Section.
+        if (!empty($fieldoptions['thirdparty'])) {
+            $settings->add(new admin_setting_heading(
+                'filter_autotranslate_thirdpartyfields',
+                get_string('thirdpartyfields', 'filter_autotranslate'),
+                get_string('thirdpartyfields_desc', 'filter_autotranslate')
+            ));
 
-        $settings->add(
-            new admin_setting_configmulticheckbox(
-                'filter_autotranslate/tagging_config',
-                get_string('taggingconfig_options', 'filter_autotranslate'),
-                get_string('taggingconfig_options_desc', 'filter_autotranslate'),
-                $defaulttagging, // Default to commonly used tables.
-                $taggingoptions
-            )
-        );
+            // Add matrices for each third-party module.
+            foreach ($fieldoptions['thirdparty'] as $modname => $tables) {
+                if (!empty($tables)) {
+                    // Use the module's own language file for the display name, if available.
+                    $moddisplayname = get_string('pluginname', "mod_$modname", null, false) ?: ucfirst($modname);
+                    $settings->add(new admin_setting_configfieldmatrix(
+                        "filter_autotranslate/{$modname}_fields",
+                        get_string('thirdpartymodulefields', 'filter_autotranslate', ['module' => $moddisplayname]),
+                        get_string('thirdpartyfields_desc', 'filter_autotranslate'),
+                        $tables,
+                        build_field_defaults($tables)
+                    ));
+                }
+            }
+        }
     }
 }

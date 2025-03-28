@@ -22,19 +22,19 @@
  * layer for all database operations related to tagging, storing, and managing translations. It
  * processes untagged or stale content from `text_filter`, handles MLang parsing, stores translations
  * in the database, manages course mappings, and supports marking translations stale for lazy
- * rebuilding, ensuring efficient content management without static configurations.
+ * rebuilding, ensuring efficient content management without static configurations. It also includes
+ * methods for discovering module schemas and building field selection options for settings.
  *
  * Structure:
  * Contains the `content_service` class with properties for `$db` (database access) and `$textutils`
  * (utility functions). Key methods include `process_content` (tagging and storage),
  * `mark_course_stale` (staleness flagging), `store_translation` (database insertion),
- * `update_hash_course_mapping` (course mapping), and `rewrite_pluginfile_urls` (URL resolution).
+ * `update_hash_course_mapping` (course mapping), `rewrite_pluginfile_urls` (URL resolution),
+ * and new methods `get_all_module_schemas` and `get_field_selection_options` for settings support.
  *
  * Usage:
- * Called by `text_filter` to process untagged or stale text during rendering, and by `ui_manager`
- * to mark translations stale for a course. It interacts with the `filter_autotranslate_translations`
- * and `filter_autotranslate_hid_cids` tables to store and manage content, using a lazy rebuild
- * approach for stale translations.
+ * Called by `text_filter` to process untagged or stale text during rendering, by `ui_manager`
+ * to mark translations stale for a course, and by `settings.php` to generate dynamic field options.
  *
  * Design Decisions:
  * - Consolidates tagging and translation storage from previous `tagging_service` and
@@ -45,6 +45,7 @@
  *   eliminating reliance on `tagging_config`.
  * - Wraps database operations in transactions for consistency, with robust error handling to
  *   ensure data integrity.
+ * - New schema discovery methods leverage existing `get_module_schema` to avoid duplication.
  *
  * Dependencies:
  * - `text_utils.php`: Provides utility functions for MLang parsing, hash generation, and text checks.
@@ -58,6 +59,7 @@
 namespace filter_autotranslate;
 
 use filter_autotranslate\text_utils;
+use core_component;
 
 /**
  * Service class for handling content-related database operations in the filter_autotranslate plugin.
@@ -243,10 +245,114 @@ class content_service {
     }
 
     /**
+     * Gets schemas for all specified modules using get_module_schema.
+     *
+     * Iterates over a list of module names, retrieves their schemas, and returns a combined array of
+     * tables and fields. Used to discover translatable fields for settings matrices.
+     *
+     * @param array $modulenames List of module names (e.g., ['forum', 'quiz']).
+     * @return array Associative array of table => fields (e.g., ['forum' => ['name', 'intro']]).
+     */
+    public function get_all_module_schemas($modulenames) {
+        $schemas = [];
+
+        foreach ($modulenames as $modname) {
+            $schema = $this->get_module_schema($modname);
+            foreach ($schema as $table => $fields) {
+                $schemas[$table] = $fields;
+            }
+        }
+
+        return $schemas;
+    }
+
+    /**
+     * Gets field selection options for core and third-party matrices.
+     *
+     * Discovers all installed modules, separates them into core and third-party, groups tables by
+     * context level and module, and returns structured options for settings.php to build matrices.
+     *
+     * @return array Structured array with 'core' and 'thirdparty' keys, each containing grouped tables.
+     */
+    public function get_field_selection_options() {
+        // Define core non-module tables by context level, with only translatable fields.
+        $corenonmodules = [
+            'course' => [
+                'course' => ['fullname', 'summary'], // Excluded shortname as it's not typically translated.
+            ],
+            'course_sections' => [
+                'course_sections' => ['name', 'summary'],
+            ],
+            'course_categories' => [
+                'course_categories' => ['description'],
+            ],
+        ];
+
+        // Define core Moodle modules (standard set shipped with Moodle).
+        $coremodules = [
+            'assign', 'book', 'choice', 'data', 'feedback', 'folder', 'forum', 'glossary', 'label',
+            'lesson', 'lti', 'page', 'quiz', 'resource', 'url', 'wiki', 'workshop',
+        ];
+
+        // Clear the schema cache to ensure fresh data.
+        $cache = \cache::make('filter_autotranslate', 'modschemas');
+        $cache->purge();
+
+        // Get all installed modules using the non-deprecated method.
+        $installedmodules = array_keys(core_component::get_plugin_list('mod'));
+
+        // Separate into core and third-party modules.
+        $coremodulelist = array_intersect($installedmodules, $coremodules);
+        $thirdpartymodules = array_diff($installedmodules, $coremodules);
+
+        // Build schemas for core modules.
+        $coremoduletables = $this->get_all_module_schemas($coremodulelist);
+        $coremodulesgrouped = [];
+        $prefix = $this->db->get_prefix();
+        foreach ($coremodulelist as $modname) {
+            $coremodulesgrouped[$modname] = [];
+            foreach ($coremoduletables as $table => $fields) {
+                // Check if the table belongs to this module (e.g., mdl_forum, mdl_forum_posts).
+                if (strpos($table, $prefix . $modname) === 0) {
+                    $coremodulesgrouped[$modname][$table] = $fields;
+                }
+            }
+        }
+
+        // Build schemas for third-party modules.
+        $thirdpartymoduletables = $this->get_all_module_schemas($thirdpartymodules);
+        $thirdpartygrouped = [];
+        foreach ($thirdpartymodules as $modname) {
+            $thirdpartygrouped[$modname] = [];
+            foreach ($thirdpartymoduletables as $table => $fields) {
+                // Check if the table belongs to this module (e.g., mdl_bigbluebuttonbn).
+                if (strpos($table, $prefix . $modname) === 0) {
+                    $thirdpartygrouped[$modname][$table] = $fields;
+                }
+            }
+        }
+
+        // Combine core non-modules and modules.
+        $coreoptions = $corenonmodules;
+        $coreoptions['modules'] = $coremodulesgrouped;
+
+        // Sort the grouped tables for consistent display.
+        ksort($coreoptions);
+        ksort($coremodulesgrouped);
+        ksort($thirdpartygrouped);
+
+        return [
+            'core' => $coreoptions,
+            'thirdparty' => $thirdpartygrouped,
+        ];
+    }
+
+    /**
      * Gets the schema (tables and fields) for a module, caching the result.
      *
      * Dynamically retrieves tables and text fields related to a module (e.g., 'forum', 'label'),
-     * ensuring compatibility with MySQL, MariaDB, and PostgreSQL. Caches the result for performance.
+     * ensuring compatibility with MySQL, MariaDB, PostgreSQL, and other databases. Caches the result
+     * for performance.
      *
      * @param string $modname The module name (e.g., 'forum', 'label').
      * @return array Associative array of table names to text field names.
@@ -262,7 +368,23 @@ class content_service {
             $prefix = $this->db->get_prefix();
             $pattern = "{$prefix}{$modname}%";
 
-            // Get database type (mysql, mariadb, pgsql).
+            // Define inclusion and exclusion lists for translatable fields.
+            $includefields = [
+                'name', 'intro', 'summary', 'description', 'content', 'message',
+                'text', 'body', 'title', 'feedback', 'instructions', 'question',
+                'answer', 'response', 'comment', 'label', 'value', 'presentation',
+            ];
+            $excludefields = [
+                'id', 'timemodified', 'timecreated',
+                'dependvalue', 'configdata', 'path', 'colour', 'activity',
+                'attemptreopenmethod', 'pathnew', 'onlinetext', 'commenttext',
+                'type', 'format', 'version', 'status', 'grade', 'score',
+                'url', 'email', 'phone', 'ip', 'token', 'key', 'secret',
+                'password', 'hash', 'signature', 'settings', 'options',
+                'metadata', 'attributes', 'params', 'data', 'json',
+            ];
+
+            // Get database type (mysql, mariadb, pgsql, etc.).
             $dbtype = strtolower($CFG->dbtype);
 
             // Fetch tables matching the module pattern.
@@ -284,48 +406,74 @@ class content_service {
                     'pattern' => $pattern,
                 ]);
             } else {
-                // Fallback: Assume no tables for unsupported DBs (log warning).
-                debugging("Unsupported database type '$dbtype' for schema discovery in filter_autotranslate", DEBUG_DEVELOPER);
-                $tables = [];
+                // Fallback for other databases: Use a simpler query to list tables.
+                debugging("Using fallback query for database type '$dbtype'", DEBUG_DEVELOPER);
+                $sql = "SHOW TABLES LIKE :pattern";
+                $tables = $this->db->get_fieldset_sql($sql, [
+                    'pattern' => $pattern,
+                ]);
             }
 
             // Process each table to get text fields.
             foreach ($tables as $table) {
                 try {
-                    // Get columns using Moodle's DML to ensure DB compatibility.
-                    $columns = $this->db->get_columns($table);
-                    if (!$columns) {
-                        continue; // Skip if table metadata isn’t available.
+                    // For MySQL/MariaDB, use DESCRIBE directly to fetch columns, bypassing get_columns.
+                    if (in_array($dbtype, ['mysql', 'mariadb'])) {
+                        // Do not prepend prefix again; $table already includes it (e.g., mdl_forum).
+                        $sql = "DESCRIBE $table";
+                        $rawcolumns = $this->db->get_records_sql($sql);
+                        $columns = [];
+                        foreach ($rawcolumns as $rawcolumn) {
+                            $column = new \stdClass();
+                            $column->name = $rawcolumn->field;
+                            $column->type = strtolower($rawcolumn->type);
+                            $columns[$column->name] = $column;
+                        }
+                    } else {
+                        // For other databases, try get_columns with case sensitivity handling.
+                        $columns = $this->db->get_columns($table);
+                        if (!$columns) {
+                            // Try lowercase version to handle case sensitivity.
+                            $lowertable = strtolower($table);
+                            $columns = $this->db->get_columns($lowertable);
+                        }
+
+                        if (!$columns) {
+                            debugging("No columns found for table '$table' even after case adjustment", DEBUG_DEVELOPER);
+                            continue;
+                        }
                     }
 
                     $fields = [];
                     foreach ($columns as $column) {
                         $type = strtolower($column->type);
-                        // Check for text-like fields (TEXT, VARCHAR, CHAR).
-                        if (in_array($type, ['text', 'varchar', 'char']) ||
+                        $name = $column->name;
+
+                        // Check if the field type is TEXT or VARCHAR.
+                        if (in_array($type, ['text', 'varchar']) ||
                             (strpos($type, 'text') !== false) ||
                             (strpos($type, 'varchar') !== false)) {
-                            $fields[] = $column->name;
+                            // Apply hybrid filtering: must be in includefields and not in excludefields.
+                            if (in_array($name, $includefields) && !in_array($name, $excludefields)) {
+                                $fields[] = $name;
+                            }
                         }
                     }
 
-                    // Filter out non-content fields and store if any remain.
-                    $filteredfields = array_filter($fields, function($field) {
-                        return !in_array($field, ['id', 'timemodified', 'timecreated']);
-                    });
-                    if ($filteredfields) {
-                        $schema[$table] = array_values($filteredfields);
+                    // Store if any translatable fields remain.
+                    if ($fields) {
+                        $schema[$table] = array_values($fields);
                     }
                 } catch (\moodle_exception $e) {
                     debugging("Failed to retrieve columns for table '$table': " . $e->getMessage(), DEBUG_DEVELOPER);
                 }
             }
 
-            // Cache the result, even if empty, to avoid repeated queries.
+            // Cache the result, even if empty.
             $cache->set($key, $schema);
         }
 
-        return $schema ?: []; // Return empty array if schema is null/false.
+        return $schema ?: [];
     }
 
     /**
