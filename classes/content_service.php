@@ -353,7 +353,7 @@ class content_service {
         // Define core non-module tables by context level, with only translatable fields.
         $corenonmodules = [
             'course' => [
-                'course' => ['fullname', 'summary'], // Excluded shortname as it's not typically translated.
+                'course' => ['fullname', 'shortname', 'summary'], // Excluded shortname as it's not typically translated.
             ],
             'course_sections' => [
                 'course_sections' => ['name', 'summary'],

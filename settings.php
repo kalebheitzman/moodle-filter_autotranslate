@@ -179,15 +179,6 @@ if ($hassiteconfig) {
             )
         );
 
-        // Section: Task Configuration.
-        $settings->add(
-            new admin_setting_heading(
-                'filter_autotranslate_taskconfig',
-                get_string('taskconfig', 'filter_autotranslate'),
-                get_string('taskconfig_desc', 'filter_autotranslate')
-            )
-        );
-
         // Fetch translation task limit.
         $settings->add(
             new admin_setting_configtext(
@@ -221,6 +212,36 @@ if ($hassiteconfig) {
             )
         );
 
+        // Task frequency (in minutes).
+        $settings->add(
+            new admin_setting_configtext(
+                'filter_autotranslate/taskfrequency',
+                get_string('taskfrequency', 'filter_autotranslate'),
+                get_string('taskfrequency_desc', 'filter_autotranslate'),
+                60,
+                PARAM_INT
+            )
+        );
+
+        // Manual trigger option.
+        $settings->add(
+            new admin_setting_configcheckbox(
+                'filter_autotranslate/enablemanualtrigger',
+                get_string('enablemanualtrigger', 'filter_autotranslate'),
+                get_string('enablemanualtrigger_desc', 'filter_autotranslate'),
+                0
+            )
+        );
+
+        // Section: Task Configuration.
+        $settings->add(
+            new admin_setting_heading(
+                'filter_autotranslate_taskconfig',
+                get_string('taskconfig', 'filter_autotranslate'),
+                get_string('taskconfig_desc', 'filter_autotranslate')
+            )
+        );
+
         // Records per run for tagcontent_task.
         $settings->add(
             new admin_setting_configtext(
@@ -244,27 +265,6 @@ if ($hassiteconfig) {
             )
         );
 
-        // Task frequency (in minutes).
-        $settings->add(
-            new admin_setting_configtext(
-                'filter_autotranslate/taskfrequency',
-                get_string('taskfrequency', 'filter_autotranslate'),
-                get_string('taskfrequency_desc', 'filter_autotranslate'),
-                60,
-                PARAM_INT
-            )
-        );
-
-        // Manual trigger option.
-        $settings->add(
-            new admin_setting_configcheckbox(
-                'filter_autotranslate/enablemanualtrigger',
-                get_string('enablemanualtrigger', 'filter_autotranslate'),
-                get_string('enablemanualtrigger_desc', 'filter_autotranslate'),
-                0
-            )
-        );
-
         // Section: Field Selection (dynamic matrices).
         // Instantiate content_service for field options.
         $contentservice = new content_service($DB);
@@ -284,7 +284,13 @@ if ($hassiteconfig) {
                 $defaults = [];
                 foreach ($tables as $table => $fields) {
                     foreach ($fields as $field) {
-                        if (in_array($field, ['name', 'intro', 'summary'])) {
+                        if (in_array(
+                                $field, [
+                                    'fullname', 'name', 'intro', 'summary',
+                                    'content', 'title', 'text',
+                                    'answer', 'response',
+                                ]
+                            )) {
                             $defaults["$table.$field"] = 1;
                         }
                     }

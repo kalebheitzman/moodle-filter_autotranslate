@@ -143,3 +143,17 @@ $string['translatedtext'] = 'Translated Text';
 $string['unknown_course'] = 'Unknown Course';
 $string['updatetranslations'] = 'Update Translations';
 $string['yes'] = 'Yes';
+
+$string['autotranslateadhoc'] = 'Autotranslate Adhoc Task';
+$string['tagcontenttask'] = 'Tag Content Scheduled Task';
+$string['table'] = 'Table';
+$string['language'] = 'Language';
+$string['sourcetext'] = 'Source Text';
+$string['hash'] = 'Hash';
+$string['all'] = 'All';
+$string['filter'] = 'Filter';
+$string['autotranslate'] = 'Autotranslate';
+$string['manage'] = 'Manage Translations';
+$string['tasknotfound'] = 'Task not found';
+$string['apierror'] = 'API Error';
+$string['errorsetting'] = 'Error saving setting';
