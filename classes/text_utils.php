@@ -261,7 +261,7 @@ class text_utils {
      * @return bool True if tagged, false otherwise.
      */
     public static function is_tagged($content) {
-        return preg_match('/\{t:[a-zA-Z0-9]{10}\}(?:<\/p>)?/s', $content) === 1;
+        return preg_match('/{t:[a-zA-Z0-9]{10}\}/', $content) === 1;
     }
 
     /**
@@ -273,10 +273,22 @@ class text_utils {
      * @return string|null The hash (e.g., 'abc1234567'), or null if not found.
      */
     public static function extract_hash($content) {
-        if (preg_match('/\{t:([a-zA-Z0-9]{10})\}(?:\s*(?:<\/p>)?)?$/s', $content, $matches)) {
+        if (preg_match('/{t:([a-zA-Z0-9]{10})\}/', $content, $matches)) {
             return $matches[1];
         }
         return null;
+    }
+
+    /**
+     * Extracts untagged text from content containing a {t:hash} tag.
+     *
+     * Removes the {t:hash} tag from the content and returns the trimmed untagged text.
+     *
+     * @param string $content The content with a potential {t:hash} tag.
+     * @return string The untagged text.
+     */
+    public static function extract_hashed_text($content) {
+        return trim(preg_replace('/\{t:[a-zA-Z0-9]{10}\}/', '', $content));
     }
 
     /**

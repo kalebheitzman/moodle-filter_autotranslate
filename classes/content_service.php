@@ -117,6 +117,11 @@ class content_service {
             if ($translation) {
                 $this->update_hash_course_mapping($hash, $courseid);
                 return $content;
+            } else {
+                // Translation missing; extract hash and text.
+                $sourcetext = $this->textutils->extract_hashed_text($content);
+                // Reinsert into translations table with lang 'other'.
+                $this->store_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
             }
         }
 
@@ -137,8 +142,11 @@ class content_service {
         $hash = $existing ? $existing->hash : $this->textutils->generate_unique_hash();
         $taggedcontent = "$displaytext {t:$hash}";
 
-        // Persist the tagged content dynamically.
-        $this->persist_tagged_content($taggedcontent, $sourcetext, $context, $courseid);
+        // Persist the tagged content dynamically and check if successful.
+        $persisted = $this->persist_tagged_content($taggedcontent, $sourcetext, $context, $courseid);
+        if (!$persisted) {
+            return $content; // Skip storing translations if persistence fails.
+        }
 
         // Rewrite URLs in source text and translations.
         $sourcetext = $this->rewrite_pluginfile_urls($sourcetext, $context, $hash);
@@ -169,20 +177,22 @@ class content_service {
      *
      * Dynamically traverses Moodle data structures to find the table and field containing the
      * source text, then updates it with the tagged content. Supports core and non-core modules.
-     * Uses enabled fields from settings to determine which fields to process.
+     * Returns true if persistence succeeds, false otherwise.
      *
      * @param string $taggedcontent The content with {t:hash} tag to persist.
      * @param string $sourcetext The original untagged text to match.
      * @param \context $context The context determining the table and record to update.
      * @param int $courseid The course ID for mapping.
+     * @return bool True if content was persisted, false if no match was found or persistence failed.
      */
     private function persist_tagged_content($taggedcontent, $sourcetext, $context, $courseid) {
         if ($this->textutils->is_tagged($sourcetext)) {
-            return; // Skip if source text is already tagged.
+            return false; // Skip if source text is already tagged.
         }
 
         $contextlevel = $context->contextlevel;
         $instanceid = $context->instanceid;
+        $persisted = false;
 
         switch ($contextlevel) {
             case CONTEXT_SYSTEM:
@@ -193,7 +203,6 @@ class content_service {
 
             case CONTEXT_COURSE:
                 $course = get_course($instanceid);
-                // Get enabled fields for the course table.
                 $coursefields = $this->get_selected_fields('course');
                 if (!empty($coursefields)) {
                     $fields = [];
@@ -203,30 +212,34 @@ class content_service {
                         }
                     }
                     if (!empty($fields)) {
-                        $this->update_field_if_match('course', 'id', $instanceid, $fields, $sourcetext, $taggedcontent);
+                        $persisted = $this->update_field_if_match('course', 'id', $instanceid, $fields, $sourcetext, $taggedcontent);
                     }
                 }
 
-                // Get enabled fields for the course_sections table.
-                $sectionfields = $this->get_selected_fields('course_sections');
-                if (!empty($sectionfields)) {
-                    $sections = $this->db->get_records('course_sections', ['course' => $instanceid]);
-                    foreach ($sections as $section) {
-                        $fields = [];
-                        foreach ($sectionfields as $field => $enabled) {
-                            if ($enabled && isset($section->$field)) {
-                                $fields[$field] = $section->$field;
+                if (!$persisted) {
+                    $sectionfields = $this->get_selected_fields('course_sections');
+                    if (!empty($sectionfields)) {
+                        $sections = $this->db->get_records('course_sections', ['course' => $instanceid]);
+                        foreach ($sections as $section) {
+                            $fields = [];
+                            foreach ($sectionfields as $field => $enabled) {
+                                if ($enabled && isset($section->$field)) {
+                                    $fields[$field] = $section->$field;
+                                }
                             }
-                        }
-                        if (!empty($fields)) {
-                            $this->update_field_if_match(
-                                'course_sections',
-                                'id',
-                                $section->id,
-                                $fields,
-                                $sourcetext,
-                                $taggedcontent
-                            );
+                            if (!empty($fields)) {
+                                $persisted = $this->update_field_if_match(
+                                    'course_sections',
+                                    'id',
+                                    $section->id,
+                                    $fields,
+                                    $sourcetext,
+                                    $taggedcontent
+                                );
+                                if ($persisted) {
+                                    break;
+                                }
+                            }
                         }
                     }
                 }
@@ -236,13 +249,12 @@ class content_service {
                 $cm = get_coursemodule_from_id('', $instanceid);
                 if ($cm) {
                     $modname = $cm->modname;
-                    // Get enabled fields for the module's tables.
                     $modulefields = $this->get_selected_fields($modname);
                     if (empty($modulefields)) {
-                        break; // Skip if no fields are enabled.
+                        debugging("No enabled fields for module '$modname'", DEBUG_DEVELOPER);
+                        break;
                     }
 
-                    // Split fields into primary and secondary tables.
                     $prefix = $this->db->get_prefix();
                     $primarytable = $prefix . $modname;
                     $primaryfields = [];
@@ -260,28 +272,40 @@ class content_service {
                         }
                     }
 
-                    // Primary table (e.g., mdl_forum).
+                    $found = false;
+
                     if (!empty($primaryfields)) {
                         $instance = $this->db->get_record($modname, ['id' => $cm->instance]);
                         if ($instance) {
                             $fields = array_intersect_key((array)$instance, $primaryfields);
-                            if (!empty($fields)) {
-                                $this->update_field_if_match($modname, 'id', $cm->instance, $fields, $sourcetext, $taggedcontent);
+                            foreach ($fields as $field => $value) {
+                                $trimmedvalue = $value === null ? '' : trim($value);
+                                if ($trimmedvalue === $sourcetext) {
+                                    $found = true;
+                                    $persisted = $this->update_field_if_match($modname, 'id', $cm->instance, $fields, $sourcetext, $taggedcontent);
+                                    break;
+                                }
                             }
                         }
                     }
 
-                    // Secondary tables (e.g., mdl_forum_posts).
-                    foreach ($secondaryfields as $table => $fields) {
-                        if (!in_array('id', $this->db->get_columns($table))) {
-                            continue; // Skip invalid tables.
-                        }
-                        $fk = $modname . 'id'; // Guess FK; refine later.
-                        $records = $this->db->get_records($table, [$fk => $cm->instance]);
-                        foreach ($records as $record) {
-                            $recordfields = array_intersect_key((array)$record, $fields);
-                            if (!empty($recordfields)) {
-                                $this->update_field_if_match($table, 'id', $record->id, $recordfields, $sourcetext, $taggedcontent);
+                    if (!$found && !empty($secondaryfields)) {
+                        foreach ($secondaryfields as $table => $fields) {
+                            if (!in_array('id', $this->db->get_columns($table))) {
+                                continue;
+                            }
+                            $fk = $modname . 'id';
+                            $records = $this->db->get_records($table, [$fk => $cm->instance]);
+                            foreach ($records as $record) {
+                                $recordfields = array_intersect_key((array)$record, $fields);
+                                foreach ($recordfields as $field => $value) {
+                                    $trimmedvalue = $value === null ? '' : trim($value);
+                                    if ($trimmedvalue === $sourcetext) {
+                                        $found = true;
+                                        $persisted = $this->update_field_if_match($table, 'id', $record->id, $recordfields, $sourcetext, $taggedcontent);
+                                        break 2;
+                                    }
+                                }
                             }
                         }
                     }
@@ -289,7 +313,6 @@ class content_service {
                 break;
 
             case CONTEXT_COURSECAT:
-                // Get enabled fields for the course_categories table.
                 $categoryfields = $this->get_selected_fields('course_categories');
                 if (!empty($categoryfields)) {
                     $category = $this->db->get_record('course_categories', ['id' => $instanceid]);
@@ -301,7 +324,7 @@ class content_service {
                             }
                         }
                         if (!empty($fields)) {
-                            $this->update_field_if_match(
+                            $persisted = $this->update_field_if_match(
                                 'course_categories',
                                 'id',
                                 $instanceid,
@@ -320,6 +343,8 @@ class content_service {
             default:
                 debugging("Unsupported context level $contextlevel for persistence", DEBUG_DEVELOPER);
         }
+
+        return $persisted;
     }
 
     /**
@@ -373,8 +398,8 @@ class content_service {
         ];
 
         // Clear the schema cache to ensure fresh data.
-        $cache = \cache::make('filter_autotranslate', 'modschemas');
-        $cache->purge();
+        // $cache = \cache::make('filter_autotranslate', 'modschemas');
+        // $cache->purge();
 
         // Get all installed modules using the non-deprecated method.
         $installedmodules = array_keys(core_component::get_plugin_list('mod'));
@@ -438,14 +463,14 @@ class content_service {
      */
     public function get_selected_fields($contextid) {
         // Initialize the cache.
-        $cache = \cache::make('filter_autotranslate', 'selectedfields');
-        $cachekey = "selectedfields_$contextid";
+        // $cache = \cache::make('filter_autotranslate', 'selectedfields');
+        // $cachekey = "selectedfields_$contextid";
 
-        // Check if the result is cached.
-        $cachedfields = $cache->get($cachekey);
-        if ($cachedfields !== false) {
-            return $cachedfields;
-        }
+        // // Check if the result is cached.
+        // $cachedfields = $cache->get($cachekey);
+        // if ($cachedfields !== false) {
+        //     return $cachedfields;
+        // }
 
         // Fetch the config for the given context identifier.
         $config = get_config('filter_autotranslate', "{$contextid}_fields");
@@ -459,7 +484,7 @@ class content_service {
         }
 
         // Cache the result, even if empty.
-        $cache->set($cachekey, $fields);
+        // $cache->set($cachekey, $fields);
         return $fields;
     }
 
@@ -474,9 +499,9 @@ class content_service {
      * @return array Associative array of table names to text field names.
      */
     private function get_module_schema($modname) {
-        $cache = \cache::make('filter_autotranslate', 'modschemas');
-        $key = "schema_$modname";
-        $schema = $cache->get($key);
+        // $cache = \cache::make('filter_autotranslate', 'modschemas');
+        // $key = "schema_$modname";
+        $schema = false; //$cache->get($key);
 
         if ($schema === false) {
             global $CFG;

@@ -106,27 +106,23 @@ class text_filter extends \core_filters\text_filter {
             return $text;
         }
 
-        $allowedcontexts = [CONTEXT_COURSE, CONTEXT_MODULE, CONTEXT_COURSECAT];
-        if (!in_array($this->context->contextlevel, $allowedcontexts)) {
-            return $text;
-        }
+        // $allowedcontexts = [CONTEXT_COURSE, CONTEXT_MODULE, CONTEXT_COURSECAT];
+        // if (!in_array($this->context->contextlevel, $allowedcontexts)) {
+        //     return $text;
+        // }
 
         $courseid = $this->get_courseid_from_context($this->context);
         $currentlang = current_language();
         $cachekey = md5($text . $this->context->id . $currentlang);
 
         $cached = $this->cache->get($cachekey);
-        if ($cached !== false) {
-            return $cached;
-        }
+        // if ($cached !== false) {
+        //     return $cached;
+        // }
 
-        $pattern = '/^(.*)\s*\{t:([a-zA-Z0-9]{10})\}$/s';
-        $hastags = preg_match($pattern, trim($text), $matches);
-
-        if (!$hastags) {
-            $text = $this->contentservice->process_content($text, $this->context, $courseid);
-        }
-
+        $pattern = '/(.*?)(\{t:([a-zA-Z0-9]{10})\})(?:\s*|\s*<[^>]*>)?$/s';
+        $text = $this->contentservice->process_content($text, $this->context, $courseid);
+ 
         $filteredtext = preg_replace_callback($pattern, function($matches) use ($currentlang) {
             $content = $matches[1];
             $hash = $matches[2];
