@@ -110,7 +110,7 @@ class content_service {
             return $content;
         }
 
-        // Check if already tagged.
+        // Extract hash from original content.
         $hash = $this->textutils->extract_hash($content);
         if ($hash) {
             $translation = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => 'other']);
@@ -118,43 +118,41 @@ class content_service {
                 $this->update_hash_course_mapping($hash, $courseid);
                 return $content;
             } else {
-                // Translation missing; extract hash and text.
-                $sourcetext = $this->textutils->extract_hashed_text($content);
-                // Reinsert into translations table with lang 'other'.
+                // Strip hash for processing.
+                $cleanedcontent = $this->textutils->extract_hashed_text($content);
+                $mlangresult = $this->textutils->process_mlang_tags($cleanedcontent, $context);
+                $sourcetext = $mlangresult['source_text'] ?: $cleanedcontent;
                 $this->store_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
+                $this->update_hash_course_mapping($hash, $courseid);
             }
         }
 
-        // Process MLang tags and prepare content.
+        // Process MLang tags for untagged content.
         $mlangresult = $this->textutils->process_mlang_tags($trimmed, $context);
         $sourcetext = $mlangresult['source_text'] ?: $trimmed;
         $displaytext = $mlangresult['display_text'] ?: $trimmed;
         $translations = $mlangresult['translations'];
 
-        // Check for existing untagged content to reuse hash.
         $existing = $this->db->get_record_sql(
             "SELECT hash FROM {filter_autotranslate_translations}
-             WHERE lang = 'other' AND " . $this->db->sql_compare_text('translated_text') . " = " .
-             $this->db->sql_compare_text(':text'),
+            WHERE lang = 'other' AND " . $this->db->sql_compare_text('translated_text') . " = " .
+            $this->db->sql_compare_text(':text'),
             ['text' => $sourcetext],
             IGNORE_MULTIPLE
         );
         $hash = $existing ? $existing->hash : $this->textutils->generate_unique_hash();
         $taggedcontent = "$displaytext {t:$hash}";
 
-        // Persist the tagged content dynamically and check if successful.
         $persisted = $this->persist_tagged_content($taggedcontent, $sourcetext, $context, $courseid);
         if (!$persisted) {
-            return $content; // Skip storing translations if persistence fails.
+            return $content;
         }
 
-        // Rewrite URLs in source text and translations.
         $sourcetext = $this->rewrite_pluginfile_urls($sourcetext, $context, $hash);
         foreach ($translations as $lang => $text) {
             $translations[$lang] = $this->rewrite_pluginfile_urls($text, $context, $hash);
         }
 
-        // Store content in a transaction.
         $transaction = $this->db->start_delegated_transaction();
         try {
             $this->store_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
