@@ -110,39 +110,42 @@ class content_service {
             return $content;
         }
 
-        // Extract hash from original content.
+        // Process MLang tags for all content.
+        $mlangresult = $this->textutils->process_mlang_tags($trimmed, $context);
+        $sourcetext = $this->textutils->extract_hashed_text($mlangresult['source_text'] ?: $trimmed); // Ensure untagged.
+        $displaytext = $mlangresult['display_text'] ?: $trimmed;
+        $translations = $mlangresult['translations'];
+
+        // Check if content is tagged and handle existing/missing translations.
         $hash = $this->textutils->extract_hash($content);
         if ($hash) {
             $translation = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => 'other']);
             if ($translation) {
+                if ($translation->translated_text !== $sourcetext) {
+                    // Update translated_text if source text has changed.
+                    $translation->translated_text = $sourcetext;
+                    $translation->timemodified = time();
+                    $this->db->update_record('filter_autotranslate_translations', $translation);
+                }
                 $this->update_hash_course_mapping($hash, $courseid);
-                return $content;
             } else {
-                // Strip hash for processing.
-                $cleanedcontent = $this->textutils->extract_hashed_text($content);
-                $mlangresult = $this->textutils->process_mlang_tags($cleanedcontent, $context);
-                $sourcetext = $mlangresult['source_text'] ?: $cleanedcontent;
+                // Reinsert missing translation with existing hash.
                 $this->store_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
                 $this->update_hash_course_mapping($hash, $courseid);
             }
+        } else {
+            // Check for existing untagged content to reuse hash.
+            $existing = $this->db->get_record_sql(
+                "SELECT hash FROM {filter_autotranslate_translations}
+                WHERE lang = 'other' AND " . $this->db->sql_compare_text('translated_text') . " = " .
+                $this->db->sql_compare_text(':text'),
+                ['text' => $sourcetext],
+                IGNORE_MULTIPLE
+            );
+            $hash = $existing ? $existing->hash : $this->textutils->generate_unique_hash();
         }
 
-        // Process MLang tags for untagged content.
-        $mlangresult = $this->textutils->process_mlang_tags($trimmed, $context);
-        $sourcetext = $mlangresult['source_text'] ?: $trimmed;
-        $displaytext = $mlangresult['display_text'] ?: $trimmed;
-        $translations = $mlangresult['translations'];
-
-        $existing = $this->db->get_record_sql(
-            "SELECT hash FROM {filter_autotranslate_translations}
-            WHERE lang = 'other' AND " . $this->db->sql_compare_text('translated_text') . " = " .
-            $this->db->sql_compare_text(':text'),
-            ['text' => $sourcetext],
-            IGNORE_MULTIPLE
-        );
-        $hash = $existing ? $existing->hash : $this->textutils->generate_unique_hash();
         $taggedcontent = "$displaytext {t:$hash}";
-
         $persisted = $this->persist_tagged_content($taggedcontent, $sourcetext, $context, $courseid);
         if (!$persisted) {
             return $content;
