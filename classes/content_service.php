@@ -61,6 +61,9 @@
 
 namespace filter_autotranslate;
 
+defined('MOODLE_INTERNAL') || die();
+require_once($CFG->libdir . '/weblib.php');
+
 use filter_autotranslate\text_utils;
 use core_component;
 
