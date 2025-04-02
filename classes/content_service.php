@@ -12,30 +12,32 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  * Content service for the Autotranslate filter plugin.
  *
- * Manages tagging, translation storage, and persistence for the filter_autotranslate plugin.
- * Processes text, handles MLang tags, persists tagged content, and stores translations.
+ * This class handles content processing, tagging, translation storage, and persistence for the
+ * Autotranslate filter plugin. It processes text with MLang tags, tags content with unique hashes,
+ * persists changes into Moodle database tables (e.g., course sections, module tables), and stores
+ * translations in `filter_autotranslate_translations`. It supports both primary tables (e.g., `book`)
+ * and secondary tables (e.g., `book_chapters`) for modules.
  *
- * Key features:
- * - Tags and persists content from `text_filter`.
- * - Parses MLang tags, storing results in `filter_autotranslate_translations`.
- * - Maps hashes to courses in `filter_autotranslate_hid_cids`.
- * - Supports stale translation marking and schema discovery.
+ * Key Features:
+ * - Processes MLang tags and extracts source text and translations.
+ * - Tags content with unique hashes (e.g., `{t:hash}`) for tracking.
+ * - Persists tagged content into Moodle tables based on context (course, module, etc.).
+ * - Stores translations with course mappings in `filter_autotranslate_hid_cids`.
+ * - Rewrites pluginfile URLs for consistent content rendering.
  *
  * Usage:
- * - `text_filter` for rendering.
- * - `ui_manager` for stale marking.
- * - `settings.php` for field options.
+ * - Called by `text_filter.php` to process and persist content during page rendering.
+ * - Configured via plugin settings to enable fields for persistence (e.g., `book.name`, `book_chapters.title`).
  *
- * Design notes:
- * - Combines tagging and translation logic.
- * - Uses lazy rebuild with `timereviewed` vs. `timemodified`.
- * - Dynamic context, no static configs.
- * - Transaction-based for consistency.
+ * Design Notes:
+ * - Uses unprefixed table names internally (e.g., `book_chapters`), relying on Moodle’s database layer to add prefixes.
+ * - Handles transactions to ensure atomic updates of translations and mappings.
+ * - Avoids direct database modifications outside of Moodle’s DML API for portability.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -55,10 +57,10 @@ use core_component;
  */
 class content_service {
 
-    /** @var \moodle_database Moodle database instance. */
+    /** @var \moodle_database Moodle database instance for DML operations. */
     private $db;
 
-    /** @var text_utils Text processing and hash utility. */
+    /** @var text_utils Utility for text processing and hash generation. */
     private $textutils;
 
     /**
@@ -77,23 +79,24 @@ class content_service {
      * Trims content, parses MLang tags, tags with a hash, persists in Moodle tables,
      * and stores translations in `filter_autotranslate_translations`.
      *
-     * @param string $content Content to process.
-     * @param \context $context Moodle context.
-     * @param int $courseid Course ID.
+     * @param string $content Content to process (e.g., text with MLang tags).
+     * @param \context $context Moodle context (e.g., course, module).
+     * @param int $courseid Course ID for mapping translations.
      * @return string Tagged content or original if persistence fails.
      */
     public function process_content($content, $context, $courseid) {
         $trimmed = trim($content);
-
         if (empty($trimmed) || is_numeric($trimmed)) {
-            return $content;
+            return $content; // Skip empty or numeric content.
         }
 
+        // Parse MLang tags to extract source text and translations.
         $mlangresult = $this->textutils->process_mlang_tags($trimmed, $context);
         $sourcetext = $this->textutils->extract_hashed_text($mlangresult['source_text'] ?: $trimmed);
         $displaytext = $mlangresult['display_text'] ?: $trimmed;
         $translations = $mlangresult['translations'];
 
+        // Extract or generate a hash for the content.
         $hash = $this->textutils->extract_hash($content);
         if ($hash) {
             $translation = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => 'other']);
@@ -122,11 +125,13 @@ class content_service {
         $persisted = $this->persist_tagged_content($taggedcontent, $sourcetext, $trimmed, $context, $courseid);
 
         if ($persisted) {
+            // Rewrite pluginfile URLs for consistency.
             $sourcetext = $this->rewrite_pluginfile_urls($sourcetext, $context, $hash);
             foreach ($translations as $lang => $text) {
                 $translations[$lang] = $this->rewrite_pluginfile_urls($text, $context, $hash);
             }
 
+            // Store translations in a transaction.
             $transaction = $this->db->start_delegated_transaction();
             try {
                 $this->upsert_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
@@ -149,18 +154,18 @@ class content_service {
      * Persists tagged content into a Moodle table based on context.
      *
      * Locates the matching table and field, updates with tagged content. Uses `$originaltext`
-     * first, falls back to `$sourcetext` for flexibility.
+     * first for matching, falls back to `$sourcetext`. Supports course, module, and category contexts.
      *
-     * @param string $taggedcontent Tagged content to persist.
+     * @param string $taggedcontent Tagged content to persist (e.g., "Text {t:hash}").
      * @param string $sourcetext Untagged source text for validation and fallback.
      * @param string $originaltext Original raw text for primary matching.
-     * @param \context $context Moodle context.
-     * @param int $courseid Course ID (unused here).
-     * @return bool True if persisted, false if no match.
+     * @param \context $context Moodle context (e.g., course, module).
+     * @param int $courseid Course ID (unused here, passed for consistency).
+     * @return bool True if persisted, false if no match or unsupported context.
      */
     private function persist_tagged_content($taggedcontent, $sourcetext, $originaltext, $context, $courseid) {
         if ($this->textutils->is_tagged($sourcetext)) {
-            return false;
+            return false; // Skip already tagged source text.
         }
 
         $contextlevel = $context->contextlevel;
@@ -235,6 +240,7 @@ class content_service {
                     $primaryfields = [];
                     $secondaryfields = [];
 
+                    // Split fields into primary and secondary tables, ensuring unprefixed names.
                     foreach ($modulefields as $key => $enabled) {
                         if (!$enabled) {
                             continue;
@@ -243,7 +249,8 @@ class content_service {
                         if ($table === $primarytable) {
                             $primaryfields[$field] = 1;
                         } else {
-                            $secondaryfields[$table][$field] = 1;
+                            $unprefixedtable = str_replace($prefix, '', $table);
+                            $secondaryfields[$unprefixedtable][$field] = 1;
                         }
                     }
 
@@ -268,10 +275,15 @@ class content_service {
                     if (!$found && !empty($secondaryfields)) {
                         foreach ($secondaryfields as $table => $fields) {
                             if (!in_array('id', $this->db->get_columns($table))) {
-                                continue;
+                                continue; // Skip tables without an 'id' column.
                             }
                             $fk = $modname . 'id';
-                            $records = $this->db->get_records($table, [$fk => $cm->instance]);
+                            try {
+                                $records = $this->db->get_records($table, [$fk => $cm->instance]);
+                            } catch (\dml_exception $e) {
+                                debugging("Failed to query secondary table '$table': " . $e->getMessage(), DEBUG_DEVELOPER);
+                                continue;
+                            }
                             foreach ($records as $record) {
                                 $recordfields = array_intersect_key((array)$record, $fields);
                                 foreach ($recordfields as $field => $value) {
@@ -325,12 +337,12 @@ class content_service {
     /**
      * Updates a field if its value matches the source text.
      *
-     * @param string $table Table to update.
-     * @param string $idfield ID field name.
-     * @param int $id ID value.
-     * @param array $fields Field name-value pairs.
-     * @param string $sourcetext Text to match.
-     * @param string $taggedcontent Tagged content to set.
+     * @param string $table Table to update (unprefixed, e.g., 'course_sections').
+     * @param string $idfield ID field name (typically 'id').
+     * @param int $id ID value of the record to update.
+     * @param array $fields Field name-value pairs to check.
+     * @param string $sourcetext Text to match against field values.
+     * @param string $taggedcontent Tagged content to set if matched.
      * @return bool True if updated, false if no match.
      */
     private function update_field_if_match($table, $idfield, $id, $fields, $sourcetext, $taggedcontent) {
@@ -347,8 +359,8 @@ class content_service {
     /**
      * Gets schemas for specified modules.
      *
-     * @param array $modulenames Module names.
-     * @return array Table-field mappings.
+     * @param array $modulenames Array of module names (e.g., ['book', 'assign']).
+     * @return array Table-field mappings for the modules.
      */
     public function get_all_module_schemas($modulenames) {
         $schemas = [];
@@ -366,7 +378,9 @@ class content_service {
     /**
      * Generates field options for settings.
      *
-     * @return array Core and third-party field options.
+     * Builds a structured array of core and third-party module fields for the plugin’s settings UI.
+     *
+     * @return array Array with 'core' and 'thirdparty' keys, containing table-field options.
      */
     public function get_field_selection_options() {
         $corenonmodules = [
@@ -418,10 +432,10 @@ class content_service {
     }
 
     /**
-     * Fetches enabled fields from settings.
+     * Fetches enabled fields from settings for a context.
      *
-     * @param string $contextid Context identifier.
-     * @return array Enabled fields.
+     * @param string $contextid Context identifier (e.g., 'book', 'course').
+     * @return array Enabled fields (e.g., ['mdl_book.name' => 1, 'mdl_book_chapters.title' => 1]).
      */
     public function get_selected_fields($contextid) {
         $config = get_config('filter_autotranslate', "{$contextid}_fields");
@@ -438,10 +452,10 @@ class content_service {
     }
 
     /**
-     * Gets schema for a module.
+     * Gets schema for a module, identifying translatable fields.
      *
-     * @param string $modname Module name.
-     * @return array Table-field mappings.
+     * @param string $modname Module name (e.g., 'book').
+     * @return array Table-field mappings (e.g., ['mdl_book' => ['name', 'intro']]).
      */
     private function get_module_schema($modname) {
         global $CFG;
@@ -450,14 +464,15 @@ class content_service {
         $prefix = $this->db->get_prefix();
         $pattern = "{$prefix}{$modname}%";
 
+        // Fields to include (text-based) and exclude (non-translatable).
         $includefields = [
             'name', 'intro', 'summary', 'description', 'content', 'message', 'text', 'body', 'title',
             'feedback', 'instructions', 'question', 'answer', 'response', 'comment', 'label', 'value',
-            'presentation', 'activity',
+            'presentation',
         ];
         $excludefields = [
             'id', 'timemodified', 'timecreated', 'dependvalue', 'configdata', 'path', 'colour',
-            'attemptreopenmethod', 'pathnew', 'onlinetext', 'commenttext', 'type',
+            'activity', 'attemptreopenmethod', 'pathnew', 'onlinetext', 'commenttext', 'type',
             'format', 'version', 'status', 'grade', 'score', 'url', 'email', 'phone', 'ip', 'token',
             'key', 'secret', 'password', 'hash', 'signature', 'settings', 'options', 'metadata',
             'attributes', 'params', 'data', 'json',
@@ -525,9 +540,9 @@ class content_service {
     }
 
     /**
-     * Marks course translations as stale.
+     * Marks course translations as stale by updating their modification time.
      *
-     * @param int $courseid Course ID.
+     * @param int $courseid Course ID to mark as stale.
      */
     public function mark_course_stale($courseid) {
         $hashes = $this->db->get_fieldset_select('filter_autotranslate_hid_cids', 'hash', 'courseid = ?', [$courseid]);
@@ -544,12 +559,12 @@ class content_service {
     }
 
     /**
-     * Updates a translation record.
+     * Updates a translation record with new text and review status.
      *
-     * @param int $id Translation ID.
-     * @param string $text Updated text.
+     * @param int $id Translation record ID.
+     * @param string $text Updated translated text.
      * @param int $human Human review status (0 = auto, 1 = human).
-     * @param int $timereviewed Last review timestamp.
+     * @param int $timereviewed Timestamp of last review.
      */
     public function update_translation($id, $text, $human, $timereviewed) {
         $record = $this->db->get_record('filter_autotranslate_translations', ['id' => $id], '*', MUST_EXIST);
@@ -563,12 +578,12 @@ class content_service {
     /**
      * Inserts or updates a translation in `filter_autotranslate_translations`.
      *
-     * @param string $hash Content hash.
-     * @param string $lang Language code.
-     * @param string $text Text to store.
-     * @param int $contextlevel Context level.
-     * @param int $courseid Course ID (passed through).
-     * @param \context $context Context (passed through).
+     * @param string $hash Unique hash for the content.
+     * @param string $lang Language code (e.g., 'other', 'es').
+     * @param string $text Translated text to store.
+     * @param int $contextlevel Context level (e.g., CONTEXT_MODULE).
+     * @param int $courseid Course ID (passed through for mapping).
+     * @param \context $context Context (passed through for URL rewriting).
      */
     private function upsert_translation($hash, $lang, $text, $contextlevel, $courseid, $context) {
         $existing = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
@@ -596,8 +611,8 @@ class content_service {
     /**
      * Updates hash-to-course mapping in `filter_autotranslate_hid_cids`.
      *
-     * @param string $hash Content hash.
-     * @param int $courseid Course ID.
+     * @param string $hash Content hash to map.
+     * @param int $courseid Course ID to associate with the hash.
      */
     private function update_hash_course_mapping($hash, $courseid) {
         if (!$hash || !$courseid) {
@@ -617,12 +632,12 @@ class content_service {
     }
 
     /**
-     * Rewrites @@PLUGINFILE@@ URLs to full URLs.
+     * Rewrites @@PLUGINFILE@@ URLs to full URLs based on context.
      *
-     * @param string $content Content with plugin file URLs.
-     * @param \context $context Moodle context.
-     * @param string $hash Content hash (unused here).
-     * @return string Rewritten content.
+     * @param string $content Content with pluginfile URLs.
+     * @param \context $context Moodle context for URL rewriting.
+     * @param string $hash Content hash (unused here, included for consistency).
+     * @return string Content with rewritten URLs.
      */
     private function rewrite_pluginfile_urls($content, $context, $hash) {
         $component = '';
