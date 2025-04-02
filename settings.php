@@ -288,7 +288,7 @@ if ($hassiteconfig) {
                                 $field, [
                                     'fullname', 'name', 'intro', 'summary',
                                     'content', 'title', 'text',
-                                    'answer', 'response',
+                                    'answer', 'response', 'activity',
                                 ]
                             )) {
                             $defaults["$table.$field"] = 1;

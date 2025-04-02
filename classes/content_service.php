@@ -12,47 +12,30 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Content Service for the Autotranslate Plugin
+ * Content service for the Autotranslate filter plugin.
  *
- * Purpose:
- * This file defines the content service for the filter_autotranslate plugin, providing a unified
- * layer for all database operations related to tagging, storing, and managing translations. It
- * processes untagged or stale content from `text_filter`, handles MLang parsing, stores translations
- * in the database, manages course mappings, and supports marking translations stale for lazy
- * rebuilding, ensuring efficient content management without static configurations. It also includes
- * methods for discovering module schemas and building field selection options for settings.
+ * Manages tagging, translation storage, and persistence for the filter_autotranslate plugin.
+ * Processes text, handles MLang tags, persists tagged content, and stores translations.
  *
- * Structure:
- * Contains the `content_service` class with properties for `$db` (database access) and `$textutils`
- * (utility functions). Key methods include `process_content` (tagging and storage),
- * `mark_course_stale` (staleness flagging), `store_translation` (database insertion),
- * `update_hash_course_mapping` (course mapping), `rewrite_pluginfile_urls` (URL resolution),
- * `get_all_module_schemas` and `get_field_selection_options` for settings support, and
- * `get_selected_fields` to fetch enabled fields for a specific context or module.
+ * Key features:
+ * - Tags and persists content from `text_filter`.
+ * - Parses MLang tags, storing results in `filter_autotranslate_translations`.
+ * - Maps hashes to courses in `filter_autotranslate_hid_cids`.
+ * - Supports stale translation marking and schema discovery.
  *
  * Usage:
- * Called by `text_filter` to process untagged or stale text during rendering, by `ui_manager`
- * to mark translations stale for a course, by `settings.php` to generate dynamic field options,
- * and by other components to fetch selected fields for translation.
+ * - `text_filter` for rendering.
+ * - `ui_manager` for stale marking.
+ * - `settings.php` for field options.
  *
- * Design Decisions:
- * - Consolidates tagging and translation storage from previous `tagging_service` and
- *   `translation_service` into a single service, reducing overlap and simplifying maintenance.
- * - Implements a lazy rebuild strategy (Option 3) by checking `timereviewed` vs. `timemodified`
- *   to detect stale translations, refreshing them on demand during filtering.
- * - Uses dynamic context and settings (e.g., `selectctx`) instead of static configurations,
- *   eliminating reliance on `tagging_config`.
- * - Wraps database operations in transactions for consistency, with robust error handling to
- *   ensure data integrity.
- * - New schema discovery methods leverage existing `get_module_schema` to avoid duplication.
- * - Caches selected fields to improve performance when fetching field selections.
- *
- * Dependencies:
- * - `text_utils.php`: Provides utility functions for MLang parsing, hash generation, and text checks.
- * - `db/xmldb_filter_autotranslate.xml`: Defines the database schema (`translations`, `hid_cids`).
+ * Design notes:
+ * - Combines tagging and translation logic.
+ * - Uses lazy rebuild with `timereviewed` vs. `timemodified`.
+ * - Dynamic context, no static configs.
+ * - Transaction-based for consistency.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -62,31 +45,26 @@
 namespace filter_autotranslate;
 
 defined('MOODLE_INTERNAL') || die();
+
 require_once($CFG->libdir . '/weblib.php');
 
-use filter_autotranslate\text_utils;
 use core_component;
 
 /**
- * Service class for handling content-related database operations in the filter_autotranslate plugin.
+ * Handles content-related database operations for the Autotranslate filter.
  */
 class content_service {
-    /**
-     * @var \moodle_database The Moodle database instance for all operations.
-     */
+
+    /** @var \moodle_database Moodle database instance. */
     private $db;
 
-    /**
-     * @var text_utils The utility instance for text processing and hash generation.
-     */
+    /** @var text_utils Text processing and hash utility. */
     private $textutils;
 
     /**
-     * Constructor for the content service.
+     * Constructs the service with database and utility dependencies.
      *
-     * Initializes the service with database access and text utilities for content processing.
-     *
-     * @param \moodle_database $db The Moodle database instance.
+     * @param \moodle_database $db Moodle database instance.
      */
     public function __construct(\moodle_database $db) {
         $this->db = $db;
@@ -94,101 +72,95 @@ class content_service {
     }
 
     /**
-     * Processes content by tagging and persisting it in the source table.
+     * Tags content, persists it, and stores translations.
      *
-     * Tags untagged content with a `{t:hash}` tag, persists it in the original Moodle table,
-     * reuses existing hashes for identical content, processes MLang tags, and updates course mappings.
+     * Trims content, parses MLang tags, tags with a hash, persists in Moodle tables,
+     * and stores translations in `filter_autotranslate_translations`.
      *
-     * @param string $content The content to process.
-     * @param \context $context The context in which the content appears.
-     * @param int $courseid The course ID for mapping.
-     * @return string The tagged content (e.g., "Hello {t:abc1234567}").
+     * @param string $content Content to process.
+     * @param \context $context Moodle context.
+     * @param int $courseid Course ID.
+     * @return string Tagged content or original if persistence fails.
      */
     public function process_content($content, $context, $courseid) {
         $trimmed = trim($content);
+
         if (empty($trimmed) || is_numeric($trimmed)) {
             return $content;
         }
 
-        // Process MLang tags for all content.
         $mlangresult = $this->textutils->process_mlang_tags($trimmed, $context);
-        $sourcetext = $this->textutils->extract_hashed_text($mlangresult['source_text'] ?: $trimmed); // Ensure untagged.
+        $sourcetext = $this->textutils->extract_hashed_text($mlangresult['source_text'] ?: $trimmed);
         $displaytext = $mlangresult['display_text'] ?: $trimmed;
         $translations = $mlangresult['translations'];
 
-        // Check if content is tagged and handle existing/missing translations.
         $hash = $this->textutils->extract_hash($content);
         if ($hash) {
             $translation = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => 'other']);
             if ($translation) {
                 if ($translation->translated_text !== $sourcetext) {
-                    // Update translated_text if source text has changed.
                     $translation->translated_text = $sourcetext;
                     $translation->timemodified = time();
                     $this->db->update_record('filter_autotranslate_translations', $translation);
                 }
                 $this->update_hash_course_mapping($hash, $courseid);
             } else {
-                // Reinsert missing translation with existing hash.
-                $this->store_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
+                $this->upsert_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
                 $this->update_hash_course_mapping($hash, $courseid);
             }
         } else {
-            // Check for existing untagged content to reuse hash.
             $existing = $this->db->get_record_sql(
-                "SELECT hash FROM {filter_autotranslate_translations}
-                WHERE lang = 'other' AND " . $this->db->sql_compare_text('translated_text') . " = " .
-                $this->db->sql_compare_text(':text'),
+                "SELECT hash FROM {filter_autotranslate_translations} WHERE lang = 'other' AND " .
+                $this->db->sql_compare_text('translated_text') . " = " . $this->db->sql_compare_text(':text'),
                 ['text' => $sourcetext],
                 IGNORE_MULTIPLE
             );
             $hash = $existing ? $existing->hash : $this->textutils->generate_unique_hash();
         }
 
-        $taggedcontent = "$displaytext {t:$hash}";
-        $persisted = $this->persist_tagged_content($taggedcontent, $sourcetext, $context, $courseid);
-        if (!$persisted) {
-            return $content;
-        }
+        $taggedcontent = "$sourcetext {t:$hash}";
+        $persisted = $this->persist_tagged_content($taggedcontent, $sourcetext, $trimmed, $context, $courseid);
 
-        $sourcetext = $this->rewrite_pluginfile_urls($sourcetext, $context, $hash);
-        foreach ($translations as $lang => $text) {
-            $translations[$lang] = $this->rewrite_pluginfile_urls($text, $context, $hash);
-        }
-
-        $transaction = $this->db->start_delegated_transaction();
-        try {
-            $this->store_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
+        if ($persisted) {
+            $sourcetext = $this->rewrite_pluginfile_urls($sourcetext, $context, $hash);
             foreach ($translations as $lang => $text) {
-                $this->store_translation($hash, $lang, $text, $context->contextlevel, $courseid, $context);
+                $translations[$lang] = $this->rewrite_pluginfile_urls($text, $context, $hash);
             }
-            $this->update_hash_course_mapping($hash, $courseid);
-            $transaction->allow_commit();
-        } catch (\Exception $e) {
-            $transaction->rollback($e);
-            debugging("Failed to process content: " . $e->getMessage(), DEBUG_DEVELOPER);
-            return $content;
+
+            $transaction = $this->db->start_delegated_transaction();
+            try {
+                $this->upsert_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
+                foreach ($translations as $lang => $text) {
+                    $this->upsert_translation($hash, $lang, $text, $context->contextlevel, $courseid, $context);
+                }
+                $this->update_hash_course_mapping($hash, $courseid);
+                $transaction->allow_commit();
+            } catch (\Exception $e) {
+                $transaction->rollback($e);
+                debugging("Failed to process content: " . $e->getMessage(), DEBUG_DEVELOPER);
+                return $content;
+            }
         }
 
         return $taggedcontent;
     }
 
     /**
-     * Persists tagged content back to the source Moodle table based on context.
+     * Persists tagged content into a Moodle table based on context.
      *
-     * Dynamically traverses Moodle data structures to find the table and field containing the
-     * source text, then updates it with the tagged content. Supports core and non-core modules.
-     * Returns true if persistence succeeds, false otherwise.
+     * Locates the matching table and field, updates with tagged content. Uses `$originaltext`
+     * first, falls back to `$sourcetext` for flexibility.
      *
-     * @param string $taggedcontent The content with {t:hash} tag to persist.
-     * @param string $sourcetext The original untagged text to match.
-     * @param \context $context The context determining the table and record to update.
-     * @param int $courseid The course ID for mapping.
-     * @return bool True if content was persisted, false if no match was found or persistence failed.
+     * @param string $taggedcontent Tagged content to persist.
+     * @param string $sourcetext Untagged source text for validation and fallback.
+     * @param string $originaltext Original raw text for primary matching.
+     * @param \context $context Moodle context.
+     * @param int $courseid Course ID (unused here).
+     * @return bool True if persisted, false if no match.
      */
-    private function persist_tagged_content($taggedcontent, $sourcetext, $context, $courseid) {
+    private function persist_tagged_content($taggedcontent, $sourcetext, $originaltext, $context, $courseid) {
         if ($this->textutils->is_tagged($sourcetext)) {
-            return false; // Skip if source text is already tagged.
+            return false;
         }
 
         $contextlevel = $context->contextlevel;
@@ -197,8 +169,6 @@ class content_service {
 
         switch ($contextlevel) {
             case CONTEXT_SYSTEM:
-                break;
-
             case CONTEXT_USER:
                 break;
 
@@ -208,12 +178,17 @@ class content_service {
                 if (!empty($coursefields)) {
                     $fields = [];
                     foreach ($coursefields as $field => $enabled) {
-                        if ($enabled && isset($course->$field)) {
+                        if ($enabled && property_exists($course, $field)) {
                             $fields[$field] = $course->$field;
                         }
                     }
                     if (!empty($fields)) {
-                        $persisted = $this->update_field_if_match('course', 'id', $instanceid, $fields, $sourcetext, $taggedcontent);
+                        $persisted = $this->update_field_if_match('course', 'id', $instanceid, $fields, $originaltext,
+                            $taggedcontent);
+                        if (!$persisted) {
+                            $persisted = $this->update_field_if_match('course', 'id', $instanceid, $fields, $sourcetext,
+                                $taggedcontent);
+                        }
                     }
                 }
 
@@ -224,19 +199,18 @@ class content_service {
                         foreach ($sections as $section) {
                             $fields = [];
                             foreach ($sectionfields as $field => $enabled) {
-                                if ($enabled && isset($section->$field)) {
-                                    $fields[$field] = $section->$field;
+                                $fieldname = str_replace('course_sections.', '', $field);
+                                if ($enabled && property_exists($section, $fieldname)) {
+                                    $fields[$fieldname] = $section->$fieldname;
                                 }
                             }
                             if (!empty($fields)) {
-                                $persisted = $this->update_field_if_match(
-                                    'course_sections',
-                                    'id',
-                                    $section->id,
-                                    $fields,
-                                    $sourcetext,
-                                    $taggedcontent
-                                );
+                                $persisted = $this->update_field_if_match('course_sections', 'id', $section->id, $fields,
+                                    $originaltext, $taggedcontent);
+                                if (!$persisted) {
+                                    $persisted = $this->update_field_if_match('course_sections', 'id', $section->id,
+                                        $fields, $sourcetext, $taggedcontent);
+                                }
                                 if ($persisted) {
                                     break;
                                 }
@@ -281,9 +255,10 @@ class content_service {
                             $fields = array_intersect_key((array)$instance, $primaryfields);
                             foreach ($fields as $field => $value) {
                                 $trimmedvalue = $value === null ? '' : trim($value);
-                                if ($trimmedvalue === $sourcetext) {
+                                if ($trimmedvalue === $originaltext || $trimmedvalue === $sourcetext) {
                                     $found = true;
-                                    $persisted = $this->update_field_if_match($modname, 'id', $cm->instance, $fields, $sourcetext, $taggedcontent);
+                                    $persisted = $this->update_field_if_match($modname, 'id', $cm->instance, $fields,
+                                        $trimmedvalue, $taggedcontent);
                                     break;
                                 }
                             }
@@ -301,9 +276,10 @@ class content_service {
                                 $recordfields = array_intersect_key((array)$record, $fields);
                                 foreach ($recordfields as $field => $value) {
                                     $trimmedvalue = $value === null ? '' : trim($value);
-                                    if ($trimmedvalue === $sourcetext) {
+                                    if ($trimmedvalue === $originaltext || $trimmedvalue === $sourcetext) {
                                         $found = true;
-                                        $persisted = $this->update_field_if_match($table, 'id', $record->id, $recordfields, $sourcetext, $taggedcontent);
+                                        $persisted = $this->update_field_if_match($table, 'id', $record->id,
+                                            $recordfields, $trimmedvalue, $taggedcontent);
                                         break 2;
                                     }
                                 }
@@ -325,14 +301,12 @@ class content_service {
                             }
                         }
                         if (!empty($fields)) {
-                            $persisted = $this->update_field_if_match(
-                                'course_categories',
-                                'id',
-                                $instanceid,
-                                $fields,
-                                $sourcetext,
-                                $taggedcontent
-                            );
+                            $persisted = $this->update_field_if_match('course_categories', 'id', $instanceid, $fields,
+                                $originaltext, $taggedcontent);
+                            if (!$persisted) {
+                                $persisted = $this->update_field_if_match('course_categories', 'id', $instanceid, $fields,
+                                    $sourcetext, $taggedcontent);
+                            }
                         }
                     }
                 }
@@ -349,13 +323,32 @@ class content_service {
     }
 
     /**
-     * Gets schemas for all specified modules using get_module_schema.
+     * Updates a field if its value matches the source text.
      *
-     * Iterates over a list of module names, retrieves their schemas, and returns a combined array of
-     * tables and fields. Used to discover translatable fields for settings matrices.
+     * @param string $table Table to update.
+     * @param string $idfield ID field name.
+     * @param int $id ID value.
+     * @param array $fields Field name-value pairs.
+     * @param string $sourcetext Text to match.
+     * @param string $taggedcontent Tagged content to set.
+     * @return bool True if updated, false if no match.
+     */
+    private function update_field_if_match($table, $idfield, $id, $fields, $sourcetext, $taggedcontent) {
+        foreach ($fields as $field => $value) {
+            $trimmedvalue = $value === null ? '' : trim($value);
+            if ($trimmedvalue === $sourcetext) {
+                $this->db->set_field($table, $field, $taggedcontent, [$idfield => $id]);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Gets schemas for specified modules.
      *
-     * @param array $modulenames List of module names (e.g., ['forum', 'quiz']).
-     * @return array Associative array of table => fields (e.g., ['forum' => ['name', 'intro']]).
+     * @param array $modulenames Module names.
+     * @return array Table-field mappings.
      */
     public function get_all_module_schemas($modulenames) {
         $schemas = [];
@@ -371,109 +364,66 @@ class content_service {
     }
 
     /**
-     * Gets field selection options for core and third-party matrices.
+     * Generates field options for settings.
      *
-     * Discovers all installed modules, separates them into core and third-party, groups tables by
-     * context level and module, and returns structured options for settings.php to build matrices.
-     *
-     * @return array Structured array with 'core' and 'thirdparty' keys, each containing grouped tables.
+     * @return array Core and third-party field options.
      */
     public function get_field_selection_options() {
-        // Define core non-module tables by context level, with only translatable fields.
         $corenonmodules = [
-            'course' => [
-                'course' => ['fullname', 'shortname', 'summary'], // Excluded shortname as it's not typically translated.
-            ],
-            'course_sections' => [
-                'course_sections' => ['name', 'summary'],
-            ],
-            'course_categories' => [
-                'course_categories' => ['description'],
-            ],
+            'course' => ['course' => ['fullname', 'shortname', 'summary']],
+            'course_sections' => ['course_sections' => ['name', 'summary']],
+            'course_categories' => ['course_categories' => ['description']],
         ];
 
-        // Define core Moodle modules (standard set shipped with Moodle).
         $coremodules = [
             'assign', 'book', 'choice', 'data', 'feedback', 'folder', 'forum', 'glossary', 'label',
             'lesson', 'lti', 'page', 'quiz', 'resource', 'url', 'wiki', 'workshop',
         ];
 
-        // Clear the schema cache to ensure fresh data.
-        // $cache = \cache::make('filter_autotranslate', 'modschemas');
-        // $cache->purge();
-
-        // Get all installed modules using the non-deprecated method.
         $installedmodules = array_keys(core_component::get_plugin_list('mod'));
-
-        // Separate into core and third-party modules.
         $coremodulelist = array_intersect($installedmodules, $coremodules);
         $thirdpartymodules = array_diff($installedmodules, $coremodules);
 
-        // Build schemas for core modules.
         $coremoduletables = $this->get_all_module_schemas($coremodulelist);
         $coremodulesgrouped = [];
         $prefix = $this->db->get_prefix();
         foreach ($coremodulelist as $modname) {
             $coremodulesgrouped[$modname] = [];
             foreach ($coremoduletables as $table => $fields) {
-                // Check if the table belongs to this module (e.g., mdl_forum, mdl_forum_posts).
                 if (strpos($table, $prefix . $modname) === 0) {
                     $coremodulesgrouped[$modname][$table] = $fields;
                 }
             }
         }
 
-        // Build schemas for third-party modules.
         $thirdpartymoduletables = $this->get_all_module_schemas($thirdpartymodules);
         $thirdpartygrouped = [];
         foreach ($thirdpartymodules as $modname) {
             $thirdpartygrouped[$modname] = [];
             foreach ($thirdpartymoduletables as $table => $fields) {
-                // Check if the table belongs to this module (e.g., mdl_bigbluebuttonbn).
                 if (strpos($table, $prefix . $modname) === 0) {
                     $thirdpartygrouped[$modname][$table] = $fields;
                 }
             }
         }
 
-        // Combine core non-modules and modules.
         $coreoptions = $corenonmodules;
         $coreoptions['modules'] = $coremodulesgrouped;
 
-        // Sort the grouped tables for consistent display.
         ksort($coreoptions);
         ksort($coremodulesgrouped);
         ksort($thirdpartygrouped);
 
-        return [
-            'core' => $coreoptions,
-            'thirdparty' => $thirdpartygrouped,
-        ];
+        return ['core' => $coreoptions, 'thirdparty' => $thirdpartygrouped];
     }
 
     /**
-     * Gets the enabled fields for a specific context or module from the settings.
+     * Fetches enabled fields from settings.
      *
-     * Retrieves the enabled (checked) fields for a given context identifier (e.g., 'course',
-     * 'course_sections', 'forum') from the settings. For modules, returns fields for all related
-     * tables (primary and secondary). Results are cached for performance.
-     *
-     * @param string $contextid The context identifier (e.g., 'course', 'course_sections', 'forum').
-     * @return array Array of enabled fields (e.g., ['fullname' => 1, 'summary' => 1] for 'course',
-     *               ['mdl_forum.name' => 1, 'mdl_forum_posts.message' => 1] for 'forum').
+     * @param string $contextid Context identifier.
+     * @return array Enabled fields.
      */
     public function get_selected_fields($contextid) {
-        // Initialize the cache.
-        // $cache = \cache::make('filter_autotranslate', 'selectedfields');
-        // $cachekey = "selectedfields_$contextid";
-
-        // // Check if the result is cached.
-        // $cachedfields = $cache->get($cachekey);
-        // if ($cachedfields !== false) {
-        //     return $cachedfields;
-        // }
-
-        // Fetch the config for the given context identifier.
         $config = get_config('filter_autotranslate', "{$contextid}_fields");
         $fields = [];
 
@@ -484,168 +434,100 @@ class content_service {
             }
         }
 
-        // Cache the result, even if empty.
-        // $cache->set($cachekey, $fields);
         return $fields;
     }
 
     /**
-     * Gets the schema (tables and fields) for a module, caching the result.
+     * Gets schema for a module.
      *
-     * Dynamically retrieves tables and text fields related to a module (e.g., 'forum', 'label'),
-     * ensuring compatibility with MySQL, MariaDB, PostgreSQL, and other databases. Caches the result
-     * for performance.
-     *
-     * @param string $modname The module name (e.g., 'forum', 'label').
-     * @return array Associative array of table names to text field names.
+     * @param string $modname Module name.
+     * @return array Table-field mappings.
      */
     private function get_module_schema($modname) {
-        // $cache = \cache::make('filter_autotranslate', 'modschemas');
-        // $key = "schema_$modname";
-        $schema = false; //$cache->get($key);
+        global $CFG;
 
-        if ($schema === false) {
-            global $CFG;
-            $schema = [];
-            $prefix = $this->db->get_prefix();
-            $pattern = "{$prefix}{$modname}%";
+        $schema = [];
+        $prefix = $this->db->get_prefix();
+        $pattern = "{$prefix}{$modname}%";
 
-            // Define inclusion and exclusion lists for translatable fields.
-            $includefields = [
-                'name', 'intro', 'summary', 'description', 'content', 'message',
-                'text', 'body', 'title', 'feedback', 'instructions', 'question',
-                'answer', 'response', 'comment', 'label', 'value', 'presentation',
-            ];
-            $excludefields = [
-                'id', 'timemodified', 'timecreated',
-                'dependvalue', 'configdata', 'path', 'colour', 'activity',
-                'attemptreopenmethod', 'pathnew', 'onlinetext', 'commenttext',
-                'type', 'format', 'version', 'status', 'grade', 'score',
-                'url', 'email', 'phone', 'ip', 'token', 'key', 'secret',
-                'password', 'hash', 'signature', 'settings', 'options',
-                'metadata', 'attributes', 'params', 'data', 'json',
-            ];
+        $includefields = [
+            'name', 'intro', 'summary', 'description', 'content', 'message', 'text', 'body', 'title',
+            'feedback', 'instructions', 'question', 'answer', 'response', 'comment', 'label', 'value',
+            'presentation', 'activity',
+        ];
+        $excludefields = [
+            'id', 'timemodified', 'timecreated', 'dependvalue', 'configdata', 'path', 'colour',
+            'attemptreopenmethod', 'pathnew', 'onlinetext', 'commenttext', 'type',
+            'format', 'version', 'status', 'grade', 'score', 'url', 'email', 'phone', 'ip', 'token',
+            'key', 'secret', 'password', 'hash', 'signature', 'settings', 'options', 'metadata',
+            'attributes', 'params', 'data', 'json',
+        ];
 
-            // Get database type (mysql, mariadb, pgsql, etc.).
-            $dbtype = strtolower($CFG->dbtype);
+        $dbtype = strtolower($CFG->dbtype);
 
-            // Fetch tables matching the module pattern.
-            if (in_array($dbtype, ['mysql', 'mariadb'])) {
-                $sql = "SELECT TABLE_NAME
-                        FROM INFORMATION_SCHEMA.TABLES
-                        WHERE TABLE_SCHEMA = :dbname
-                        AND TABLE_NAME LIKE :pattern";
-                $tables = $this->db->get_fieldset_sql($sql, [
-                    'dbname' => $CFG->dbname,
-                    'pattern' => $pattern,
-                ]);
-            } else if ($dbtype === 'pgsql') {
-                $sql = "SELECT table_name
-                        FROM information_schema.tables
-                        WHERE table_schema = 'public'
-                        AND table_name LIKE :pattern";
-                $tables = $this->db->get_fieldset_sql($sql, [
-                    'pattern' => $pattern,
-                ]);
-            } else {
-                // Fallback for other databases: Use a simpler query to list tables.
-                debugging("Using fallback query for database type '$dbtype'", DEBUG_DEVELOPER);
-                $sql = "SHOW TABLES LIKE :pattern";
-                $tables = $this->db->get_fieldset_sql($sql, [
-                    'pattern' => $pattern,
-                ]);
-            }
+        if (in_array($dbtype, ['mysql', 'mariadb'])) {
+            $sql = "SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = :dbname AND TABLE_NAME LIKE :pattern";
+            $tables = $this->db->get_fieldset_sql($sql, ['dbname' => $CFG->dbname, 'pattern' => $pattern]);
+        } else if ($dbtype === 'pgsql') {
+            $sql = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE :pattern";
+            $tables = $this->db->get_fieldset_sql($sql, ['pattern' => $pattern]);
+        } else {
+            debugging("Using fallback query for database type '$dbtype'", DEBUG_DEVELOPER);
+            $sql = "SHOW TABLES LIKE :pattern";
+            $tables = $this->db->get_fieldset_sql($sql, ['pattern' => $pattern]);
+        }
 
-            // Process each table to get text fields.
-            foreach ($tables as $table) {
-                try {
-                    // For MySQL/MariaDB, use DESCRIBE directly to fetch columns, bypassing get_columns.
-                    if (in_array($dbtype, ['mysql', 'mariadb'])) {
-                        // Do not prepend prefix again; $table already includes it (e.g., mdl_forum).
-                        $sql = "DESCRIBE $table";
-                        $rawcolumns = $this->db->get_records_sql($sql);
-                        $columns = [];
-                        foreach ($rawcolumns as $rawcolumn) {
-                            $column = new \stdClass();
-                            $column->name = $rawcolumn->field;
-                            $column->type = strtolower($rawcolumn->type);
-                            $columns[$column->name] = $column;
-                        }
-                    } else {
-                        // For other databases, try get_columns with case sensitivity handling.
-                        $columns = $this->db->get_columns($table);
-                        if (!$columns) {
-                            // Try lowercase version to handle case sensitivity.
-                            $lowertable = strtolower($table);
-                            $columns = $this->db->get_columns($lowertable);
-                        }
-
-                        if (!$columns) {
-                            debugging("No columns found for table '$table' even after case adjustment", DEBUG_DEVELOPER);
-                            continue;
-                        }
+        foreach ($tables as $table) {
+            try {
+                if (in_array($dbtype, ['mysql', 'mariadb'])) {
+                    $sql = "DESCRIBE $table";
+                    $rawcolumns = $this->db->get_records_sql($sql);
+                    $columns = [];
+                    foreach ($rawcolumns as $rawcolumn) {
+                        $column = new \stdClass();
+                        $column->name = $rawcolumn->field;
+                        $column->type = strtolower($rawcolumn->type);
+                        $columns[$column->name] = $column;
                     }
-
-                    $fields = [];
-                    foreach ($columns as $column) {
-                        $type = strtolower($column->type);
-                        $name = $column->name;
-
-                        // Check if the field type is TEXT or VARCHAR.
-                        if (in_array($type, ['text', 'varchar']) ||
-                            (strpos($type, 'text') !== false) ||
-                            (strpos($type, 'varchar') !== false)) {
-                            // Apply hybrid filtering: must be in includefields and not in excludefields.
-                            if (in_array($name, $includefields) && !in_array($name, $excludefields)) {
-                                $fields[] = $name;
-                            }
-                        }
+                } else {
+                    $columns = $this->db->get_columns($table);
+                    if (!$columns) {
+                        $lowertable = strtolower($table);
+                        $columns = $this->db->get_columns($lowertable);
                     }
-
-                    // Store if any translatable fields remain.
-                    if ($fields) {
-                        $schema[$table] = array_values($fields);
+                    if (!$columns) {
+                        debugging("No columns for table '$table' after case adjustment", DEBUG_DEVELOPER);
+                        continue;
                     }
-                } catch (\moodle_exception $e) {
-                    debugging("Failed to retrieve columns for table '$table': " . $e->getMessage(), DEBUG_DEVELOPER);
                 }
-            }
 
-            // Cache the result, even if empty.
-            $cache->set($key, $schema);
+                $fields = [];
+                foreach ($columns as $column) {
+                    $type = strtolower($column->type);
+                    $name = $column->name;
+                    $istext = in_array($type, ['text', 'varchar'])
+                        || strpos($type, 'text') !== false
+                        || strpos($type, 'varchar') !== false;
+                    if ($istext && in_array($name, $includefields) && !in_array($name, $excludefields)) {
+                        $fields[] = $name;
+                    }
+                }
+
+                if ($fields) {
+                    $schema[$table] = array_values($fields);
+                }
+            } catch (\moodle_exception $e) {
+                debugging("Failed to get columns for '$table': " . $e->getMessage(), DEBUG_DEVELOPER);
+            }
         }
 
         return $schema ?: [];
     }
 
     /**
-     * Updates a field in the specified table if the content matches the source text.
+     * Marks course translations as stale.
      *
-     * @param string $table The table to update.
-     * @param string $idfield The ID field name (e.g., 'id').
-     * @param int $id The ID value to match.
-     * @param array $fields Associative array of field names to their values.
-     * @param string $sourcetext The original text to match against.
-     * @param string $taggedcontent The tagged content to persist.
-     */
-    private function update_field_if_match($table, $idfield, $id, $fields, $sourcetext, $taggedcontent) {
-        foreach ($fields as $field => $value) {
-            // Handle null values gracefully.
-            $trimmedvalue = $value === null ? '' : trim($value);
-            if ($trimmedvalue === $sourcetext) {
-                $this->db->set_field($table, $field, $taggedcontent, [$idfield => $id]);
-                return;
-            }
-        }
-    }
-
-    /**
-     * Marks all translations for a course as stale.
-     *
-     * Updates the `timemodified` timestamp for translations tied to a course, flagging them as stale
-     * for lazy rebuilding when next processed by `text_filter`.
-     *
-     * @param int $courseid The course ID to mark stale.
+     * @param int $courseid Course ID.
      */
     public function mark_course_stale($courseid) {
         $hashes = $this->db->get_fieldset_select('filter_autotranslate_hid_cids', 'hash', 'courseid = ?', [$courseid]);
@@ -662,15 +544,12 @@ class content_service {
     }
 
     /**
-     * Updates an existing translation in the database.
+     * Updates a translation record.
      *
-     * Modifies the translated text, human status, and timereviewed fields for a specific translation
-     * identified by its ID.
-     *
-     * @param int $id The ID of the translation record to update.
-     * @param string $text The updated translated text.
-     * @param int $human The human status (0 = auto, 1 = human).
-     * @param int $timereviewed The timestamp of the last review.
+     * @param int $id Translation ID.
+     * @param string $text Updated text.
+     * @param int $human Human review status (0 = auto, 1 = human).
+     * @param int $timereviewed Last review timestamp.
      */
     public function update_translation($id, $text, $human, $timereviewed) {
         $record = $this->db->get_record('filter_autotranslate_translations', ['id' => $id], '*', MUST_EXIST);
@@ -682,20 +561,24 @@ class content_service {
     }
 
     /**
-     * Stores a translation in the database if it doesn’t exist.
+     * Inserts or updates a translation in `filter_autotranslate_translations`.
      *
-     * Inserts a new translation record into `filter_autotranslate_translations` if no matching
-     * hash/language pair exists, ensuring data consistency.
-     *
-     * @param string $hash The unique hash for the content.
-     * @param string $lang The language code (e.g., 'other', 'es').
-     * @param string $text The translated or source text.
-     * @param int $contextlevel The Moodle context level.
-     * @param int $courseid The course ID for mapping.
-     * @param \context $context The context for URL rewriting.
+     * @param string $hash Content hash.
+     * @param string $lang Language code.
+     * @param string $text Text to store.
+     * @param int $contextlevel Context level.
+     * @param int $courseid Course ID (passed through).
+     * @param \context $context Context (passed through).
      */
-    public function store_translation($hash, $lang, $text, $contextlevel, $courseid, $context) {
-        if (!$this->db->record_exists('filter_autotranslate_translations', ['hash' => $hash, 'lang' => $lang])) {
+    private function upsert_translation($hash, $lang, $text, $contextlevel, $courseid, $context) {
+        $existing = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
+        if ($existing) {
+            if ($existing->translated_text !== $text) {
+                $existing->translated_text = $text;
+                $existing->timemodified = time();
+                $this->db->update_record('filter_autotranslate_translations', $existing);
+            }
+        } else {
             $record = (object)[
                 'hash' => $hash,
                 'lang' => $lang,
@@ -711,13 +594,10 @@ class content_service {
     }
 
     /**
-     * Updates the hash-to-course mapping in the database.
+     * Updates hash-to-course mapping in `filter_autotranslate_hid_cids`.
      *
-     * Ensures the `filter_autotranslate_hid_cids` table reflects which courses contain a given hash,
-     * avoiding duplicates.
-     *
-     * @param string $hash The hash to map.
-     * @param int $courseid The course ID to associate.
+     * @param string $hash Content hash.
+     * @param int $courseid Course ID.
      */
     private function update_hash_course_mapping($hash, $courseid) {
         if (!$hash || !$courseid) {
@@ -737,15 +617,12 @@ class content_service {
     }
 
     /**
-     * Rewrites @@PLUGINFILE@@ URLs in content based on context.
+     * Rewrites @@PLUGINFILE@@ URLs to full URLs.
      *
-     * Converts plugin file placeholders into full URLs using the context, ensuring stored content
-     * is display-ready.
-     *
-     * @param string $content The content to rewrite.
-     * @param \context $context The context for URL resolution.
-     * @param string $hash The hash for debugging context.
-     * @return string The content with rewritten URLs.
+     * @param string $content Content with plugin file URLs.
+     * @param \context $context Moodle context.
+     * @param string $hash Content hash (unused here).
+     * @return string Rewritten content.
      */
     private function rewrite_pluginfile_urls($content, $context, $hash) {
         $component = '';
@@ -770,14 +647,7 @@ class content_service {
         }
 
         if ($component && $filearea) {
-            return \file_rewrite_pluginfile_urls(
-                $content,
-                'pluginfile.php',
-                $context->id,
-                $component,
-                $filearea,
-                $itemid
-            );
+            return \file_rewrite_pluginfile_urls($content, 'pluginfile.php', $context->id, $component, $filearea, $itemid);
         }
 
         return $content;

@@ -15,36 +15,23 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Text Utilities for the Autotranslate Plugin
+ * Text utilities for the Autotranslate plugin.
  *
- * Purpose:
- * This file defines utility functions for the filter_autotranslate plugin, providing stateless
- * helpers for text processing, MLang tag parsing, hash generation, and tag detection. It supports
- * other components by handling common text-related tasks without database interactions, ensuring
- * reusability and separation of concerns.
+ * Provides stateless helper functions for text processing, MLang parsing, hash generation,
+ * and tag detection in the filter_autotranslate plugin.
  *
- * Structure:
- * Contains the `text_utils` class with static methods only, including `generate_unique_hash` (hash
- * creation), `process_mlang_tags` (MLang parsing), `process_span_multilang_tags` (span parsing),
- * `tag_content` (tagging), `is_tagged` (tag check), and `extract_hash` (hash extraction).
+ * Features:
+ * - Hash generation and tagging.
+ * - MLang and span tag parsing.
+ * - Text extraction and language checks.
  *
  * Usage:
- * Called by `content_service` for MLang parsing, hash generation, and tagging during content
- * processing, and potentially by `text_filter` for tag detection. These functions operate on
- * text inputs and return processed outputs without side effects.
+ * - Used by `content_service` for tagging and MLang processing.
+ * - Supports `text_filter` for tag detection.
  *
- * Design Decisions:
- * - Uses static methods for simplicity and stateless operation, as utilities don’t require instance
- *   state, aligning with their helper role.
- * - Handles both `{mlang}` and `<span class="multilang">` tags for compatibility with Moodle’s
- *   multilingual conventions, extracting source text and translations for `content_service`.
- * - Generates unique hashes with database checks to ensure no collisions in
- *   `filter_autotranslate_translations`, critical for tagging integrity.
- * - Avoids database writes, leaving storage to `content_service`, to keep functions pure and focused.
- *
- * Dependencies:
- * - None (pure utility functions, though `generate_unique_hash` interacts with the database via
- *   global $DB).
+ * Design:
+ * - Static methods for simplicity and stateless use.
+ * - No database writes, pure utility functions.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -54,9 +41,10 @@
 namespace filter_autotranslate;
 
 /**
- * Utility class providing helper functions for the filter_autotranslate plugin.
+ * Utility class for text-related helper functions.
  */
 class text_utils {
+
     /**
      * Generates a unique 10-character alphanumeric hash.
      *
@@ -90,16 +78,16 @@ class text_utils {
     }
 
     /**
-     * Processes `{mlang}` and `<span lang="xx" class="multilang">` tags in content.
+     * Processes MLang tags in content to extract source text and translations.
      *
-     * Extracts source text and translations from MLang tags, returning structured data for tagging
-     * and storage by `content_service`.
+     * Parses content for {mlang} tags, extracting the source text for 'other' or the site language,
+     * and building a translations array for other languages. Handles both {mlang} and <span> tags.
      *
-     * @param string $text The content to process.
-     * @param \context $context The context (unused here, included for consistency).
+     * @param string $text The text to process.
+     * @param \context $context The context in which the text appears.
      * @return array An array with 'source_text', 'display_text', and 'translations'.
      */
-    public static function process_mlang_tags($text, $context) {
+    public function process_mlang_tags($text, $context) {
         $sitelang = get_config('core', 'lang') ?: 'en';
         $validlangs = array_merge(array_keys(get_string_manager()->get_list_of_translations()), ['other']);
         $validlangs = array_map('strtolower', $validlangs);
@@ -109,8 +97,8 @@ class text_utils {
         $displaytext = '';
         $firstcontent = null;
 
-        // Process <span> tags first.
-        $text = self::process_span_multilang_tags(
+        // Process <span> multilang tags first.
+        $text = $this->process_span_multilang_tags(
             $text,
             $context,
             $translations,
@@ -120,20 +108,17 @@ class text_utils {
             $sourcetext
         );
 
-        // Process {mlang} tags.
-        if (preg_match_all('/{mlang\s+([\w]+)}(.+?)(?:{mlang}|$)/s', $text, $matches, PREG_SET_ORDER)) {
+        // Updated regex to handle HTML and enforce {mlang} pairs.
+        if (preg_match_all('/{mlang\s+([\w]+)}(.+?){mlang}/is', $text, $matches, PREG_SET_ORDER)) {
             foreach ($matches as $match) {
                 $lang = strtolower(trim($match[1]));
                 $content = trim($match[2]);
-
                 if (!in_array($lang, $validlangs)) {
                     continue;
                 }
-
                 if ($firstcontent === null) {
                     $firstcontent = $content;
                 }
-
                 if ($lang === 'other' || $lang === $sitelang) {
                     $sourcetext .= $content . ' ';
                     $displaytext .= $content . ' ';
