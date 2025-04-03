@@ -95,7 +95,6 @@ class text_filter extends \core_filters\text_filter {
         $cachekey = md5($text . $this->context->id . $currentlang);
 
         $cached = $this->cache->get($cachekey);
-        $cached = false;
         if ($cached !== false) {
             return $cached;
         }

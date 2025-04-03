@@ -70,11 +70,22 @@ class admin_setting_configfieldmatrix extends \admin_setting {
      * @param string $name Unique name of the setting.
      * @param string $visiblename Display name of the setting.
      * @param string $description Description of the setting.
-     * @param array $tables Associative array of table => fields.
+     * @param array $tables Associative array of table => fields or table => ['fields' => fields, 'fk' => ...].
      * @param array $defaultsetting Default selections (table.field => 1).
      */
     public function __construct($name, $visiblename, $description, $tables, $defaultsetting) {
-        $this->tables = $tables;
+        // Normalize $tables to ensure it's always table => array of fields.
+        $normalizedtables = [];
+        foreach ($tables as $table => $info) {
+            if (isset($info['fields'])) {
+                // If $info is a nested array, extract the fields.
+                $normalizedtables[$table] = $info['fields'];
+            } else {
+                // Otherwise, assume $info is already the array of fields.
+                $normalizedtables[$table] = $info;
+            }
+        }
+        $this->tables = $normalizedtables;
         parent::__construct($name, $visiblename, $description, $defaultsetting);
     }
 

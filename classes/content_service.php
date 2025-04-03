@@ -86,6 +86,7 @@ class content_service {
      */
     public function process_content($content, $context, $courseid) {
         $trimmed = trim($content);
+
         if (empty($trimmed) || is_numeric($trimmed)) {
             return $content; // Skip empty or numeric content.
         }
@@ -164,6 +165,7 @@ class content_service {
      * @return bool True if persisted, false if no match or unsupported context.
      */
     private function persist_tagged_content($taggedcontent, $sourcetext, $originaltext, $context, $courseid) {
+
         if ($this->textutils->is_tagged($sourcetext)) {
             return false; // Skip already tagged source text.
         }
@@ -231,7 +233,6 @@ class content_service {
                     $modname = $cm->modname;
                     $modulefields = $this->get_selected_fields($modname);
                     if (empty($modulefields)) {
-                        debugging("No enabled fields for module '$modname'", DEBUG_DEVELOPER);
                         break;
                     }
 
@@ -250,7 +251,16 @@ class content_service {
                             $primaryfields[$field] = 1;
                         } else {
                             $unprefixedtable = str_replace($prefix, '', $table);
-                            $secondaryfields[$unprefixedtable][$field] = 1;
+                            $secondaryfields[$unprefixedtable]['fields'][$field] = 1;
+                        }
+                    }
+
+                    // Get the schema to determine foreign keys for secondary tables.
+                    $schema = $this->get_module_schema($modname);
+                    foreach ($schema as $table => $info) {
+                        $unprefixedtable = str_replace($prefix, '', $table);
+                        if (isset($secondaryfields[$unprefixedtable])) {
+                            $secondaryfields[$unprefixedtable]['fk'] = $info['fk'] ?? null;
                         }
                     }
 
@@ -273,15 +283,16 @@ class content_service {
                     }
 
                     if (!$found && !empty($secondaryfields)) {
-                        foreach ($secondaryfields as $table => $fields) {
-                            if (!in_array('id', $this->db->get_columns($table))) {
+                        foreach ($secondaryfields as $table => $info) {
+                            $fields = $info['fields'];
+                            $fk = $info['fk'] ?? ($modname . 'id');
+                            $columns = $this->db->get_columns($table);
+                            if (!in_array('id', array_keys($columns))) {
                                 continue; // Skip tables without an 'id' column.
                             }
-                            $fk = $modname . 'id';
                             try {
                                 $records = $this->db->get_records($table, [$fk => $cm->instance]);
                             } catch (\dml_exception $e) {
-                                debugging("Failed to query secondary table '$table': " . $e->getMessage(), DEBUG_DEVELOPER);
                                 continue;
                             }
                             foreach ($records as $record) {
@@ -360,16 +371,14 @@ class content_service {
      * Gets schemas for specified modules.
      *
      * @param array $modulenames Array of module names (e.g., ['book', 'assign']).
-     * @return array Table-field mappings for the modules.
+     * @return array Table-field mappings for the modules, including foreign keys.
      */
     public function get_all_module_schemas($modulenames) {
         $schemas = [];
 
         foreach ($modulenames as $modname) {
             $schema = $this->get_module_schema($modname);
-            foreach ($schema as $table => $fields) {
-                $schemas[$table] = $fields;
-            }
+            $schemas = array_merge($schemas, $schema);
         }
 
         return $schemas;
@@ -384,9 +393,9 @@ class content_service {
      */
     public function get_field_selection_options() {
         $corenonmodules = [
-            'course' => ['course' => ['fullname', 'shortname', 'summary']],
-            'course_sections' => ['course_sections' => ['name', 'summary']],
-            'course_categories' => ['course_categories' => ['description']],
+            'course' => ['course' => ['fields' => ['fullname', 'shortname', 'summary'], 'fk' => null]],
+            'course_sections' => ['course_sections' => ['fields' => ['name', 'summary'], 'fk' => 'course']],
+            'course_categories' => ['course_categories' => ['fields' => ['description'], 'fk' => null]],
         ];
 
         $coremodules = [
@@ -403,9 +412,9 @@ class content_service {
         $prefix = $this->db->get_prefix();
         foreach ($coremodulelist as $modname) {
             $coremodulesgrouped[$modname] = [];
-            foreach ($coremoduletables as $table => $fields) {
+            foreach ($coremoduletables as $table => $info) {
                 if (strpos($table, $prefix . $modname) === 0) {
-                    $coremodulesgrouped[$modname][$table] = $fields;
+                    $coremodulesgrouped[$modname][$table] = $info['fields'];
                 }
             }
         }
@@ -414,9 +423,9 @@ class content_service {
         $thirdpartygrouped = [];
         foreach ($thirdpartymodules as $modname) {
             $thirdpartygrouped[$modname] = [];
-            foreach ($thirdpartymoduletables as $table => $fields) {
+            foreach ($thirdpartymoduletables as $table => $info) {
                 if (strpos($table, $prefix . $modname) === 0) {
-                    $thirdpartygrouped[$modname][$table] = $fields;
+                    $thirdpartygrouped[$modname][$table] = $info['fields'];
                 }
             }
         }
@@ -438,6 +447,14 @@ class content_service {
      * @return array Enabled fields (e.g., ['mdl_book.name' => 1, 'mdl_book_chapters.title' => 1]).
      */
     public function get_selected_fields($contextid) {
+        $cache = \cache::make('filter_autotranslate', 'selectedfields');
+        $cachekey = "selectedfields_$contextid";
+
+        $cachedfields = $cache->get($cachekey);
+        if ($cachedfields !== false) {
+            return $cachedfields;
+        }
+
         $config = get_config('filter_autotranslate', "{$contextid}_fields");
         $fields = [];
 
@@ -448,21 +465,31 @@ class content_service {
             }
         }
 
+        $cache->set($cachekey, $fields);
         return $fields;
     }
 
     /**
-     * Gets schema for a module, identifying translatable fields.
+     * Gets schema for a module, identifying translatable fields and foreign keys.
      *
      * @param string $modname Module name (e.g., 'book').
-     * @return array Table-field mappings (e.g., ['mdl_book' => ['name', 'intro']]).
+     * @return array Table-field mappings with foreign keys (e.g., ['mdl_book' => ['fields' => ['name', 'intro'], 'fk' => null]]).
      */
     private function get_module_schema($modname) {
+        $cache = \cache::make('filter_autotranslate', 'modschemas');
+        $key = "schema_$modname";
+        $schema = $cache->get($key);
+
+        if ($schema !== false) {
+            return $schema;
+        }
+
         global $CFG;
 
         $schema = [];
         $prefix = $this->db->get_prefix();
         $pattern = "{$prefix}{$modname}%";
+        $primarytable = $prefix . $modname;
 
         // Fields to include (text-based) and exclude (non-translatable).
         $includefields = [
@@ -487,7 +514,6 @@ class content_service {
             $sql = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name LIKE :pattern";
             $tables = $this->db->get_fieldset_sql($sql, ['pattern' => $pattern]);
         } else {
-            debugging("Using fallback query for database type '$dbtype'", DEBUG_DEVELOPER);
             $sql = "SHOW TABLES LIKE :pattern";
             $tables = $this->db->get_fieldset_sql($sql, ['pattern' => $pattern]);
         }
@@ -511,12 +537,14 @@ class content_service {
                         $columns = $this->db->get_columns($lowertable);
                     }
                     if (!$columns) {
-                        debugging("No columns for table '$table' after case adjustment", DEBUG_DEVELOPER);
                         continue;
                     }
                 }
 
                 $fields = [];
+                $fk = null;
+
+                // Identify translatable fields.
                 foreach ($columns as $column) {
                     $type = strtolower($column->type);
                     $name = $column->name;
@@ -528,14 +556,36 @@ class content_service {
                     }
                 }
 
-                if ($fields) {
-                    $schema[$table] = array_values($fields);
+                // Skip if no translatable fields are found.
+                if (empty($fields)) {
+                    continue;
                 }
+
+                // Determine the foreign key for secondary tables.
+                if ($table !== $primarytable) {
+                    foreach ($columns as $column) {
+                        $name = $column->name;
+                        // Look for a field that matches the primary table name (e.g., 'feedback' in 'mdl_feedback_item').
+                        if ($name === $modname || $name === $modname . 'id') {
+                            $fk = $name;
+                            break;
+                        }
+                    }
+                    if ($fk === null) {
+                        continue; // Exclude secondary tables with no foreign key.
+                    }
+                }
+
+                $schema[$table] = [
+                    'fields' => array_values($fields),
+                    'fk' => $fk,
+                ];
             } catch (\moodle_exception $e) {
                 debugging("Failed to get columns for '$table': " . $e->getMessage(), DEBUG_DEVELOPER);
             }
         }
 
+        $cache->set($key, $schema);
         return $schema ?: [];
     }
 
