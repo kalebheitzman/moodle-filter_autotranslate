@@ -48,7 +48,11 @@ namespace filter_autotranslate;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->libdir . '/weblib.php');
+require_once($CFG->libdir . '/filelib.php');
+
+if (!function_exists('file_rewrite_pluginfile_urls')) {
+    throw new \Exception('file_rewrite_pluginfile_urls() is not available. Check if lib/weblib.php is properly included.');
+}
 
 use core_component;
 
@@ -493,9 +497,9 @@ class content_service {
 
         // Fields to include (text-based) and exclude (non-translatable).
         $includefields = [
-            'name', 'intro', 'summary', 'description', 'content', 'message', 'text', 'body', 'title',
-            'feedback', 'instructions', 'question', 'answer', 'response', 'comment', 'label', 'value',
-            'presentation',
+            'name', 'intro', 'summary', 'description', 'content', 'contents', 'message', 'text', 'body',
+            'title', 'feedback', 'instructions', 'question', 'answer', 'response', 'comment', 'label',
+            'value', 'presentation', 'instructauthors', 'instructreviewers', 'conclusion',
         ];
         $excludefields = [
             'id', 'timemodified', 'timecreated', 'dependvalue', 'configdata', 'path', 'colour',
@@ -548,9 +552,18 @@ class content_service {
                 foreach ($columns as $column) {
                     $type = strtolower($column->type);
                     $name = $column->name;
-                    $istext = in_array($type, ['text', 'varchar'])
+                    $istext = in_array($type, ['text', 'varchar', 'mediumtext', 'longtext', 'clob'])
                         || strpos($type, 'text') !== false
-                        || strpos($type, 'varchar') !== false;
+                        || strpos($type, 'varchar') !== false
+                        || strpos($type, 'clob') !== false;
+
+                    // Handle blob fields selectively.
+                    if ($type === 'blob') {
+                        // Consider blob fields as translatable only if they are explicitly in includefields
+                        // and not in excludefields, to avoid translating binary or serialized data.
+                        $istext = in_array($name, $includefields) && !in_array($name, $excludefields);
+                    }
+
                     if ($istext && in_array($name, $includefields) && !in_array($name, $excludefields)) {
                         $fields[] = $name;
                     }

@@ -255,10 +255,15 @@ class tagcontent_scheduled_task extends scheduled_task {
                                 // Secondary table (e.g., forum_posts, forum_discussions).
                                 // Infer the module name and relationship.
                                 $parts = explode('_', $modname);
-                                $modname = $parts[0]; // e.g., 'forum' from 'forum_posts'.
+                                $modname = $parts[0]; // Example, 'forum' from 'forum_posts'.
                                 if ($table === 'forum_posts') {
                                     $post = $DB->get_record('forum_posts', ['id' => $instanceid], 'discussion', MUST_EXIST);
-                                    $discussion = $DB->get_record('forum_discussions', ['id' => $post->discussion], 'forum', MUST_EXIST);
+                                    $discussion = $DB->get_record(
+                                        'forum_discussions',
+                                        ['id' => $post->discussion],
+                                        'forum',
+                                        MUST_EXIST
+                                    );
                                     $instanceid = $discussion->forum;
                                 } else if ($table === 'forum_discussions') {
                                     $discussion = $DB->get_record('forum_discussions', ['id' => $instanceid], 'forum', MUST_EXIST);
