@@ -170,13 +170,20 @@ if ($mform->is_cancelled()) {
         );
     }
 
-    // Update the translation.
+    // Derive context from courseid if available, otherwise null.
+    $context = ($data->courseid > 0) ? \context_course::instance($data->courseid) : null;
+
+    // Define translatedtext from form data.
     $translatedtext = is_array($data->translated_text) ? $data->translated_text['text'] : $data->translated_text;
-    $contentservice->update_translation(
-        $translation->id,
-        $translatedtext,
-        !empty($data->human) ? 1 : 0,
-        time()
+
+    // Update the translation.
+    $contentservice->upsert_translation(
+        $translation->hash,                 // Use hash from the translation record.
+        $translation->lang,                 // Use lang from the translation record.
+        $translatedtext,                    // New text from the form.
+        $translation->contextlevel,         // Context level from the existing record.
+        $context,                           // Context instance (if applicable).
+        !empty($data->human) ? 1 : 0        // Human status from the form.
     );
 
     redirect(
@@ -222,8 +229,8 @@ echo '</div>';
 // Render the template.
 $data = [
     'form' => $mform->render(),
-    'source_text' => $sourcetext,
-    'source_text_label' => get_string('sourcetext', 'filter_autotranslate'),
+    'sourcetext' => $sourcetext,
+    'sourcetextlabel' => get_string('sourcetext', 'filter_autotranslate'),
 ];
 echo $OUTPUT->render_from_template('filter_autotranslate/edit', $data);
 

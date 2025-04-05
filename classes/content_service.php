@@ -745,38 +745,24 @@ class content_service {
     }
 
     /**
-     * Updates a translation record with new text and review status.
+     * Inserts or updates a translation record in the filter_autotranslate_translations table.
      *
-     * @param int $id Translation record ID.
-     * @param string $text Updated translated text.
-     * @param int $human Human review status (0 = auto, 1 = human).
-     * @param int $timereviewed Timestamp of last review.
+     * @param string $hash The unique hash of the content.
+     * @param string $lang The target language code.
+     * @param string $text The translated text.
+     * @param int $contextlevel The context level of the content.
+     * @param \context|null $context The Moodle context (optional, currently unused).
+     * @param int|null $human Human-edited flag (1 for human, 0 for auto, defaults to 0 if null).
+     * @return void
      */
-    public function update_translation($id, $text, $human, $timereviewed) {
-        $record = $this->db->get_record('filter_autotranslate_translations', ['id' => $id], '*', MUST_EXIST);
-        $record->translated_text = $text;
-        $record->human = $human;
-        $record->timemodified = time();
-        $record->timereviewed = $timereviewed;
-        $this->db->update_record('filter_autotranslate_translations', $record);
-    }
-
-    /**
-     * Inserts or updates a translation in `filter_autotranslate_translations`.
-     *
-     * @param string $hash Unique hash for the content.
-     * @param string $lang Language code (e.g., 'other', 'es').
-     * @param string $text Translated text to store.
-     * @param int $contextlevel Context level (e.g., CONTEXT_MODULE).
-     * @param int $courseid Course ID (passed through for mapping).
-     * @param \context $context Context (passed through for URL rewriting).
-     */
-    private function upsert_translation($hash, $lang, $text, $contextlevel, $courseid, $context) {
+    public function upsert_translation($hash, $lang, $text, $contextlevel, $context, $human = 0) {
         $existing = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
+        $time = time();
         if ($existing) {
-            if ($existing->translated_text !== $text) {
+            if ($existing->translated_text !== $text || $existing->human != $human) {
                 $existing->translated_text = $text;
-                $existing->timemodified = time();
+                $existing->human = $human;
+                $existing->timemodified = $time;
                 $this->db->update_record('filter_autotranslate_translations', $existing);
             }
         } else {
@@ -785,10 +771,10 @@ class content_service {
                 'lang' => $lang,
                 'translated_text' => is_array($text) ? implode(' ', $text) : $text,
                 'contextlevel' => $contextlevel,
-                'timecreated' => time(),
-                'timemodified' => time(),
-                'timereviewed' => time(),
-                'human' => 0,
+                'timecreated' => $time,
+                'timemodified' => $time,
+                'timereviewed' => $time,
+                'human' => $human,
             ];
             $this->db->insert_record('filter_autotranslate_translations', $record);
         }

@@ -209,13 +209,13 @@ if ($mform->is_cancelled()) {
 
     // Store the new translation.
     $translatedtext = is_array($data->translated_text) ? $data->translated_text['text'] : $data->translated_text;
-    $contentservice->store_translation(
+    $contentservice->upsert_translation(
         $data->hash,
         $data->tlang,
         $translatedtext,
         $sourcerecord->contextlevel ?? CONTEXT_COURSE, // Fallback to course if not found.
-        $data->courseid,
-        $context
+        $context,
+        !empty($data->human) ? 1 : 0 // Human status from the form.
     );
 
     redirect(
@@ -260,8 +260,8 @@ echo '</div>';
 // Render the template.
 $data = [
     'form' => $mform->render(),
-    'source_text' => $sourcetext,
-    'source_text_label' => get_string('sourcetext', 'filter_autotranslate'),
+    'sourcetext' => $sourcetext,
+    'sourcetextlabel' => get_string('sourcetext', 'filter_autotranslate'),
 ];
 echo $OUTPUT->render_from_template('filter_autotranslate/create', $data);
 

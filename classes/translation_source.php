@@ -162,16 +162,16 @@ class translation_source {
         $where = [];
         $joins = [];
 
-        // For UI display: Fetch all translations with their source text.
         $sql = "SELECT t.*, t2.translated_text AS source_text
                 FROM {filter_autotranslate_translations} t
                 LEFT JOIN {filter_autotranslate_translations} t2 ON t.hash = t2.hash AND t2.lang = 'other'";
-        if ($internalfilterlang !== 'all') {
+
+        // Only apply language filter if $internalfilterlang is non-empty and not 'all'.
+        if (!empty($internalfilterlang) && $internalfilterlang !== 'all') {
             $where[] = "t.lang = :lang";
             $params['lang'] = $internalfilterlang;
         }
 
-        // Filter by course ID.
         if ($courseid > 0) {
             $hashes = $this->db->get_fieldset_select(
                 'filter_autotranslate_hid_cids',
@@ -184,17 +184,15 @@ class translation_source {
                 $where[] = "t.hash $insql";
                 $params = array_merge($params, $inparams);
             } else {
-                $where[] = '1=0'; // No matches if no hashes found.
+                $where[] = '1=0';
             }
         }
 
-        // Filter by human status.
         if ($filterhuman !== '') {
             $where[] = "t.human = :human";
             $params['human'] = (int)$filterhuman;
         }
 
-        // Filter by needs review.
         if ($filterneedsreview !== '') {
             if ($filterneedsreview == '1') {
                 $where[] = "t.timereviewed < t.timemodified";
@@ -203,17 +201,9 @@ class translation_source {
             }
         }
 
-        if (!empty($joins)) {
-            $sql .= ' ' . implode(' ', $joins);
-        }
         if (!empty($where)) {
             $sql .= ' WHERE ' . implode(' AND ', $where);
         }
-
-        $validsorts = ['hash', 'lang', 'translated_text', 'human', 'contextlevel', 'timereviewed', 'timemodified'];
-        $sort = in_array($sort, $validsorts) ? $sort : 'hash';
-        $dir = strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC';
-        $sql .= " ORDER BY t.$sort $dir";
 
         $countsql = "SELECT COUNT(*) FROM {filter_autotranslate_translations} t " .
                     (empty($joins) ? '' : implode(' ', $joins)) .

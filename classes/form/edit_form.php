@@ -53,9 +53,6 @@ require_once($CFG->libdir . '/formslib.php');
 class edit_form extends \moodleform {
     /**
      * Defines the form elements for editing a translation.
-     *
-     * Sets up the form with fields for translated text and human status, along with read-only
-     * displays for hash and language.
      */
     protected function definition() {
         $mform = $this->_form;
@@ -104,7 +101,7 @@ class edit_form extends \moodleform {
             $mform->setType('translated_text', PARAM_RAW);
             $mform->setDefault('translated_text', $this->_customdata['translation']->translated_text);
         }
-        $mform->addRule('translated_text', get_string('required'), 'required', null, 'client');
+        $mform->addRule('translated_text', get_string('required'), 'required', null, 'server'); // Changed to server-side
         $mform->addHelpButton('translated_text', 'translation', 'filter_autotranslate');
 
         // Human translated checkbox.
@@ -122,8 +119,7 @@ class edit_form extends \moodleform {
     /**
      * Validates the form data.
      *
-     * Performs server-side validation, relying on client-side checks for required fields, with
-     * room for additional validation if needed (e.g., HTML content).
+     * Ensures translated_text is neither null nor empty on the server side.
      *
      * @param array $data The submitted form data.
      * @param array $files The submitted files (not used).
@@ -131,7 +127,10 @@ class edit_form extends \moodleform {
      */
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
-        // Additional validation can be added here if needed.
+        $translatedtext = is_array($data['translated_text']) ? $data['translated_text']['text'] : $data['translated_text'];
+        if (is_null($translatedtext) || $translatedtext === '') {
+            $errors['translated_text'] = get_string('required');
+        }
         return $errors;
     }
 }
