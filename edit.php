@@ -177,9 +177,6 @@ if ($mform->is_cancelled()) {
         );
     }
 
-    // Derive context from courseid if available, otherwise null.
-    $context = ($courseid > 0) ? \context_course::instance($courseid) : null;
-
     // Define translatedtext from form data.
     $translatedtext = is_array($data->translated_text) ? $data->translated_text['text'] : $data->translated_text;
 
@@ -189,7 +186,6 @@ if ($mform->is_cancelled()) {
         $translation->lang,                 // Use lang from the translation record.
         $translatedtext,                    // New text from the form.
         $translation->contextlevel,         // Context level from the existing record.
-        $context,                           // Context instance (if applicable).
         !empty($data->human) ? 1 : 0        // Human status from the form.
     );
 

@@ -113,7 +113,7 @@ class content_service {
                 }
                 $this->update_hash_course_mapping($hash, $courseid);
             } else {
-                $this->upsert_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
+                $this->upsert_translation($hash, 'other', $sourcetext, $context->contextlevel, 1);
                 $this->update_hash_course_mapping($hash, $courseid);
             }
         } else {
@@ -139,9 +139,9 @@ class content_service {
             // Store translations in a transaction.
             $transaction = $this->db->start_delegated_transaction();
             try {
-                $this->upsert_translation($hash, 'other', $sourcetext, $context->contextlevel, $courseid, $context);
+                $this->upsert_translation($hash, 'other', $sourcetext, $context->contextlevel, 1);
                 foreach ($translations as $lang => $text) {
-                    $this->upsert_translation($hash, $lang, $text, $context->contextlevel, $courseid, $context);
+                    $this->upsert_translation($hash, $lang, $text, $context->contextlevel, 1);
                 }
                 $this->update_hash_course_mapping($hash, $courseid);
                 $transaction->allow_commit();
@@ -751,17 +751,18 @@ class content_service {
      * @param string $lang The target language code.
      * @param string $text The translated text.
      * @param int $contextlevel The context level of the content.
-     * @param \context|null $context The Moodle context (optional, currently unused).
      * @param int|null $human Human-edited flag (1 for human, 0 for auto, defaults to 0 if null).
      * @return void
      */
-    public function upsert_translation($hash, $lang, $text, $contextlevel, $context, $human = 0) {
+    public function upsert_translation($hash, $lang, $text, $contextlevel, $human = 0) {
         $existing = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
         $time = time();
         if ($existing) {
             if ($existing->translated_text !== $text || $existing->human != $human) {
                 $existing->translated_text = $text;
-                $existing->human = $human;
+                if ($human !== 0) {
+                    $existing->human = $human;
+                }
                 $existing->timemodified = $time;
                 $this->db->update_record('filter_autotranslate_translations', $existing);
             }

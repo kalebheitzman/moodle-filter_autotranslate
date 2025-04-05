@@ -204,9 +204,6 @@ if ($mform->is_cancelled()) {
         );
     }
 
-    // Derive context from courseid if available, otherwise null.
-    $context = ($data->courseid > 0) ? \context_course::instance($data->courseid) : null;
-
     // Store the new translation.
     $translatedtext = is_array($data->translated_text) ? $data->translated_text['text'] : $data->translated_text;
     $contentservice->upsert_translation(
@@ -214,7 +211,6 @@ if ($mform->is_cancelled()) {
         $data->tlang,
         $translatedtext,
         $sourcerecord->contextlevel ?? CONTEXT_COURSE, // Fallback to course if not found.
-        $context,
         !empty($data->human) ? 1 : 0 // Human status from the form.
     );
 
