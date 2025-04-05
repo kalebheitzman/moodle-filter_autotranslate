@@ -138,17 +138,38 @@ try {
         if ($courseid > 0) {
             $sql .= " AND t_other.hash IN (
                         SELECT hash FROM {filter_autotranslate_hid_cids} WHERE courseid = :courseid
-                      )";
+                    )";
             $params['courseid'] = $courseid;
+        }
+
+        // Apply needs review filter.
+        if ($filterneedsreview !== '') {
+            if ($filterneedsreview == '1') {
+                $sql .= " AND (t_target.timemodified IS NULL OR t_other.timemodified > t_target.timemodified)";
+            } else if ($filterneedsreview == '0') {
+                $sql .= " AND t_target.timemodified IS NOT NULL AND t_other.timemodified <= t_target.timemodified";
+            }
         }
 
         $sql .= " ORDER BY t_other.$sort $dir";
         $total = $DB->count_records_sql(
             "SELECT COUNT(*) FROM {filter_autotranslate_translations} t_other
-             WHERE t_other.lang = 'other'" . ($courseid > 0 ? " AND t_other.hash IN (
+            LEFT JOIN {filter_autotranslate_translations} t_target
+                ON t_other.hash = t_target.hash AND t_target.lang = :targetlang_count
+            WHERE t_other.lang = 'other'" .
+            ($courseid > 0 ? " AND t_other.hash IN (
                 SELECT hash FROM {filter_autotranslate_hid_cids} WHERE courseid = :countcourseid
-             )" : ""),
-            $courseid > 0 ? ['countcourseid' => $courseid] : []
+            )" : "") .
+            ($filterneedsreview !== '' ? ($filterneedsreview == '1' ?
+                " AND (t_target.timemodified IS NULL OR t_other.timemodified > t_target.timemodified)" :
+                " AND t_target.timemodified IS NOT NULL AND t_other.timemodified <= t_target.timemodified") : ""),
+            array_merge(
+                $params,
+                ['targetlang_count' => $internalfilterlang] + ($courseid > 0
+                    ? ['countcourseid' => $courseid]
+                    : []
+                )
+            )
         );
         $translations = $DB->get_records_sql($sql, $params, $page * $perpage, $perpage);
     } else {
