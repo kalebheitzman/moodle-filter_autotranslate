@@ -1,6 +1,4 @@
-# Grok Response 1
-
-Based on the provided project files, here's an overview of the Moodle Autotranslate Filter plugin:
+# Autotranslate Filter Overview
 
 **Purpose and Functionality:**
 
