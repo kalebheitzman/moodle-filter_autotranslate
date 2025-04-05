@@ -12,10 +12,24 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Version details
+ * Version metadata for the Autotranslate plugin.
+ *
+ * Defines version, release, and compatibility details for the Autotranslate filter.
+ *
+ * Features:
+ * - Sets plugin version and release.
+ * - Requires Moodle 4.5 (2024100702) or higher.
+ * - Marks as alpha maturity for development status.
+ *
+ * Usage:
+ * - Loaded by Moodle to register and validate plugin compatibility.
+ *
+ * Design:
+ * - Uses YYYYMMDDXX version format for incremental updates.
+ * - Includes display name from plugin language string.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -24,9 +38,9 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->version   = 2025032600;                // The current plugin version (Date: YYYYMMDDXX).
+$plugin->version   = 2025040500;                // The current plugin version (Date: YYYYMMDDXX).
 $plugin->requires  = 2024100702;                // Requires this Moodle version.
 $plugin->component = 'filter_autotranslate';    // Full name of the plugin (used for diagnostics).
 $plugin->maturity  = MATURITY_ALPHA;
-$plugin->release   = '2025032600';
+$plugin->release   = '2025040500';
 $plugin->displayname = get_string('filtername', 'filter_autotranslate');

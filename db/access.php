@@ -12,23 +12,32 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Moodle Autotranslate Filter Permissions
+ * Capabilities for the Autotranslate plugin.
  *
- * Adds filter/autotranslate:translate permissions for checking against
- * the webservice.
+ * Defines permissions for managing translations in the Autotranslate filter.
+ *
+ * Features:
+ * - `filter/autotranslate:manage`: Allows site-wide translation management.
+ * - `filter/autotranslate:edit`: Permits course-level editing (currently unused).
+ *
+ * Usage:
+ * - `manage.php`, `create.php`, `edit.php`, `external.php` check `manage` capability.
+ * - `edit` defined for potential future course-specific editing.
+ *
+ * Design:
+ * - System-level `manage` for broad control, course-level `edit` for granularity.
  *
  * @package    filter_autotranslate
- * @copyright  20245Kaleb Heitzman <kalebheitzman@gmail.com>
+ * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  * @see        https://docs.moodle.org/dev/Access_API
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-// Translator Capabilities.
 $capabilities = [
     'filter/autotranslate:manage' => [
         'captype' => 'write',

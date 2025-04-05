@@ -15,40 +15,23 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Cache definitions for the filter_autotranslate plugin.
+ * Cache definitions for the Autotranslate plugin.
  *
- * Purpose:
- * This file defines the caches used by the filter_autotranslate plugin to improve performance
- * by reducing database operations. The plugin uses caching to store tagged content generated
- * during the dynamic tagging process in text_filter.php, ensuring that content is not re-tagged
- * unnecessarily across page requests.
+ * Defines caches to boost performance by storing tagged content, module schemas,
+ * and selected fields, reducing database queries in filtering and settings.
  *
- * Structure:
- * The $definitions array contains cache definitions, where each key is the cache identifier
- * (e.g., 'taggedcontent') and the value is an array of configuration options for that cache.
- * Each cache definition specifies the cache mode, key structure, data type, and performance
- * optimizations.
+ * Features:
+ * - `taggedcontent`: Caches text with `{t:hash}` tags post-tagging.
+ * - `modschemas`: Caches module schemas for `content_service`.
+ * - `selectedfields`: Caches field selections for `content_service` settings.
  *
  * Usage:
- * - The 'taggedcontent' cache is used by text_filter.php to store content that has been dynamically
- *   tagged with {t:hash} tags during the filtering process.
- * - The cache is accessed using a composite key in the format 'hash_contextid' (e.g., 'EcNqkI1V1h_123'),
- *   where 'hash' is the unique hash of the translatable content and 'contextid' is the Moodle context ID.
- * - The cache stores the tagged content (e.g., 'Welcome {t:EcNqkI1V1h}') to avoid re-tagging the same
- *   content in subsequent requests.
+ * - `text_filter` uses `taggedcontent` for filtered text after tagging.
+ * - `content_service` uses `modschemas` and `selectedfields` for lookups.
  *
- * Design Decisions:
- * - The cache uses MODE_APPLICATION to store data at the application level, ensuring it is shared across
- *   all users and sessions for maximum efficiency.
- * - 'simplekeys' and 'simpledata' are enabled to optimize performance by using simple string keys and
- *   data, reducing serialization overhead.
- * - 'staticacceleration' and 'staticaccelerationsize' are used to keep a small number of frequently
- *   accessed cache entries in memory, improving performance for common content.
- * - The cache does not use 'invalidationevents', as tagged content is relatively stable and does not
- *   require frequent invalidation.
- *
- * Dependencies:
- * - None (pure cache definition file).
+ * Design:
+ * - Uses MODE_APPLICATION for shared, app-level caching.
+ * - Employs simple keys/data and static acceleration for speed.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -59,23 +42,26 @@ defined('MOODLE_INTERNAL') || die();
 
 $definitions = [
     'taggedcontent' => [
-        // Cache mode: Application-level caching, shared across all users and sessions.
         'mode' => cache_store::MODE_APPLICATION,
-
-        // Use simple keys: The cache keys are simple strings (e.g., 'EcNqkI1V1h_123'), which reduces
-        // serialization overhead and improves performance.
         'simplekeys' => true,
-
-        // Use simple data: The cache stores simple string data (tagged content), which further reduces
-        // serialization overhead.
         'simpledata' => true,
-
-        // Enable static acceleration: Keeps a small number of frequently accessed cache entries in memory
-        // to improve performance for common content.
         'staticacceleration' => true,
-
-        // Static acceleration size: Limits the number of cache entries kept in memory to 1000, balancing
-        // memory usage and performance. Adjust this value based on your site's usage patterns if needed.
         'staticaccelerationsize' => 1000,
+    ],
+    'modschemas' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'staticacceleration' => true,
+        'staticaccelerationsize' => 10,
+        'canuselocalstore' => true,
+        'persistent' => true,
+    ],
+    'selectedfields' => [
+        'mode' => cache_store::MODE_APPLICATION,
+        'simplekeys' => true,
+        'simpledata' => true,
+        'staticacceleration' => true,
+        'staticaccelerationsize' => 10,
     ],
 ];
