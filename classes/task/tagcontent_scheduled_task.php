@@ -83,7 +83,7 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                                          $DB->get_manager()->table_exists('question_versions') &&
                                          $DB->get_manager()->table_exists('question_bank_entries');
         if (!$questionreferencestablesexist) {
-            mtrace("Warning: Question reference tables missing. Skipping question tables.");
+            mtrace(get_string('questiontablesmissing', 'filter_autotranslate'));
         }
 
         // Fetch enabled fields from settings matrices.
@@ -152,7 +152,7 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
         $tables = array_filter($tables);
 
         if (empty($tables)) {
-            mtrace("No tables with enabled fields to process.");
+            mtrace(get_string('notables', 'filter_autotranslate'));
             return;
         }
 
@@ -177,8 +177,13 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
         $starttime = date('Y-m-d H:i:s');
 
         // Log the start of the task.
-        mtrace("Starting Tag Content Task at $starttime. recordsperrun: $recordsperrun, " .
-               "managelimit: $managelimit, starting from table: " . ($currenttable ?: $tablelist[0]) . ", id: $currentid");
+        mtrace(get_string('taskstart', 'filter_autotranslate', [
+            'time' => $starttime,
+            'records' => $recordsperrun,
+            'limit' => $managelimit,
+            'table' => $currenttable ?: $tablelist[0],
+            'id' => $currentid,
+        ]));
 
         // Process each table starting from the current table.
         for ($i = $startindex; $i < count($tablelist); $i++) {
@@ -186,8 +191,12 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
             $fields = $tables[$table];
 
             if ($totalprocessed >= $recordsperrun) {
-                mtrace("Reached total record limit of $recordsperrun. Stopped at table: $table, " .
-                       "last id: $currentid, total processed: $totalprocessed");
+                mtrace(get_string('recordlimitreached', 'filter_autotranslate', [
+                    'records' => $recordsperrun,
+                    'table' => $table,
+                    'id' => $currentid,
+                    'total' => $totalprocessed,
+                ]));
                 set_config('tagcontent_current_table', $table, 'filter_autotranslate');
                 set_config('tagcontent_current_id', $currentid, 'filter_autotranslate');
                 return;
@@ -195,18 +204,18 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
 
             // Skip tables without an 'id' column.
             if (!array_key_exists('id', $DB->get_columns($table))) {
-                mtrace("Skipping table $table: No 'id' column found.");
+                mtrace(get_string('skippingnoid', 'filter_autotranslate', $table));
                 continue;
             }
 
             // Skip question and question_answers tables if question reference tables are not usable.
             if (($table === 'question' || $table === 'question_answers') && !$questionreferencestablesexist) {
-                mtrace("Skipping table $table: Question reference tables are not usable.");
+                mtrace(get_string('skippingquestiontables', 'filter_autotranslate', $table));
                 continue;
             }
 
             // Log the start of processing for this table.
-            mtrace("Processing table: $table, starting from id: $currentid");
+            mtrace(get_string('processingtable', 'filter_autotranslate', ['table' => $table, 'id' => $currentid]));
 
             // Fetch the next batch of records.
             while ($totalprocessed < $recordsperrun) {
@@ -225,8 +234,8 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                     // End of table reached.
                     $currentid = 0;
                     $nextindex = $i + 1;
-                    $nexttable = $nextindex < count($tablelist) ? $tablelist[$nextindex] : '';
-                    mtrace("Finished table: $table, moving to next table: " . ($nexttable ?: 'none'));
+                    $nexttable = $nextindex < count($tablelist) ? $tablelist[$nextindex] : 'none';
+                    mtrace(get_string('finishedtable', 'filter_autotranslate', ['table' => $table, 'next' => $nexttable]));
                     set_config('tagcontent_current_table', $nexttable, 'filter_autotranslate');
                     set_config('tagcontent_current_id', 0, 'filter_autotranslate');
                     break;
@@ -246,7 +255,10 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                             $context = \context_course::instance($record->id);
                             $courseid = $record->id;
                             if (!isset($contextlogged[$table])) {
-                                mtrace("Table: $table, Course ID: $courseid");
+                                mtrace(get_string('tablecourseid', 'filter_autotranslate', [
+                                    'table' => $table,
+                                    'courseid' => $courseid,
+                                ]));
                                 $contextlogged[$table] = true;
                             }
                         } else if ($table === 'course_sections') {
@@ -254,13 +266,19 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                             $context = \context_course::instance($section->course);
                             $courseid = $section->course;
                             if (!isset($contextlogged[$table])) {
-                                mtrace("Table: $table, Course ID: $courseid");
+                                mtrace(get_string('tablecourseid', 'filter_autotranslate', [
+                                    'table' => $table,
+                                    'courseid' => $courseid,
+                                ]));
                                 $contextlogged[$table] = true;
                             }
                         } else if ($table === 'course_categories') {
                             $context = \context_coursecat::instance($record->id);
                             if (!isset($contextlogged[$table])) {
-                                mtrace("Table: $table, Course ID: $courseid (no course ID for categories)");
+                                mtrace(get_string('tablecourseidcat', 'filter_autotranslate', [
+                                    'table' => $table,
+                                    'courseid' => $courseid,
+                                ]));
                                 $contextlogged[$table] = true;
                             }
                         } else {
@@ -410,7 +428,10 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                                     $parentid = $DB->get_field($table, $fk, ['id' => $instanceid]);
                                     $instanceid = $parentid;
                                 } else {
-                                    mtrace("Table: $table, Record ID: {$record->id}, No foreign key found.");
+                                    mtrace(get_string('noforeignkey', 'filter_autotranslate', [
+                                        'table' => $table,
+                                        'recordid' => $record->id,
+                                    ]));
                                     continue; // Skip if no foreign key is found.
                                 }
                             }
@@ -431,20 +452,26 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                                 $context = \context_module::instance($cm->id);
                                 $courseid = $cm->course;
                                 if (!isset($contextlogged[$table])) {
-                                    mtrace("Table: $table, Course ID: $courseid (via course_modules)");
+                                    mtrace(get_string('tablecourseidcm', 'filter_autotranslate', [
+                                        'table' => $table,
+                                        'courseid' => $courseid,
+                                    ]));
                                     $contextlogged[$table] = true;
                                 }
                                 // Reset the failure flag for this table if a course module is found.
                                 unset($failedcoursemodules[$table]);
                             } else {
                                 if (!isset($failedcoursemodules[$table])) {
-                                    mtrace("Table: $table, No course_modules record found for " .
-                                           "modname: $modname, instance: $instanceid");
+                                    mtrace(get_string('nocoursemodules', 'filter_autotranslate', [
+                                        'table' => $table,
+                                        'modname' => $modname,
+                                        'instance' => $instanceid,
+                                    ]));
                                     $failedcoursemodules[$table] = true;
                                 }
                                 $context = \context_system::instance();
                                 if (!isset($contextlogged[$table])) {
-                                    mtrace("Table: $table, Using system context (no specific context found)");
+                                    mtrace(get_string('tablesystemcontext', 'filter_autotranslate', $table));
                                     $contextlogged[$table] = true;
                                 }
                             }
@@ -459,8 +486,12 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                             $taggedcontent = $contentservice->process_content($originalcontent, $context, $courseid);
                             if ($taggedcontent !== $originalcontent) {
                                 $DB->set_field($table, $field, $taggedcontent, ['id' => $record->id]);
-                                mtrace("Table: $table, Record ID: {$record->id}, Field: $field, " .
-                                       "Tagged content updated, Course ID: $courseid");
+                                mtrace(get_string('taggedcontent', 'filter_autotranslate', [
+                                    'table' => $table,
+                                    'recordid' => $record->id,
+                                    'field' => $field,
+                                    'courseid' => $courseid,
+                                ]));
                             }
                         }
 
@@ -468,29 +499,45 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                         $currentid = $record->id;
 
                         if ($totalprocessed >= $recordsperrun) {
-                            mtrace("Reached total record limit of $recordsperrun. Stopped at table: $table, " .
-                                   "last id: $currentid, total processed: $totalprocessed");
+                            mtrace(get_string('recordlimitreached', 'filter_autotranslate', [
+                                'records' => $recordsperrun,
+                                'table' => $table,
+                                'id' => $currentid,
+                                'total' => $totalprocessed,
+                            ]));
                             set_config('tagcontent_current_table', $table, 'filter_autotranslate');
                             set_config('tagcontent_current_id', $currentid, 'filter_autotranslate');
                             return;
                         }
                     } catch (\Exception $e) {
-                        mtrace("Error processing record ID: {$record->id} in table: $table - " . $e->getMessage());
+                        mtrace(get_string('recorderror', 'filter_autotranslate', [
+                            'recordid' => $record->id,
+                            'table' => $table,
+                            'message' => $e->getMessage(),
+                        ]));
                         continue;
                     }
                 }
 
                 // Log the batch result and any skipped records for question or question_answers tables.
                 if (isset($skippedrecords) && $skippedrecords > 0) {
-                    mtrace("Skipped $skippedrecords records in table: $table due to missing question references.");
+                    mtrace(get_string('skippedrecords', 'filter_autotranslate', [
+                        'count' => $skippedrecords,
+                        'table' => $table,
+                    ]));
                     $skippedrecords = 0; // Reset for the next batch.
                 }
-                mtrace("Processed $count records in table: $table, last id: $currentid, total processed: $totalprocessed");
+                mtrace(get_string('processedrecords', 'filter_autotranslate', [
+                    'count' => $count,
+                    'table' => $table,
+                    'id' => $currentid,
+                    'total' => $totalprocessed,
+                ]));
             }
         }
 
         // If all tables are processed, reset the state.
-        mtrace("Tag Content Task completed. Total records processed: $totalprocessed, all tables processed, resetting state.");
+        mtrace(get_string('taskcompleted', 'filter_autotranslate', $totalprocessed));
         set_config('tagcontent_current_table', '', 'filter_autotranslate');
         set_config('tagcontent_current_id', 0, 'filter_autotranslate');
     }

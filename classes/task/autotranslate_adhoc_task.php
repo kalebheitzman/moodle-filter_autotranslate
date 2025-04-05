@@ -90,7 +90,10 @@ class autotranslate_adhoc_task extends adhoc_task {
         }
 
         if ($failurereason) {
-            debugging("Autotranslate Task $taskid: $failurereason", DEBUG_DEVELOPER);
+            debugging(
+                get_string('taskdebug', 'filter_autotranslate', ['taskid' => $taskid, 'reason' => $failurereason]),
+                DEBUG_DEVELOPER
+            );
         }
     }
 
@@ -137,7 +140,7 @@ class autotranslate_adhoc_task extends adhoc_task {
 
         $data = $this->get_custom_data();
         if (!$data) {
-            $this->update_progress('failed', 0, 0, 'No custom data provided.');
+            $this->update_progress('failed', 0, 0, get_string('nocustomdata', 'filter_autotranslate'));
             return;
         }
 
@@ -147,7 +150,7 @@ class autotranslate_adhoc_task extends adhoc_task {
         $totalentries = $data->total_entries;
 
         if (empty($hashes)) {
-            $this->update_progress('completed', 0, 0, 'No hashes to process.');
+            $this->update_progress('completed', 0, 0, get_string('nohashes', 'filter_autotranslate'));
             return;
         }
 
@@ -163,7 +166,7 @@ class autotranslate_adhoc_task extends adhoc_task {
         $ratelimitthreshold = get_config('filter_autotranslate', 'ratelimitthreshold') ?: 50;
 
         if (empty($apikey)) {
-            $this->update_progress('failed', 0, $totalentries, 'API key not configured.');
+            $this->update_progress('failed', 0, $totalentries, get_string('noapikey', 'filter_autotranslate'));
             return;
         }
 
@@ -198,7 +201,7 @@ class autotranslate_adhoc_task extends adhoc_task {
                     'running',
                     $processed,
                     $totalentries,
-                    'Task runtime approaching limit. Will continue in the next run.'
+                    get_string('tasktimeout', 'filter_autotranslate')
                 );
                 $remaininghashes = array_slice($hashes, $processed);
                 if (!empty($remaininghashes)) {
@@ -224,15 +227,10 @@ class autotranslate_adhoc_task extends adhoc_task {
             }
 
             $example = "[{\"$targetlang\": \"Example translation in $targetlang\"}]";
-            $prompt = "Translate the following $textcount texts into the following language: $targetlang. " .
-                "Return the result as a JSON array where each element is a dictionary mapping the language " .
-                "code to the translated text as a string. The array must contain exactly $textcount elements, " .
-                "one for each text, in the same order as the input list. For each text, you MUST provide a translation " .
-                "for $targetlang. If the language is missing for any text, the response will be considered invalid. " .
-                "Do not nest the translations under additional keys like 'translation'. Here is an " .
-                "example for 1 text translated into $targetlang:\n" .
-                $example . "\n" .
-                "Now translate the following texts:\n" . $textlist;
+            $prompt = get_string('translateprompt', 'filter_autotranslate', ['count' => $textcount, 'lang' => $targetlang]) .
+                get_string('translateinstructions', 'filter_autotranslate', ['count' => $textcount, 'lang' => $targetlang]) .
+                "\n" . $example . "\n" .
+                get_string('translatetexts', 'filter_autotranslate') . "\n" . $textlist;
 
             $schema = [
                 'type' => 'array',
@@ -310,7 +308,7 @@ class autotranslate_adhoc_task extends adhoc_task {
                             'apierror',
                             'filter_autotranslate',
                             '',
-                            "Error communicating with the translation API: HTTP $httpcode - $errormessage"
+                            get_string('apierrorhttp', 'filter_autotranslate', ['code' => $httpcode, 'message' => $errormessage])
                         );
                     }
 
@@ -323,7 +321,7 @@ class autotranslate_adhoc_task extends adhoc_task {
                                 'apierror',
                                 'filter_autotranslate',
                                 '',
-                                'Invalid JSON response from API: ' . $translatedtext
+                                get_string('invalidjsonresponse', 'filter_autotranslate', $translatedtext)
                             );
                         }
 
@@ -341,12 +339,17 @@ class autotranslate_adhoc_task extends adhoc_task {
                             'apierror',
                             'filter_autotranslate',
                             '',
-                            'Invalid API response: ' . json_encode($response)
+                            get_string('invalidapiresponse', 'filter_autotranslate', json_encode($response))
                         );
                     }
                 } catch (\Exception $e) {
                     if ($attempt == $maxattempts) {
-                        $this->update_progress('failed', $processed, $totalentries, 'API error: ' . $e->getMessage());
+                        $this->update_progress(
+                            'failed',
+                            $processed,
+                            $totalentries,
+                            get_string('apierrorgeneric', 'filter_autotranslate', $e->getMessage())
+                        );
                         return;
                     }
                     sleep(5);
@@ -359,7 +362,12 @@ class autotranslate_adhoc_task extends adhoc_task {
             }
 
             if (!$success) {
-                $this->update_progress('failed', $processed, $totalentries, 'Failed to fetch translations after maximum attempts.');
+                $this->update_progress(
+                    'failed',
+                    $processed,
+                    $totalentries,
+                    get_string('translationsfailed', 'filter_autotranslate')
+                );
                 return;
             }
 
@@ -374,6 +382,6 @@ class autotranslate_adhoc_task extends adhoc_task {
             }
         }
 
-        $this->update_progress('completed', $processed, $totalentries, 'Translations fetched successfully.');
+        $this->update_progress('completed', $processed, $totalentries, get_string('translationssuccess', 'filter_autotranslate'));
     }
 }
