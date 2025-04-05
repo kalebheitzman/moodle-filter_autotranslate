@@ -91,9 +91,8 @@ Customize these via Moodle’s role management.
   - `human` (TINYINT(1), default 0): 0 = auto, 1 = human-edited.
   - `timecreated` (INT(10), not null): Creation timestamp.
   - `timemodified` (INT(10), not null): Last modified timestamp.
-  - `timereviewed` (INT(10), default 0): Last reviewed timestamp.
 - **Keys**: PK: `id`, Unique: `hash, lang`.
-- **Indexes**: `contextlevel`, `timereviewed`.
+- **Indexes**: `contextlevel`.
 
 #### `mdl_filter_autotranslate_hid_cids`
 - **Purpose**: Maps hashes to course IDs for filtering.

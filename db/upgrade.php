@@ -124,5 +124,24 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2025032602, 'filter', 'autotranslate');
     }
 
+    if ($oldversion < 2025040401) {
+        $table = new xmldb_table('filter_autotranslate_translations');
+        $field = new xmldb_field('timereviewed', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+
+        // Remove the timereviewed index (mdl_autotran_timereviewed_ix).
+        $index = new xmldb_index('timereviewed_ix', XMLDB_INDEX_NOTUNIQUE, ['timereviewed']);
+        if ($dbman->index_exists($table, $index)) {
+            $dbman->drop_index($table, $index);
+        }
+
+        // Remove the timereviewed field.
+        $field = new xmldb_field('timereviewed', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        if ($dbman->field_exists($table, $field)) {
+            $dbman->drop_field($table, $field);
+        }
+
+        upgrade_plugin_savepoint(true, 2025040401, 'filter', 'autotranslate');
+    }
+
     return true;
 }

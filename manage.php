@@ -128,7 +128,7 @@ try {
                     t_target.id AS target_id, t_target.lang AS target_lang,
                     t_target.translated_text AS target_text, t_target.human,
                     t_other.contextlevel AS source_contextlevel, t_target.contextlevel AS target_contextlevel,
-                    t_target.timecreated, t_target.timemodified, t_target.timereviewed
+                    t_target.timecreated, t_target.timemodified
                 FROM {filter_autotranslate_translations} t_other
                 LEFT JOIN {filter_autotranslate_translations} t_target
                     ON t_other.hash = t_target.hash AND t_target.lang = :targetlang

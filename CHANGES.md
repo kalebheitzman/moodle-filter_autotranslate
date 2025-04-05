@@ -1,21 +1,20 @@
 # Changelog
 
-## 2025032800
+## 2025040401
 
 - **Total Rewrite of Plugin Architecture**: Overhauled the `filter_autotranslate` plugin with a new structure for improved maintainability, performance, and flexibility. Replaced `translation_repository.php`, `translation_service.php`, and `tagging_service.php` with `content_service.php` (database writes), `translation_source.php` (read-only access), `ui_manager.php` (UI coordination), and `text_utils.php` (utilities), while keeping `text_filter.php` as the lean entry point. Retained `tagging_config.php` for settings configuration in `settings.php`.
 - **Dynamic Tagging in Text Filter**: Enhanced `text_filter.php` to dynamically tag untagged content with `{t:hash}` during page rendering, supporting all content (including third-party modules) without reliance on `tagging_config.php` for runtime tagging. Configuration moved to context-based tagging via `selectctx` settings.
-- **Lazy Rebuild Mechanism (Option 3)**: Replaced scheduled rebuild tasks and the "Rebuild Translations" button with a lazy rebuild approach. Added `mark_course_stale()` in `ui_manager.php` and `content_service.php` to flag translations as stale, refreshing them on next page load when `timereviewed` < `timemodified`. Removed `rebuild_course_translations.php` and related CLI functionality.
 - **Management Interface Updates**:
   - Updated `/filter/autotranslate/manage.php` to use `ui_manager.php` and `translation_source.php` for viewing, filtering, and editing translations.
   - Retained filters for language, human status, review status, and course ID (via `mdl_filter_autotranslate_hid_cids`).
-  - Kept editing via `edit.php` (WYSIWYG or textarea) and adding via `create.php`, updating `translated_text`, `human`, and `timereviewed`.
+  - Kept editing via `edit.php` (WYSIWYG or textarea) and adding via `create.php`, updating `translated_text`, and `human`.
   - Removed "Rebuild Translations" button, with optional "Mark Stale" trigger (not yet in UI).
 - **Multilang Tag Processing**: Improved handling of `<span>` and `{mlang}` tags in `text_utils.php`, extracting translations into `mdl_filter_autotranslate_translations` and replacing them with `{t:hash}` tags (destructive, non-reversible).
 - **Scheduled Tasks**:
   - Updated `autotranslate_adhoc_task.php` to fetch translations via API, triggered by the "Autotranslate" button in `manage.php`, using `content_service.php` for storage.
   - Removed `fetchtranslation_task` as autotranslation is now adhoc; dynamic tagging handles initial content.
 - **Database Schema**:
-  - Kept `mdl_filter_autotranslate_translations` with `contextlevel`, `human`, `timecreated`, `timemodified`, `timereviewed` for context and review tracking.
+  - Kept `mdl_filter_autotranslate_translations` with `contextlevel`, `human`, `timecreated`, `timemodified`, for context and review tracking.
   - Retained `mdl_filter_autotranslate_hid_cids` for course-hash mappings.
   - Added `update_translation()` to `content_service.php` for editing translations via `edit.php`.
 - **URL Rewriting**: Ensured `@@PLUGINFILE@@` URLs are rewritten in `content_service.php` during storage, with documentation in `text_filter.php` and `content_service.php`.

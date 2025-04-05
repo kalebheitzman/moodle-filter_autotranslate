@@ -20,8 +20,8 @@
  * Purpose:
  * This script renders the edit page for the filter_autotranslate plugin, allowing administrators
  * to modify an existing translation in the `filter_autotranslate_translations` table. It updates
- * the translated_text, human status, and timereviewed fields, preventing edits to the 'other'
- * language record, and includes a language switcher for navigating translations of the same hash.
+ * the translated_text, and human status fields, preventing edits to the 'other' language record,
+ * and includes a language switcher for navigating translations of the same hash.
  *
  * Usage:
  * Accessed via '/filter/autotranslate/edit.php' with required parameters `hash` and `tlang`,

@@ -41,7 +41,7 @@
  * - Supports pagination and filtering for UI needs, joining source text (`lang = 'other'`) with
  *   translations for comprehensive display.
  * - Uses simple, efficient queries to minimize database load, leveraging existing indexes from
- *   the schema (e.g., `contextlevel`, `timereviewed`).
+ *   the schema (e.g., `contextlevel`).
  * - Returns null or defaults (e.g., 'N/A') when data is unavailable, ensuring graceful fallbacks.
  *
  * Dependencies:
@@ -162,11 +162,12 @@ class translation_source {
         $where = [];
         $joins = [];
 
+        // Base query with join to source text.
         $sql = "SELECT t.*, t2.translated_text AS source_text, t2.timemodified AS source_timemodified
                 FROM {filter_autotranslate_translations} t
                 LEFT JOIN {filter_autotranslate_translations} t2 ON t.hash = t2.hash AND t2.lang = 'other'";
+        $joins[] = "LEFT JOIN {filter_autotranslate_translations} t2 ON t.hash = t2.hash AND t2.lang = 'other'";
 
-        // Only apply language filter if $internalfilterlang is non-empty and not 'all'.
         if (!empty($internalfilterlang) && $internalfilterlang !== 'all') {
             $where[] = "t.lang = :lang";
             $params['lang'] = $internalfilterlang;
@@ -193,11 +194,12 @@ class translation_source {
             $params['human'] = (int)$filterhuman;
         }
 
+        // Filter by needs review using source_timemodified vs timemodified.
         if ($filterneedsreview !== '') {
             if ($filterneedsreview == '1') {
-                $where[] = "t.timereviewed < t.timemodified";
+                $where[] = "t2.timemodified > t.timemodified";
             } else if ($filterneedsreview == '0') {
-                $where[] = "t.timereviewed >= t.timemodified";
+                $where[] = "t2.timemodified <= t.timemodified";
             }
         }
 
@@ -205,8 +207,9 @@ class translation_source {
             $sql .= ' WHERE ' . implode(' AND ', $where);
         }
 
+        // Include joins in count query to support t2.timemodified.
         $countsql = "SELECT COUNT(*) FROM {filter_autotranslate_translations} t " .
-                    (empty($joins) ? '' : implode(' ', $joins)) .
+                    implode(' ', $joins) .
                     (empty($where) ? '' : ' WHERE ' . implode(' AND ', $where));
         $total = $this->db->count_records_sql($countsql, $params);
         $translations = $this->db->get_records_sql($sql, $params, $page * $perpage, $perpage);
@@ -281,9 +284,9 @@ class translation_source {
         // Filter by needs review.
         if ($filterneedsreview !== '') {
             if ($filterneedsreview == '1') {
-                $where[] = "t.timereviewed < t.timemodified";
+                $where[] = "t2.timemodified > t.timemodified";
             } else if ($filterneedsreview == '0') {
-                $where[] = "t.timereviewed >= t.timemodified";
+                $where[] = "t2.timemodified <= t.timemodified";
             }
         }
 
@@ -295,7 +298,7 @@ class translation_source {
         }
 
         // Apply sorting.
-        $validsorts = ['hash', 'translated_text', 'human', 'contextlevel', 'timereviewed', 'timemodified'];
+        $validsorts = ['hash', 'translated_text', 'human', 'contextlevel', 'timemodified'];
         $sort = in_array($sort, $validsorts) ? $sort : 'hash';
         $dir = strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC';
         $sql .= " ORDER BY t.$sort $dir";

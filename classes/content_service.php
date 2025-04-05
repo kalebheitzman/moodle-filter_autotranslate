@@ -774,7 +774,6 @@ class content_service {
                 'contextlevel' => $contextlevel,
                 'timecreated' => $time,
                 'timemodified' => $time,
-                'timereviewed' => $time,
                 'human' => $human,
             ];
             $this->db->insert_record('filter_autotranslate_translations', $record);
