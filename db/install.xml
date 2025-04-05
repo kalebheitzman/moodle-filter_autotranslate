@@ -1,29 +1,29 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="filter/autotranslate/db" VERSION="20250326" COMMENT="XMLDB structure for filter_autotranslate">
+<XMLDB PATH="filter/autotranslate/db" VERSION="20250404" COMMENT="XMLDB structure for filter_autotranslate">
     <TABLES>
-        <TABLE NAME="filter_autotranslate_translations" COMMENT="Stores translations for the autotranslate filter">
+        <TABLE NAME="filter_autotranslate_translations" COMMENT="Stores translations with unique hashes">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
-                <FIELD NAME="hash" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Unique 10-character hash for the source text"/>
-                <FIELD NAME="lang" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="Language code (e.g., es, ru)"/>
-                <FIELD NAME="translated_text" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Translated content for the specified language"/>
-                <FIELD NAME="contextlevel" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false" COMMENT="Moodle context level (e.g., 10 for System, 50 for Course, 70 for Module)"/>
-                <FIELD NAME="human" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Flag indicating if the translation was manually edited by a human (0 = automatic, 1 = manual)"/>
-                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp of creation"/>
-                <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp of last modification"/>
+                <FIELD NAME="hash" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="10-char hash for {t:hash} tags"/>
+                <FIELD NAME="lang" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="Language code (e.g., es, other)"/>
+                <FIELD NAME="translated_text" TYPE="text" NOTNULL="true" SEQUENCE="false" COMMENT="Source or translated content"/>
+                <FIELD NAME="contextlevel" TYPE="int" LENGTH="2" NOTNULL="true" SEQUENCE="false" COMMENT="Moodle context (e.g., 50=Course)"/>
+                <FIELD NAME="human" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="0=auto, 1=human-edited"/>
+                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Creation timestamp"/>
+                <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Last modified timestamp"/>
             </FIELDS>
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
-                <KEY NAME="hash_lang" TYPE="unique" FIELDS="hash,lang" COMMENT="Ensures one translation per language per hash"/>
+                <KEY NAME="hash_lang" TYPE="unique" FIELDS="hash,lang" COMMENT="One translation per lang per hash"/>
             </KEYS>
             <INDEXES>
-                <INDEX NAME="mdl_autotran_con_ix" UNIQUE="false" FIELDS="contextlevel" COMMENT="Index for context-based recovery"/>
+                <INDEX NAME="mdl_autotran_con_ix" UNIQUE="false" FIELDS="contextlevel" COMMENT="Index for context filtering"/>
             </INDEXES>
         </TABLE>
-        <TABLE NAME="filter_autotranslate_hid_cids" COMMENT="Maps translation hashes to course IDs">
+        <TABLE NAME="filter_autotranslate_hid_cids" COMMENT="Maps hashes to course IDs for filtering">
             <FIELDS>
-                <FIELD NAME="hash" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Hash of the translatable string"/>
-                <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course ID where the string appears"/>
+                <FIELD NAME="hash" TYPE="char" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Hash of translatable string"/>
+                <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Course ID of string"/>
             </FIELDS>
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="hash,courseid"/>
@@ -35,16 +35,16 @@
                 <INDEX NAME="courseid" UNIQUE="false" FIELDS="courseid"/>
             </INDEXES>
         </TABLE>
-        <TABLE NAME="filter_autotranslate_task_progress" COMMENT="Stores progress for autotranslate and rebuild tasks">
+        <TABLE NAME="filter_autotranslate_task_progress" COMMENT="Tracks autotranslate task progress">
             <FIELDS>
                 <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true" COMMENT="Primary key"/>
-                <FIELD NAME="taskid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="ID of the adhoc task"/>
-                <FIELD NAME="tasktype" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="Type of task (autotranslate or rebuild)"/>
-                <FIELD NAME="total_entries" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Total number of entries to process"/>
-                <FIELD NAME="processed_entries" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Number of entries processed"/>
-                <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="queued" SEQUENCE="false" COMMENT="Status of the task (queued, running, completed, failed)"/>
-                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when the task was created"/>
-                <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Timestamp when the progress was last modified"/>
+                <FIELD NAME="taskid" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Adhoc task ID"/>
+                <FIELD NAME="tasktype" TYPE="char" LENGTH="20" NOTNULL="true" SEQUENCE="false" COMMENT="Task type (autotranslate)"/>
+                <FIELD NAME="total_entries" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Total items to process"/>
+                <FIELD NAME="processed_entries" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0" SEQUENCE="false" COMMENT="Items processed"/>
+                <FIELD NAME="status" TYPE="char" LENGTH="20" NOTNULL="true" DEFAULT="queued" SEQUENCE="false" COMMENT="Task status"/>
+                <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Creation timestamp"/>
+                <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="false" COMMENT="Last modified timestamp"/>
             </FIELDS>
             <KEYS>
                 <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

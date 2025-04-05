@@ -17,21 +17,21 @@
 /**
  * Cache definitions for the Autotranslate plugin.
  *
- * Defines caches to optimize performance by storing tagged content, module schemas,
- * and selected fields, reducing database queries in the filter and settings.
+ * Defines caches to boost performance by storing tagged content, module schemas,
+ * and selected fields, reducing database queries in filtering and settings.
  *
  * Features:
- * - 'taggedcontent': Stores tagged text from `text_filter` for rendering.
- * - 'modschemas': Caches module schemas for `content_service`.
- * - 'selectedfields': Caches field selections for `content_service` settings.
+ * - `taggedcontent`: Caches text with `{t:hash}` tags post-tagging.
+ * - `modschemas`: Caches module schemas for `content_service`.
+ * - `selectedfields`: Caches field selections for `content_service` settings.
  *
  * Usage:
- * - Used by `text_filter` to cache filtered text with {t:hash} tags.
- * - Supports `content_service` for schema and field lookups.
+ * - `text_filter` uses `taggedcontent` for filtered text after tagging.
+ * - `content_service` uses `modschemas` and `selectedfields` for lookups.
  *
  * Design:
- * - Uses MODE_APPLICATION for shared, application-level caching.
- * - Employs simple keys/data and static acceleration for efficiency.
+ * - Uses MODE_APPLICATION for shared, app-level caching.
+ * - Employs simple keys/data and static acceleration for speed.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>

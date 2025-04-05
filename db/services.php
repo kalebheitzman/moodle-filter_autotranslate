@@ -15,21 +15,27 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * External services definition for the filter_autotranslate plugin.
+ * External services for the Autotranslate plugin.
  *
- * Purpose:
- * Defines the external API functions and service for the filter_autotranslate plugin, enabling
- * AJAX calls from the manage page to queue autotranslate tasks and check their status.
+ * Defines AJAX API functions for queuing and monitoring autotranslate tasks from the
+ * management interface, linking `manage.php` to `external.php` via `autotranslate.js`.
  *
- * Design Decisions:
- * - Removes `filter_autotranslate_rebuild_translations` as the rebuild feature is no longer used,
- *   aligning with Option 3 (Mark Stale and Lazy Rebuild).
- * - Retains `filter_autotranslate_autotranslate` and `filter_autotranslate_task_status` for the
- *   autotranslate functionality on manage.php.
+ * Features:
+ * - `filter_autotranslate_autotranslate`: Queues translation tasks for untranslated content.
+ * - `filter_autotranslate_task_status`: Tracks task progress and status.
+ *
+ * Usage:
+ * - Called by `autotranslate.js` from `manage.php` "Autotranslate" button and polling.
+ * - Requires `filter/autotranslate:manage` capability for both functions.
+ *
+ * Design:
+ * - Lightweight AJAX endpoints for task management, tied to `external.php`.
+ * - Service groups functions for consistent access control.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @see        https://docs.moodle.org/dev/Web_services_API
  */
 
 defined('MOODLE_INTERNAL') || die();
@@ -38,7 +44,7 @@ $functions = [
     'filter_autotranslate_autotranslate' => [
         'classname'   => 'filter_autotranslate\external',
         'methodname'  => 'autotranslate',
-        'description' => 'Queues an adhoc task to fetch translations for untranslated entries in the current view.',
+        'description' => 'Queues an adhoc task to fetch translations for untranslated entries.',
         'type'        => 'write',
         'ajax'        => true,
         'capabilities' => 'filter/autotranslate:manage',
