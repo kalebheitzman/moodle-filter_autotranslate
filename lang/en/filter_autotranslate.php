@@ -17,10 +17,6 @@
 /**
  * Language strings for the Autotranslate plugin.
  *
- * Defines all user-facing strings for the Autotranslate filter, including UI elements,
- * configuration settings, and task-related messages. Strings are organized alphabetically
- * by key for consistency and ease of maintenance.
- *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
