@@ -162,7 +162,7 @@ class translation_source {
         $where = [];
         $joins = [];
 
-        $sql = "SELECT t.*, t2.translated_text AS source_text
+        $sql = "SELECT t.*, t2.translated_text AS source_text, t2.timemodified AS source_timemodified
                 FROM {filter_autotranslate_translations} t
                 LEFT JOIN {filter_autotranslate_translations} t2 ON t.hash = t2.hash AND t2.lang = 'other'";
 

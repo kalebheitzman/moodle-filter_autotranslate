@@ -68,7 +68,14 @@ require_capability('filter/autotranslate:manage', \context_system::instance());
 // Get parameters.
 $hash = required_param('hash', PARAM_ALPHANUMEXT);
 $tlang = required_param('tlang', PARAM_RAW);
+$courseid = optional_param('courseid', 0, PARAM_INT);
 $contextid = optional_param('contextid', SYSCONTEXTID, PARAM_INT);
+$filterhuman = optional_param('filter_human', '', PARAM_RAW);
+$filterneedsreview = optional_param('filter_needsreview', '', PARAM_RAW);
+$perpage = optional_param('perpage', 20, PARAM_INT);
+$page = optional_param('page', 0, PARAM_INT);
+$sort = optional_param('sort', 'hash', PARAM_ALPHA);
+$dir = optional_param('dir', 'ASC', PARAM_ALPHA);
 
 // Validate and normalize tlang.
 if (empty($tlang)) {
@@ -171,7 +178,7 @@ if ($mform->is_cancelled()) {
     }
 
     // Derive context from courseid if available, otherwise null.
-    $context = ($data->courseid > 0) ? \context_course::instance($data->courseid) : null;
+    $context = ($courseid > 0) ? \context_course::instance($courseid) : null;
 
     // Define translatedtext from form data.
     $translatedtext = is_array($data->translated_text) ? $data->translated_text['text'] : $data->translated_text;
@@ -187,7 +194,16 @@ if ($mform->is_cancelled()) {
     );
 
     redirect(
-        new \moodle_url('/filter/autotranslate/manage.php'),
+        new \moodle_url('/filter/autotranslate/manage.php', [
+            'courseid' => $courseid,
+            'filter_lang' => $tlang,
+            'filter_human' => $filterhuman,
+            'filter_needsreview' => $filterneedsreview,
+            'perpage' => $perpage,
+            'page' => $page,
+            'sort' => $sort,
+            'dir' => $dir,
+        ]),
         get_string('translationsaved', 'filter_autotranslate')
     );
 }
@@ -198,7 +214,16 @@ echo $OUTPUT->header();
 // Render the "Manage Translations" link and language switcher.
 echo '<div class="row mb-3">';
 echo '<div class="col-md-6">';
-$manageurl = new \moodle_url('/filter/autotranslate/manage.php');
+$manageurl = new \moodle_url('/filter/autotranslate/manage.php', [
+    'courseid' => $courseid,
+    'filter_lang' => $tlang,
+    'filter_human' => $filterhuman,
+    'filter_needsreview' => $filterneedsreview,
+    'perpage' => $perpage,
+    'page' => $page,
+    'sort' => $sort,
+    'dir' => $dir,
+]);
 echo \html_writer::link(
     $manageurl,
     get_string('managetranslations', 'filter_autotranslate'),

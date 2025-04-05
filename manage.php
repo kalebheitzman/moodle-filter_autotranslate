@@ -124,11 +124,11 @@ try {
     // Fetch translations.
     if ($istargetlang) {
         // Target language view: Fetch 'other' translations and join with target if exists.
-        $sql = "SELECT t_other.hash, t_other.translated_text AS source_text,
-                       t_target.id AS target_id, t_target.lang AS target_lang,
-                       t_target.translated_text AS target_text, t_target.human,
-                       t_other.contextlevel AS source_contextlevel, t_target.contextlevel AS target_contextlevel,
-                       t_target.timecreated, t_target.timemodified, t_target.timereviewed
+        $sql = "SELECT t_other.hash, t_other.translated_text AS source_text, t_other.timemodified AS source_timemodified,
+                    t_target.id AS target_id, t_target.lang AS target_lang,
+                    t_target.translated_text AS target_text, t_target.human,
+                    t_other.contextlevel AS source_contextlevel, t_target.contextlevel AS target_contextlevel,
+                    t_target.timecreated, t_target.timemodified, t_target.timereviewed
                 FROM {filter_autotranslate_translations} t_other
                 LEFT JOIN {filter_autotranslate_translations} t_target
                     ON t_other.hash = t_target.hash AND t_target.lang = :targetlang
@@ -188,7 +188,7 @@ try {
                 $row->translated_text = $translatedtext . '<br>' . $dateshtml;
                 $row->human = $translation->human ? get_string('yes') : get_string('no');
                 $row->contextlevel = $translation->target_contextlevel ?? $translation->source_contextlevel;
-                $needsreview = $translation->timereviewed < $translation->timemodified;
+                $needsreview = $translation->source_timemodified > $translation->timemodified;
                 $row->review_status = $needsreview ? $OUTPUT->pix_icon(
                     'i/warning',
                     get_string('needsreview', 'filter_autotranslate'),
@@ -199,6 +199,13 @@ try {
                 $row->editUrl = (new \moodle_url('/filter/autotranslate/edit.php', [
                     'hash' => $translation->hash,
                     'tlang' => $internalfilterlang,
+                    'courseid' => $courseid,
+                    'filter_human' => $filterhuman,
+                    'filter_needsreview' => $filterneedsreview,
+                    'perpage' => $perpage,
+                    'page' => $page,
+                    'sort' => $sort,
+                    'dir' => $dir,
                 ]))->out(false);
             } else {
                 $row->translated_text = '';
@@ -207,6 +214,12 @@ try {
                     'hash' => $translation->hash,
                     'tlang' => $internalfilterlang,
                     'courseid' => $courseid,
+                    'filter_human' => $filterhuman,
+                    'filter_needsreview' => $filterneedsreview,
+                    'perpage' => $perpage,
+                    'page' => $page,
+                    'sort' => $sort,
+                    'dir' => $dir,
                 ]))->out(false);
                 $row->human = '';
                 $row->contextlevel = $translation->source_contextlevel;
@@ -219,7 +232,7 @@ try {
         } else {
             $translatedtext = format_text($translation->translated_text, FORMAT_HTML);
             $sourcetext = $translation->source_text !== 'N/A' ? format_text($translation->source_text, FORMAT_HTML) : 'N/A';
-            $needsreview = $translation->timereviewed < $translation->timemodified;
+            $needsreview = $translation->source_timemodified > $translation->timemodified;
             $reviewstatus = $needsreview ? $OUTPUT->pix_icon(
                 'i/warning',
                 get_string('needsreview', 'filter_autotranslate'),
