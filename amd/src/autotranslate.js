@@ -1,4 +1,4 @@
-define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
+define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
     /**
      * Initializes the Autotranslate button on manage.php.
      *
@@ -9,7 +9,7 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
     function init() {
         var autotranslatebutton = document.getElementById('autotranslate-button');
         if (autotranslatebutton) {
-            autotranslatebutton.addEventListener('click', function () {
+            autotranslatebutton.addEventListener('click', function() {
                 var filterparams = JSON.parse(autotranslatebutton.getAttribute('data-filter-params'));
                 startTask('filter_autotranslate_autotranslate', filterparams);
             });
@@ -42,7 +42,7 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
         Ajax.call([{
             methodname: methodname,
             args: params,
-            done: function (response) {
+            done: function(response) {
                 if (response.success && response.taskid) {
                     Notification.addNotification({
                         message: 'Task queued successfully. Awaiting completion.',
@@ -57,7 +57,7 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
                     resetUI();
                 }
             },
-            fail: function (error) {
+            fail: function(error) {
                 Notification.addNotification({
                     message: 'Error queuing task: ' + error.message,
                     type: 'error'
@@ -77,8 +77,8 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
     function pollTaskStatus(taskid) {
         Ajax.call([{
             methodname: 'filter_autotranslate_task_status',
-            args: { taskid: taskid },
-            done: function (response) {
+            args: {taskid: taskid},
+            done: function(response) {
                 var progressbar = document.querySelector('#task-progress .progress-bar');
                 if (progressbar) {
                     progressbar.style.width = response.percentage + '%';
@@ -96,7 +96,7 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
                         message: 'Task completed. Reloading page...',
                         type: 'success'
                     });
-                    setTimeout(function () {
+                    setTimeout(function() {
                         location.reload();
                     }, 1000);
                 } else if (response.status === 'failed') {
@@ -106,12 +106,12 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
                     });
                     resetUI();
                 } else {
-                    setTimeout(function () {
+                    setTimeout(function() {
                         pollTaskStatus(taskid);
                     }, 1000);
                 }
             },
-            fail: function (error) {
+            fail: function(error) {
                 Notification.addNotification({
                     message: 'Error checking status: ' + error.message,
                     type: 'error'

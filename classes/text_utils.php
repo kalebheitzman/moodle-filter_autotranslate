@@ -153,21 +153,21 @@ class text_utils {
      *
      * @param string $text Content to process.
      * @param \context $context Context (unused here).
-     * @param array &$translations Reference to store translations.
-     * @param string &$outsidetext Reference for text outside tags.
+     * @param array $translations Reference to store translations.
+     * @param string $outsidetext Reference for text outside tags.
      * @param array $validlangs Valid language codes.
-     * @param string|null &$firstcontent Reference to first content found.
-     * @param string &$sourcetext Reference to source text.
+     * @param string|null $firstcontent Reference to first content found.
+     * @param string $sourcetext Reference to source text.
      * @return string Processed content.
      */
     public static function process_span_multilang_tags(
         $text,
         $context,
-        &$translations,
-        &$outsidetext,
+        $translations,
+        $outsidetext,
         $validlangs,
-        &$firstcontent,
-        &$sourcetext
+        $firstcontent,
+        $sourcetext
     ) {
         $sitelang = get_config('core', 'lang') ?: 'en';
         $lastpos = 0;
