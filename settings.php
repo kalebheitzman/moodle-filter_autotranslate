@@ -118,6 +118,17 @@ if ($hassiteconfig) {
             )
         );
 
+        // System Instructions (Glossary and Translation Instructions).
+        $settings->add(
+            new admin_setting_configtextarea(
+                'filter_autotranslate/systeminstructions',
+                get_string('systeminstructions', 'filter_autotranslate'),
+                get_string('systeminstructions_desc', 'filter_autotranslate'),
+                'Ensure the translation accurately reflects the source text while adapting it for cultural and linguistic nuances.',
+                PARAM_TEXT
+            )
+        );
+
         // Section: Translation Settings.
         $settings->add(
             new admin_setting_heading(
@@ -156,17 +167,6 @@ if ($hassiteconfig) {
                 )
             );
         }
-
-        // System Instructions (Glossary and Translation Instructions).
-        $settings->add(
-            new admin_setting_configtextarea(
-                'filter_autotranslate/systeminstructions',
-                get_string('systeminstructions', 'filter_autotranslate'),
-                get_string('systeminstructions_desc', 'filter_autotranslate'),
-                'Ensure the translation accurately reflects the source text while adapting it for cultural and linguistic nuances.',
-                PARAM_TEXT
-            )
-        );
 
         // Batch Size for Translation.
         $settings->add(
@@ -220,16 +220,6 @@ if ($hassiteconfig) {
                 get_string('taskfrequency_desc', 'filter_autotranslate'),
                 60,
                 PARAM_INT
-            )
-        );
-
-        // Manual trigger option.
-        $settings->add(
-            new admin_setting_configcheckbox(
-                'filter_autotranslate/enablemanualtrigger',
-                get_string('enablemanualtrigger', 'filter_autotranslate'),
-                get_string('enablemanualtrigger_desc', 'filter_autotranslate'),
-                0
             )
         );
 
