@@ -169,7 +169,6 @@ class content_service {
      * @return bool True if persisted, false if no match or unsupported context.
      */
     private function persist_tagged_content($taggedcontent, $sourcetext, $originaltext, $context, $courseid) {
-
         if ($this->textutils->is_tagged($sourcetext)) {
             return false; // Skip already tagged source text.
         }
@@ -294,11 +293,40 @@ class content_service {
                             if (!in_array('id', array_keys($columns))) {
                                 continue; // Skip tables without an 'id' column.
                             }
-                            try {
-                                $records = $this->db->get_records($table, [$fk => $cm->instance]);
-                            } catch (\dml_exception $e) {
-                                continue;
+
+                            // Special handling for quiz module's question and question_answers tables.
+                            if ($modname === 'quiz' && ($table === 'question' || $table === 'question_answers')) {
+                                // Fetch question IDs associated with this quiz via quiz_slots.
+                                $questionids = $this->db->get_fieldset_sql(
+                                    "SELECT questionid FROM {quiz_slots} WHERE quizid = ?",
+                                    [$cm->instance]
+                                );
+                                if (empty($questionids)) {
+                                    continue;
+                                }
+
+                                if ($table === 'question') {
+                                    // Fetch questions directly.
+                                    $records = $this->db->get_records_list('question', 'id', $questionids);
+                                } else if ($table === 'question_answers') {
+                                    // Fetch question answers for the questions.
+                                    $placeholders = implode(',', array_fill(0, count($questionids), '?'));
+                                    $records = $this->db->get_records_sql(
+                                        "SELECT * FROM {question_answers} WHERE question IN ($placeholders)",
+                                        $questionids
+                                    );
+                                } else {
+                                    continue;
+                                }
+                            } else {
+                                // Standard handling for other secondary tables.
+                                try {
+                                    $records = $this->db->get_records($table, [$fk => $cm->instance]);
+                                } catch (\dml_exception $e) {
+                                    continue;
+                                }
                             }
+
                             foreach ($records as $record) {
                                 $recordfields = array_intersect_key((array)$record, $fields);
                                 foreach ($recordfields as $field => $value) {
@@ -414,10 +442,16 @@ class content_service {
         $coremoduletables = $this->get_all_module_schemas($coremodulelist);
         $coremodulesgrouped = [];
         $prefix = $this->db->get_prefix();
+
+        // Special handling for quiz module to include question and question_answers.
+        $specialtables = ['question', 'question_answers'];
+
         foreach ($coremodulelist as $modname) {
             $coremodulesgrouped[$modname] = [];
             foreach ($coremoduletables as $table => $info) {
-                if (strpos($table, $prefix . $modname) === 0) {
+                $unprefixedtable = str_replace($prefix, '', $table);
+                // Include tables that start with the module name or are special tables for quiz.
+                if (strpos($table, $prefix . $modname) === 0 || ($modname === 'quiz' && in_array($unprefixedtable, $specialtables))) {
                     $coremodulesgrouped[$modname][$table] = $info['fields'];
                 }
             }
@@ -500,6 +534,7 @@ class content_service {
             'name', 'intro', 'summary', 'description', 'content', 'contents', 'message', 'text', 'body',
             'title', 'feedback', 'instructions', 'question', 'answer', 'response', 'comment', 'label',
             'value', 'presentation', 'instructauthors', 'instructreviewers', 'conclusion',
+            'subject', 'concept', 'definition', 'questiontext', 'generalfeedback', 'heading', 'cachedcontent',
         ];
         $excludefields = [
             'id', 'timemodified', 'timecreated', 'dependvalue', 'configdata', 'path', 'colour',
@@ -507,6 +542,42 @@ class content_service {
             'format', 'version', 'status', 'grade', 'score', 'url', 'email', 'phone', 'ip', 'token',
             'key', 'secret', 'password', 'hash', 'signature', 'settings', 'options', 'metadata',
             'attributes', 'params', 'data', 'json',
+        ];
+
+        // Manual mappings for secondary tables.
+        $secondarytables = [
+            'forum' => [
+                'forum_posts' => [
+                    'fields' => ['subject', 'message'],
+                    'fk' => 'discussion', // Links to forum_discussions, which links to forum.
+                ],
+            ],
+            'glossary' => [
+                'glossary_entries' => [
+                    'fields' => ['concept', 'definition'],
+                    'fk' => 'glossaryid', // Links directly to glossary.
+                ],
+            ],
+            'quiz' => [
+                'question' => [
+                    'fields' => ['name', 'questiontext', 'generalfeedback'],
+                    'fk' => 'id', // Links indirectly via quiz_slots (handled in persist_tagged_content).
+                ],
+                'question_answers' => [
+                    'fields' => ['answer', 'feedback'],
+                    'fk' => 'question', // Links to question, which links to quiz via quiz_slots.
+                ],
+                'quiz_sections' => [
+                    'fields' => ['heading'],
+                    'fk' => 'quizid', // Links directly to quiz.
+                ],
+            ],
+            'wiki' => [
+                'wiki_pages' => [
+                    'fields' => ['title', 'cachedcontent'],
+                    'fk' => 'subwikiid', // Links to wiki_subwikis, which links to wiki.
+                ],
+            ],
         ];
 
         $dbtype = strtolower($CFG->dbtype);
@@ -595,6 +666,29 @@ class content_service {
                 ];
             } catch (\moodle_exception $e) {
                 debugging("Failed to get columns for '$table': " . $e->getMessage(), DEBUG_DEVELOPER);
+            }
+        }
+
+        // Add manually mapped secondary tables for specific modules.
+        if (isset($secondarytables[$modname])) {
+            foreach ($secondarytables[$modname] as $secondarytable => $info) {
+                $fulltable = $prefix . $secondarytable;
+                // Special handling for quiz module's question and question_answers tables.
+                if ($modname === 'quiz' && ($secondarytable === 'question' || $secondarytable === 'question_answers')) {
+                    // These tables don't follow the mdl_quiz% pattern but are related to quiz.
+                    $schema[$fulltable] = [
+                        'fields' => $info['fields'],
+                        'fk' => $info['fk'],
+                    ];
+                } else {
+                    // Only add the secondary table if it exists in the database and matches the pattern.
+                    if (in_array($fulltable, $tables)) {
+                        $schema[$fulltable] = [
+                            'fields' => $info['fields'],
+                            'fk' => $info['fk'],
+                        ];
+                    }
+                }
             }
         }
 

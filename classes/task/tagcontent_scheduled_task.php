@@ -37,6 +37,7 @@
  *   processing in the next run.
  * - Provides detailed logging output using `mtrace` to track progress and debug issues.
  * - Employs all lowercase variable names per plugin convention.
+ * - Includes explicit handling for all secondary tables to correctly determine courseid.
  *
  * Dependencies:
  * - `content_service.php`: For processing content, tagging, and storing translations.
@@ -49,12 +50,14 @@
 
 namespace filter_autotranslate\task;
 
-use core\task\scheduled_task;
+defined('MOODLE_INTERNAL') || die();
+
+require_once($CFG->dirroot . '/filter/autotranslate/classes/content_service.php');
 
 /**
  * Scheduled task to tag content in Moodle tables for the Autotranslate plugin.
  */
-class tagcontent_scheduled_task extends scheduled_task {
+class tagcontent_scheduled_task extends \core\task\scheduled_task {
     /**
      * Returns the name of the task.
      *
@@ -78,6 +81,14 @@ class tagcontent_scheduled_task extends scheduled_task {
         // Retrieve settings.
         $recordsperrun = (int)(get_config('filter_autotranslate', 'recordsperrun') ?: 1000);
         $managelimit = (int)(get_config('filter_autotranslate', 'managelimit') ?: 20);
+
+        // Check if the required tables for question references exist (Moodle 4.5+).
+        $questionreferencestablesexist = $DB->get_manager()->table_exists('question_references') &&
+                                         $DB->get_manager()->table_exists('question_versions') &&
+                                         $DB->get_manager()->table_exists('question_bank_entries');
+        if (!$questionreferencestablesexist) {
+            mtrace("Warning: Question reference tables (question_references, question_versions, question_bank_entries) do not exist. Skipping question and question_answers tables.");
+        }
 
         // Fetch all enabled fields from the settings matrices.
         $fieldoptions = $contentservice->get_field_selection_options();
@@ -192,6 +203,12 @@ class tagcontent_scheduled_task extends scheduled_task {
                 continue;
             }
 
+            // Skip question and question_answers tables if question reference tables are not usable.
+            if (($table === 'question' || $table === 'question_answers') && !$questionreferencestablesexist) {
+                mtrace("Skipping table $table: Question reference tables are not usable.");
+                continue;
+            }
+
             // Log the start of processing for this table.
             mtrace("Processing table: $table, starting from id: $currentid");
 
@@ -229,12 +246,15 @@ class tagcontent_scheduled_task extends scheduled_task {
                         if ($table === 'course') {
                             $context = \context_course::instance($record->id);
                             $courseid = $record->id;
+                            mtrace("Table: $table, Record ID: {$record->id}, Course ID: $courseid");
                         } else if ($table === 'course_sections') {
                             $section = $DB->get_record('course_sections', ['id' => $record->id], 'course', MUST_EXIST);
                             $context = \context_course::instance($section->course);
                             $courseid = $section->course;
+                            mtrace("Table: $table, Record ID: {$record->id}, Course ID: $courseid");
                         } else if ($table === 'course_categories') {
                             $context = \context_coursecat::instance($record->id);
+                            mtrace("Table: $table, Record ID: {$record->id}, Course ID: $courseid (no course ID for categories)");
                         } else {
                             // Module table (primary or secondary, e.g., forum, forum_posts).
                             $instanceid = $record->id;
@@ -242,66 +262,149 @@ class tagcontent_scheduled_task extends scheduled_task {
 
                             // For primary tables (e.g., forum), the instanceid is the record id.
                             // For secondary tables (e.g., forum_posts), we need to find the primary record.
-                            if ($table === $modname) {
-                                // Primary table.
-                                $cm = $DB->get_record_sql(
-                                    "SELECT cm.id, cm.course
-                                     FROM {course_modules} cm
-                                     JOIN {modules} m ON m.id = cm.module
-                                     WHERE m.name = :modname AND cm.instance = :instance",
-                                    ['modname' => $modname, 'instance' => $instanceid]
+                            if ($table === 'forum_posts') {
+                                $modname = 'forum';
+                                $post = $DB->get_record('forum_posts', ['id' => $instanceid], 'discussion', MUST_EXIST);
+                                $discussion = $DB->get_record(
+                                    'forum_discussions',
+                                    ['id' => $post->discussion],
+                                    'forum',
+                                    MUST_EXIST
                                 );
-                            } else {
-                                // Secondary table (e.g., forum_posts, forum_discussions).
-                                // Infer the module name and relationship.
-                                $parts = explode('_', $modname);
-                                $modname = $parts[0]; // Example, 'forum' from 'forum_posts'.
-                                if ($table === 'forum_posts') {
-                                    $post = $DB->get_record('forum_posts', ['id' => $instanceid], 'discussion', MUST_EXIST);
-                                    $discussion = $DB->get_record(
-                                        'forum_discussions',
-                                        ['id' => $post->discussion],
-                                        'forum',
-                                        MUST_EXIST
+                                $instanceid = $discussion->forum;
+                            } else if ($table === 'forum_discussions') {
+                                $modname = 'forum';
+                                $discussion = $DB->get_record('forum_discussions', ['id' => $instanceid], 'forum', MUST_EXIST);
+                                $instanceid = $discussion->forum;
+                            } else if ($table === 'glossary_entries') {
+                                $modname = 'glossary';
+                                $entry = $DB->get_record('glossary_entries', ['id' => $instanceid], 'glossaryid', MUST_EXIST);
+                                $instanceid = $entry->glossaryid;
+                            } else if ($table === 'question') {
+                                mtrace("Debug: Processing question record ID: {$record->id}");
+                                $modname = 'quiz';
+                                // Find the question bank entry and version for this question.
+                                $version = $DB->get_record('question_versions', ['questionid' => $instanceid], 'questionbankentryid', IGNORE_MISSING);
+                                if ($version) {
+                                    mtrace("Debug: Found question version for questionid: $instanceid, questionbankentryid: {$version->questionbankentryid}");
+                                    // Find the question reference for this question bank entry.
+                                    $reference = $DB->get_record_sql(
+                                        "SELECT qr.itemid
+                                         FROM {question_references} qr
+                                         WHERE qr.component = 'mod_quiz'
+                                         AND qr.questionarea = 'slot'
+                                         AND qr.questionbankentryid = :questionbankentryid",
+                                        ['questionbankentryid' => $version->questionbankentryid],
+                                        IGNORE_MISSING
                                     );
-                                    $instanceid = $discussion->forum;
-                                } else if ($table === 'forum_discussions') {
-                                    $discussion = $DB->get_record('forum_discussions', ['id' => $instanceid], 'forum', MUST_EXIST);
-                                    $instanceid = $discussion->forum;
-                                } else {
-                                    // Generic fallback: assume the table name follows the pattern [modname]_[suffix].
-                                    // Fetch the foreign key field (guess based on common patterns).
-                                    $columns = $DB->get_columns($table);
-                                    $fk = null;
-                                    foreach ([$modname . 'id', 'id'] as $possiblefk) {
-                                        if (isset($columns[$possiblefk])) {
-                                            $fk = $possiblefk;
-                                            break;
+                                    if ($reference) {
+                                        mtrace("Debug: Found question reference for questionbankentryid: {$version->questionbankentryid}, itemid: {$reference->itemid}");
+                                        // Get the quizid from the quiz_slots record.
+                                        $slot = $DB->get_record('quiz_slots', ['id' => $reference->itemid], 'quizid', IGNORE_MISSING);
+                                        if ($slot) {
+                                            $instanceid = $slot->quizid;
+                                            mtrace("Debug: Found quiz_slots record for itemid: {$reference->itemid}, quizid: {$slot->quizid}");
+                                        } else {
+                                            mtrace("Table: $table, Record ID: {$record->id}, No quiz_slots record found for itemid: {$reference->itemid}");
+                                            continue; // Skip if no quiz_slots record is found.
                                         }
+                                    } else {
+                                        mtrace("Table: $table, Record ID: {$record->id}, No question reference found for questionbankentryid: {$version->questionbankentryid}");
+                                        continue; // Skip if no question reference is found.
                                     }
-                                    if ($fk) {
-                                        $parentid = $DB->get_field($table, $fk, ['id' => $instanceid]);
-                                        $instanceid = $parentid;
+                                } else {
+                                    mtrace("Table: $table, Record ID: {$record->id}, No question version found for questionid: $instanceid");
+                                    continue; // Skip if no question version is found.
+                                }
+                            } else if ($table === 'question_answers') {
+                                mtrace("Debug: Processing question_answers record ID: {$record->id}");
+                                $modname = 'quiz';
+                                $answer = $DB->get_record('question_answers', ['id' => $instanceid], 'question', MUST_EXIST);
+                                mtrace("Debug: Found question ID: {$answer->question} for question_answers record ID: $instanceid");
+                                // Find the question bank entry and version for this question.
+                                $version = $DB->get_record('question_versions', ['questionid' => $answer->question], 'questionbankentryid', IGNORE_MISSING);
+                                if ($version) {
+                                    mtrace("Debug: Found question version for questionid: {$answer->question}, questionbankentryid: {$version->questionbankentryid}");
+                                    // Find the question reference for this question bank entry.
+                                    $reference = $DB->get_record_sql(
+                                        "SELECT qr.itemid
+                                         FROM {question_references} qr
+                                         WHERE qr.component = 'mod_quiz'
+                                         AND qr.questionarea = 'slot'
+                                         AND qr.questionbankentryid = :questionbankentryid",
+                                        ['questionbankentryid' => $version->questionbankentryid],
+                                        IGNORE_MISSING
+                                    );
+                                    if ($reference) {
+                                        mtrace("Debug: Found question reference for questionbankentryid: {$version->questionbankentryid}, itemid: {$reference->itemid}");
+                                        // Get the quizid from the quiz_slots record.
+                                        $slot = $DB->get_record('quiz_slots', ['id' => $reference->itemid], 'quizid', IGNORE_MISSING);
+                                        if ($slot) {
+                                            $instanceid = $slot->quizid;
+                                            mtrace("Debug: Found quiz_slots record for itemid: {$reference->itemid}, quizid: {$slot->quizid}");
+                                        } else {
+                                            mtrace("Table: $table, Record ID: {$record->id}, No quiz_slots record found for itemid: {$reference->itemid}");
+                                            continue; // Skip if no quiz_slots record is found.
+                                        }
+                                    } else {
+                                        mtrace("Table: $table, Record ID: {$record->id}, No question reference found for questionbankentryid: {$version->questionbankentryid}");
+                                        continue; // Skip if no question reference is found.
+                                    }
+                                } else {
+                                    mtrace("Table: $table, Record ID: {$record->id}, No question version found for questionid: {$answer->question}");
+                                    continue; // Skip if no question version is found.
+                                }
+                            } else if ($table === 'quiz_sections') {
+                                $modname = 'quiz';
+                                $section = $DB->get_record('quiz_sections', ['id' => $instanceid], 'quizid', MUST_EXIST);
+                                $instanceid = $section->quizid;
+                            } else if ($table === 'wiki_pages') {
+                                $modname = 'wiki';
+                                $page = $DB->get_record('wiki_pages', ['id' => $instanceid], 'subwikiid', MUST_EXIST);
+                                $subwiki = $DB->get_record('wiki_subwikis', ['id' => $page->subwikiid], 'wikiid', MUST_EXIST);
+                                $instanceid = $subwiki->wikiid;
+                            } else {
+                                // Generic handling for other secondary tables (e.g., book_chapters, lesson_pages).
+                                $parts = explode('_', $modname);
+                                $modname = $parts[0]; // Example, 'book' from 'book_chapters'.
+                                $columns = $DB->get_columns($table);
+                                $fk = null;
+                                foreach ([$modname . 'id', 'id'] as $possiblefk) {
+                                    if (isset($columns[$possiblefk])) {
+                                        $fk = $possiblefk;
+                                        break;
                                     }
                                 }
-
-                                $cm = $DB->get_record_sql(
-                                    "SELECT cm.id, cm.course
-                                     FROM {course_modules} cm
-                                     JOIN {modules} m ON m.id = cm.module
-                                     WHERE m.name = :modname AND cm.instance = :instance",
-                                    ['modname' => $modname, 'instance' => $instanceid]
-                                );
+                                if ($fk) {
+                                    $parentid = $DB->get_field($table, $fk, ['id' => $instanceid]);
+                                    $instanceid = $parentid;
+                                } else {
+                                    mtrace("Table: $table, Record ID: {$record->id}, No foreign key found.");
+                                    continue; // Skip if no foreign key is found.
+                                }
                             }
+
+                            // Fetch the course_modules record with the correct modname and instanceid.
+                            $cm = $DB->get_record_sql(
+                                "SELECT cm.id, cm.course
+                                 FROM {course_modules} cm
+                                 JOIN {modules} m ON m.id = cm.module
+                                 WHERE m.name = :modname AND cm.instance = :instance",
+                                ['modname' => $modname, 'instance' => $instanceid]
+                            );
 
                             if ($cm) {
                                 $context = \context_module::instance($cm->id);
                                 $courseid = $cm->course;
+                                mtrace("Table: $table, Record ID: {$record->id}, Course ID: $courseid (via course_modules)");
+                            } else {
+                                mtrace("Table: $table, Record ID: {$record->id}, No course_modules record found for modname: $modname, instance: $instanceid");
                             }
                         }
 
                         if (!$context) {
                             $context = \context_system::instance();
+                            mtrace("Table: $table, Record ID: {$record->id}, Using system context (no specific context found)");
                         }
 
                         // Process each enabled field.
@@ -313,6 +416,9 @@ class tagcontent_scheduled_task extends scheduled_task {
                             $taggedcontent = $contentservice->process_content($originalcontent, $context, $courseid);
                             if ($taggedcontent !== $originalcontent) {
                                 $DB->set_field($table, $field, $taggedcontent, ['id' => $record->id]);
+                                mtrace("Table: $table, Record ID: {$record->id}, Field: $field, Tagged content updated, Course ID: $courseid");
+                            } else {
+                                mtrace("Table: $table, Record ID: {$record->id}, Field: $field, No change in content, Course ID: $courseid");
                             }
                         }
 
