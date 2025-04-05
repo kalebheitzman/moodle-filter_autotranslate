@@ -15,25 +15,24 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Autotranslate Manage Form
+ * Autotranslate manage form.
  *
- * Purpose:
- * This class defines the filter form for the manage page (manage.php) in the filter_autotranslate
- * plugin, allowing administrators to filter translations by language, human status, review status,
- * and records per page. It renders a set of buttons linking to updated URLs for filtering.
+ * Defines the filter form for `manage.php` in the Autotranslate plugin, allowing admins to
+ * filter translations by language, human status, review status, and records per page.
+ *
+ * Features:
+ * - Buttons for language, human status, review status, and per-page limits.
+ * - Dynamic language options from site and `targetlangs` settings.
+ * - Links preserve current filters with updated selections.
  *
  * Usage:
- * Instantiated in manage.php to provide a filter interface, passing current filter values and a
- * base URL to generate dynamic filter links.
+ * - Instantiated in `manage.php` to filter translations displayed via `ui_manager.php`.
+ * - Review status compares source vs. target `timemodified` timestamps.
  *
- * Design Decisions:
- * - Extends Moodle’s `moodleform` class for consistency with Moodle’s form handling.
- * - Uses static button links instead of form submission for immediate filtering, enhancing usability.
- * - Dynamically builds language options from site language and plugin settings (`targetlangs`).
- * - Employs all lowercase variable names to align with plugin naming conventions.
- *
- * Dependencies:
- * - None (relies on Moodle’s core `formslib` and configuration settings).
+ * Design:
+ * - Extends `moodleform` for Moodle form consistency.
+ * - Uses static button links for instant filtering, not form submission.
+ * - Employs lowercase variable names per plugin convention.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -53,8 +52,8 @@ class manage_form extends \moodleform {
     /**
      * Defines the form elements for filtering translations.
      *
-     * Sets up filter buttons for language, human status, review status, and records per page, linking
-     * to the manage page with updated parameters.
+     * Adds button groups for language, human status, review status, and records per page,
+     * linking to `manage.php` with updated filter parameters.
      */
     public function definition() {
         $mform = $this->_form;

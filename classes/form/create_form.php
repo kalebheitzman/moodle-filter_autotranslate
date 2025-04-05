@@ -15,28 +15,25 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Autotranslate Create Form
+ * Autotranslate create form.
  *
- * Purpose:
- * This class defines the form used on the create page (create.php) in the filter_autotranslate
- * plugin, allowing administrators to add a new translation for a specific hash and language. It
- * includes fields for translated text and human status, with read-only displays for hash and
- * language, and preserves manage.php filters.
+ * Defines the form for `create.php` in the Autotranslate plugin, enabling admins to add
+ * a new translation for a specific hash and language, stored via `content_service.php`.
+ *
+ * Features:
+ * - Fields for translated text and human status (default checked).
+ * - Read-only displays for hash and language.
+ * - Preserves `manage.php` filters via hidden fields.
  *
  * Usage:
- * Instantiated in create.php to provide a form for entering a new translation, with options for
- * WYSIWYG or textarea based on source text HTML content.
+ * - Instantiated in `create.php` to create translations, using WYSIWYG or textarea based
+ *   on source text HTML, submitted to `content_service->upsert_translation()`.
  *
- * Design Decisions:
- * - Extends Moodle’s `moodleform` class for consistency with Moodle’s form handling.
- * - Uses hidden fields to preserve hash, tlang, and manage.php filters during submission.
- * - Displays hash and lang as static elements to inform users without allowing edits.
- * - Switches between WYSIWYG editor and textarea based on the `use_wysiwyg` flag.
- * - Defaults 'human' checkbox to checked for manual entries.
- * - Uses all lowercase variable names per plugin convention.
- *
- * Dependencies:
- * - None (uses Moodle’s core `formslib`).
+ * Design:
+ * - Extends `moodleform` for Moodle form consistency.
+ * - Static hash/lang displays prevent edits, hidden fields retain filters.
+ * - WYSIWYG/textarea toggled by `use_wysiwyg` from `create.php`.
+ * - Uses lowercase variable names per plugin convention.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -57,8 +54,8 @@ class create_form extends \moodleform {
     /**
      * Defines the form elements for creating a new translation.
      *
-     * Sets up the form with fields for translated text and human status, along with read-only
-     * displays for hash and language, and hidden fields for filter preservation.
+     * Adds fields for translated text and human status, static hash/lang displays, and hidden
+     * fields to preserve `manage.php` filters.
      */
     protected function definition() {
         $mform = $this->_form;
@@ -143,8 +140,7 @@ class create_form extends \moodleform {
     /**
      * Validates the form data.
      *
-     * Performs server-side validation. Currently relies on client-side required field check,
-     * but can be extended for additional validation (e.g., HTML content checks).
+     * Ensures client-side required field validation; server-side checks can be added if needed.
      *
      * @param array $data The submitted form data.
      * @param array $files The submitted files (not used).
@@ -152,7 +148,7 @@ class create_form extends \moodleform {
      */
     public function validation($data, $files) {
         $errors = parent::validation($data, $files);
-        // Additional validation can be added here if needed (e.g., HTML content validation).
+        // Additional server-side validation can be added here (e.g., text length).
         return $errors;
     }
 }
