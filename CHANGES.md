@@ -1,6 +1,6 @@
 # Changelog
 
-## 2025040401
+## 2025040500
 
 - **Architecture Refinement**: Refined `filter_autotranslate` structure for performance and clarity:
   - `text_filter.php` now replaces `{t:hash}` tags only, caching via `cache.php` (`taggedcontent`).

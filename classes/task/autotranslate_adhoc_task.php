@@ -47,6 +47,7 @@
 namespace filter_autotranslate\task;
 
 use core\task\adhoc_task;
+use curl; // For making HTTP requests to the translation API.
 
 /**
  * Adhoc task to fetch and store translations.
@@ -252,19 +253,22 @@ class autotranslate_adhoc_task extends adhoc_task {
             while ($attempt < $maxattempts && !$success) {
                 $attempt++;
                 $requests++;
-                $ch = curl_init();
+
+                // Instantiate Moodle's curl class.
+                $curl = new curl();
+
                 try {
-                    curl_setopt($ch, CURLOPT_URL, rtrim($apiendpoint, '/') . '/chat/completions');
-                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-                    curl_setopt($ch, CURLOPT_POST, 1);
-                    curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    // Set the URL.
+                    $url = rtrim($apiendpoint, '/') . '/chat/completions';
+
+                    // Set headers.
+                    $headers = [
                         'Content-Type: application/json',
                         'Accept: application/json',
                         "Authorization: Bearer $apikey",
-                    ]);
-                    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-                    curl_setopt($ch, CURLOPT_TIMEOUT, 120);
+                    ];
 
+                    // Prepare POST data.
                     $postdata = json_encode([
                         'model' => $apimodel,
                         'messages' => [
@@ -281,10 +285,19 @@ class autotranslate_adhoc_task extends adhoc_task {
                         'temperature' => 0.7,
                     ]);
 
-                    curl_setopt($ch, CURLOPT_POSTFIELDS, $postdata);
-                    $result = curl_exec($ch);
-                    $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                    curl_close($ch);
+                    // Set options (equivalent to curl_setopt).
+                    $curl->setHeader($headers);
+                    $curl->setopt([
+                        'CURLOPT_RETURNTRANSFER' => 1,
+                        'CURLOPT_CONNECTTIMEOUT' => 10,
+                        'CURLOPT_TIMEOUT' => 120,
+                    ]);
+
+                    // Execute the POST request.
+                    $result = $curl->post($url, $postdata);
+
+                    // Get HTTP status code.
+                    $httpcode = $curl->info['http_code'];
 
                     if ($httpcode == 429) {
                         sleep(60);
@@ -332,7 +345,6 @@ class autotranslate_adhoc_task extends adhoc_task {
                         );
                     }
                 } catch (\Exception $e) {
-                    curl_close($ch);
                     if ($attempt == $maxattempts) {
                         $this->update_progress('failed', $processed, $totalentries, 'API error: ' . $e->getMessage());
                         return;
@@ -356,7 +368,7 @@ class autotranslate_adhoc_task extends adhoc_task {
                 $hash = $hashes[$index];
                 $contextlevel = $contextlevels[$index];
                 $context = $courseid ? \context_course::instance($courseid) : null;
-                $contentservice->store_translation($hash, $targetlang, $translatedtext, $contextlevel, $courseid, $context);
+                $contentservice->upsert_translation($hash, $targetlang, $translatedtext, $contextlevel, 0);
                 $processed++;
                 $this->update_progress('running', $processed, $totalentries);
             }

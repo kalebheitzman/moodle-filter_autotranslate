@@ -103,8 +103,17 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
             $dbman->add_index($table, $index);
         }
 
-        // Populate timereviewed for existing records.
-        $DB->execute("UPDATE {filter_autotranslate_translations} SET timereviewed = timecreated WHERE timereviewed = 0");
+        // Populate timereviewed for existing records using DML.
+        try {
+            $DB->set_field(
+                'filter_autotranslate_translations',
+                'timereviewed',
+                $DB->sql_cast_char2int('timecreated'),
+                ['timereviewed' => 0]
+            );
+        } catch (\dml_exception $e) {
+            debugging("Failed to populate timereviewed: " . $e->getMessage(), DEBUG_DEVELOPER);
+        }
 
         upgrade_plugin_savepoint(true, 2025031830, 'filter', 'autotranslate');
     }

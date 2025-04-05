@@ -70,10 +70,10 @@ class create_form extends \moodleform {
         $mform->setType('courseid', PARAM_INT);
 
         $mform->addElement('hidden', 'filter_human', $this->_customdata['filter_human']);
-        $mform->setType('filter_human', PARAM_RAW);
+        $mform->setType('filter_human', PARAM_INT);
 
         $mform->addElement('hidden', 'filter_needsreview', $this->_customdata['filter_needsreview']);
-        $mform->setType('filter_needsreview', PARAM_RAW);
+        $mform->setType('filter_needsreview', PARAM_INT);
 
         $mform->addElement('hidden', 'perpage', $this->_customdata['perpage']);
         $mform->setType('perpage', PARAM_INT);
@@ -109,7 +109,7 @@ class create_form extends \moodleform {
                 get_string('translatedtext', 'filter_autotranslate'),
                 ['rows' => 10]
             );
-            $mform->setType('translated_text', PARAM_RAW);
+            $mform->setType('translated_text', PARAM_CLEANHTML);
             $mform->setDefault('translated_text', ['text' => '', 'format' => FORMAT_HTML]);
         } else {
             $mform->addElement(
@@ -118,7 +118,7 @@ class create_form extends \moodleform {
                 get_string('translatedtext', 'filter_autotranslate'),
                 'wrap="virtual" rows="10" cols="50"'
             );
-            $mform->setType('translated_text', PARAM_RAW);
+            $mform->setType('translated_text', PARAM_CLEANHTML);
             $mform->setDefault('translated_text', '');
         }
         $mform->addRule('translated_text', get_string('required'), 'required', null, 'client');

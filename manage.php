@@ -62,9 +62,9 @@ try {
     $PAGE->set_context($context);
     $PAGE->set_url('/filter/autotranslate/manage.php', [
         'courseid' => optional_param('courseid', 0, PARAM_INT),
-        'filter_lang' => optional_param('filter_lang', '', PARAM_RAW),
-        'filter_human' => optional_param('filter_human', '', PARAM_RAW),
-        'filter_needsreview' => optional_param('filter_needsreview', '', PARAM_RAW),
+        'filter_lang' => optional_param('filter_lang', '', PARAM_TEXT),
+        'filter_human' => optional_param('filter_human', '', PARAM_INT),
+        'filter_needsreview' => optional_param('filter_needsreview', '', PARAM_INT),
         'perpage' => optional_param('perpage', 20, PARAM_INT),
         'page' => optional_param('page', 0, PARAM_INT),
         'sort' => optional_param('sort', 'hash', PARAM_ALPHA),
@@ -83,9 +83,9 @@ try {
     // Get parameters.
     $courseid = optional_param('courseid', 0, PARAM_INT);
     $action = optional_param('action', '', PARAM_ALPHA);
-    $filterlang = optional_param('filter_lang', '', PARAM_RAW);
-    $filterhuman = optional_param('filter_human', '', PARAM_RAW);
-    $filterneedsreview = optional_param('filter_needsreview', '', PARAM_RAW);
+    $filterlang = optional_param('filter_lang', '', PARAM_TEXT);
+    $filterhuman = optional_param('filter_human', '', PARAM_INT);
+    $filterneedsreview = optional_param('filter_needsreview', '', PARAM_INT);
     $page = optional_param('page', 0, PARAM_INT);
     $perpage = optional_param('perpage', 20, PARAM_INT);
     $sort = optional_param('sort', 'hash', PARAM_ALPHA);

@@ -80,7 +80,7 @@ class manage_form extends \moodleform {
         }
 
         $mform->addElement('hidden', 'filter_lang', $filterlang);
-        $mform->setType('filter_lang', PARAM_RAW);
+        $mform->setType('filter_lang', PARAM_TEXT);
         $filterbuttons = [];
         foreach ($langoptions as $value => $label) {
             $url = new \moodle_url($baseurl, [
@@ -107,7 +107,7 @@ class manage_form extends \moodleform {
             '0' => get_string('no', 'filter_autotranslate'),
         ];
         $mform->addElement('hidden', 'filter_human', $filterhuman);
-        $mform->setType('filter_human', PARAM_RAW);
+        $mform->setType('filter_human', PARAM_INT);
         $humanbuttons = [];
         foreach ($humanoptions as $value => $label) {
             $url = new \moodle_url($baseurl, [
@@ -134,7 +134,7 @@ class manage_form extends \moodleform {
             '0' => get_string('no', 'filter_autotranslate'),
         ];
         $mform->addElement('hidden', 'filter_needsreview', $filterneedsreview);
-        $mform->setType('filter_needsreview', PARAM_RAW);
+        $mform->setType('filter_needsreview', PARAM_INT);
         $needsreviewbuttons = [];
         foreach ($needsreviewoptions as $value => $label) {
             $url = new \moodle_url($baseurl, [

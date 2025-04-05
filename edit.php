@@ -65,11 +65,11 @@ require_capability('filter/autotranslate:manage', \context_system::instance());
 
 // Get parameters.
 $hash = required_param('hash', PARAM_ALPHANUMEXT);
-$tlang = required_param('tlang', PARAM_RAW);
+$tlang = required_param('tlang', PARAM_TEXT);
 $courseid = optional_param('courseid', 0, PARAM_INT);
 $contextid = optional_param('contextid', SYSCONTEXTID, PARAM_INT);
-$filterhuman = optional_param('filter_human', '', PARAM_RAW);
-$filterneedsreview = optional_param('filter_needsreview', '', PARAM_RAW);
+$filterhuman = optional_param('filter_human', '', PARAM_INT);
+$filterneedsreview = optional_param('filter_needsreview', '', PARAM_INT);
 $perpage = optional_param('perpage', 20, PARAM_INT);
 $page = optional_param('page', 0, PARAM_INT);
 $sort = optional_param('sort', 'hash', PARAM_ALPHA);

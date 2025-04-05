@@ -828,10 +828,10 @@ class content_service {
 
         if (!$this->db->record_exists('filter_autotranslate_hid_cids', ['hash' => $hash, 'courseid' => $courseid])) {
             try {
-                $this->db->execute(
-                    "INSERT INTO {filter_autotranslate_hid_cids} (hash, courseid) VALUES (?, ?)",
-                    [$hash, $courseid]
-                );
+                $record = new \stdClass();
+                $record->hash = $hash;
+                $record->courseid = $courseid;
+                $this->db->insert_record('filter_autotranslate_hid_cids', $record);
             } catch (\dml_exception $e) {
                 debugging("Failed to update hash-course mapping: " . $e->getMessage(), DEBUG_DEVELOPER);
             }

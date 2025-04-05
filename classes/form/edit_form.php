@@ -87,7 +87,7 @@ class edit_form extends \moodleform {
                 get_string('translatedtext', 'filter_autotranslate'),
                 ['rows' => 10]
             );
-            $mform->setType('translated_text', PARAM_RAW);
+            $mform->setType('translated_text', PARAM_CLEANHTML);
             $mform->setDefault('translated_text', [
                 'text' => $this->_customdata['translation']->translated_text,
                 'format' => FORMAT_HTML,
@@ -99,7 +99,7 @@ class edit_form extends \moodleform {
                 get_string('translatedtext', 'filter_autotranslate'),
                 'wrap="virtual" rows="10" cols="50"'
             );
-            $mform->setType('translated_text', PARAM_RAW);
+            $mform->setType('translated_text', PARAM_CLEANHTML);
             $mform->setDefault('translated_text', $this->_customdata['translation']->translated_text);
         }
         $mform->addRule('translated_text', get_string('required'), 'required', null, 'server');

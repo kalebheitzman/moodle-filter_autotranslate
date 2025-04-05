@@ -94,7 +94,7 @@ if ($hassiteconfig) {
                 get_string('apikey', 'filter_autotranslate'),
                 get_string('apikey_desc', 'filter_autotranslate'),
                 null,
-                PARAM_RAW_TRIMMED,
+                PARAM_ALPHANUMEXT,
                 40
             )
         );
