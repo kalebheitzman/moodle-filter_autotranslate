@@ -163,7 +163,7 @@ if ($hassiteconfig) {
                 'filter_autotranslate/systeminstructions',
                 get_string('systeminstructions', 'filter_autotranslate'),
                 get_string('systeminstructions_desc', 'filter_autotranslate'),
-                'Translate with a formal tone.',
+                'Ensure the translation accurately reflects the source text while adapting it for cultural and linguistic nuances.',
                 PARAM_TEXT
             )
         );

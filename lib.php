@@ -54,7 +54,7 @@ function filter_autotranslate_extend_navigation_course($navigation, $course, $co
     $manageurl = new \moodle_url('/filter/autotranslate/manage.php', [
         'courseid' => $course->id,
         'filter_lang' => $filterlang,
-        'perpage' => 250,
+        'perpage' => 20,
     ]);
 
     // Navigation node.
