@@ -226,25 +226,6 @@ echo \html_writer::link(
     ['class' => 'btn btn-secondary mb-3']
 );
 echo '</div>';
-
-// Language switcher.
-$alllangs = $translationsource->get_all_languages($hash);
-$sitelang = get_config('core', 'lang') ?: 'en';
-$langbuttons = [];
-foreach ($alllangs as $lang) {
-    if ($lang === 'other') {
-        continue; // Skip 'other' in the switcher.
-    }
-    $displaylang = ($lang === 'other') ? $sitelang : $lang;
-    $url = new \moodle_url('/filter/autotranslate/edit.php', ['hash' => $hash, 'tlang' => $lang, 'contextid' => $contextid]);
-    $class = ($lang === $queriedtlang) ? 'btn btn-primary' : 'btn btn-secondary';
-    $langbuttons[] = \html_writer::link($url, strtoupper($displaylang), ['class' => "$class mr-1"]);
-}
-echo \html_writer::tag(
-    'div',
-    get_string('switchlanguage', 'filter_autotranslate') . ': ' . implode(' ', $langbuttons),
-    ['class' => 'mb-3 col-md-6 text-end']
-);
 echo '</div>';
 
 // Render the template.
