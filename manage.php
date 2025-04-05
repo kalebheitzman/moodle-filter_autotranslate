@@ -175,15 +175,20 @@ try {
 
         if ($istargetlang) {
             $row->lang = $internalfilterlang;
-            $row->source_text = format_text($translation->source_text, FORMAT_HTML);
+
+            // Source text with timemodified.
+            $sourcetext = format_text($translation->source_text, FORMAT_HTML);
+            $sourcedateshtml = '<small class="text-muted" dir="ltr">' .
+                            get_string('last_modified', 'filter_autotranslate') . ': ' .
+                            userdate($translation->source_timemodified) .
+                            '</small>';
+            $row->source_text = $sourcetext . '<br>' . $sourcedateshtml;
 
             if ($translation->target_id) {
                 $translatedtext = format_text($translation->target_text, FORMAT_HTML);
                 $dateshtml = '<small class="text-muted" dir="ltr">' .
                             get_string('last_modified', 'filter_autotranslate') . ': ' .
-                            userdate($translation->timemodified) . '<br>' .
-                            get_string('last_reviewed', 'filter_autotranslate') . ': ' .
-                            userdate($translation->timereviewed) .
+                            userdate($translation->timemodified) .
                             '</small>';
                 $row->translated_text = $translatedtext . '<br>' . $dateshtml;
                 $row->human = $translation->human ? get_string('yes') : get_string('no');
@@ -240,8 +245,7 @@ try {
                 ['class' => 'text-danger align-middle']
             ) : '';
             $dateshtml = '<small class="text-muted" dir="ltr">' .
-                        get_string('last_modified', 'filter_autotranslate') . ': ' . userdate($translation->timemodified) . '<br>' .
-                        get_string('last_reviewed', 'filter_autotranslate') . ': ' . userdate($translation->timereviewed) .
+                        get_string('last_modified', 'filter_autotranslate') . ': ' . userdate($translation->timemodified) .
                         '</small>';
             $translatedtextwithdates = $translatedtext . '<br>' . $dateshtml;
             $showeditlink = ($translation->lang !== 'other' && $internalfilterlang !== 'other');
@@ -256,11 +260,22 @@ try {
             $row->editUrl = (new \moodle_url('/filter/autotranslate/edit.php', [
                 'hash' => $translation->hash,
                 'tlang' => $translation->lang,
+                'courseid' => $courseid,
+                'filter_human' => $filterhuman,
+                'filter_needsreview' => $filterneedsreview,
+                'perpage' => $perpage,
+                'page' => $page,
+                'sort' => $sort,
+                'dir' => $dir,
             ]))->out(false);
             $row->editLabel = get_string('edit');
             $row->isRtl = $isrtl;
             if (!empty($internalfilterlang) && $internalfilterlang !== 'all' && $internalfilterlang !== 'other') {
-                $row->source_text = $sourcetext;
+                $sourcedateshtml = '<small class="text-muted" dir="ltr">' .
+                                get_string('last_modified', 'filter_autotranslate') . ': ' .
+                                userdate($translation->source_timemodified) .
+                                '</small>';
+                $row->source_text = $sourcetext . '<br>' . $sourcedateshtml;
             }
         }
         $tablerows[] = $row;
