@@ -132,6 +132,54 @@ class ui_manager {
     }
 
     /**
+     * Fetches paginated source and target translations for a specific language.
+     *
+     * Retrieves source translations (`lang = 'other'`) and their target counterparts for a given
+     * language, supporting pagination and filtering for UI display in target language view.
+     *
+     * @param int $page The current page number (0-based).
+     * @param int $perpage The number of records per page.
+     * @param string $targetlang The target language to fetch (e.g., 'es').
+     * @param string $filterhuman The human status to filter by ('' for all, '1' for human, '0' for auto).
+     * @param string $sort The column to sort by (e.g., 'hash', 'lang').
+     * @param string $dir The sort direction ('ASC' or 'DESC').
+     * @param int $courseid The course ID to filter by (0 for all).
+     * @param string $filterneedsreview Filter by review status ('' for all, '1' for needs review, '0' for reviewed).
+     * @return array An array with 'translations' (records) and 'total' (count of matching records).
+     */
+    public function get_paginated_target_translations(
+        $page,
+        $perpage,
+        $targetlang,
+        $filterhuman,
+        $sort,
+        $dir,
+        $courseid = 0,
+        $filterneedsreview = ''
+    ) {
+        $result = $this->translationsource->get_paginated_target_translations(
+            $page,
+            $perpage,
+            $targetlang,
+            $filterhuman,
+            $sort,
+            $dir,
+            $courseid,
+            $filterneedsreview
+        );
+
+        $translations = $result['translations'];
+        $total = $result['total'];
+
+        // Ensure source text defaults to 'N/A' if missing (unlikely with INNER JOIN, but for consistency).
+        foreach ($translations as $translation) {
+            $translation->source_text = $translation->source_text ?: 'N/A';
+        }
+
+        return ['translations' => $translations, 'total' => $total];
+    }
+
+    /**
      * Marks all translations for a course as stale.
      *
      * Triggers `content_service` to mark translations associated with a course as stale, enabling

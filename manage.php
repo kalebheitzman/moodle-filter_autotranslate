@@ -123,55 +123,18 @@ try {
 
     // Fetch translations.
     if ($istargetlang) {
-        // Target language view: Fetch 'other' translations and join with target if exists.
-        $sql = "SELECT t_other.hash, t_other.translated_text AS source_text, t_other.timemodified AS source_timemodified,
-                    t_target.id AS target_id, t_target.lang AS target_lang,
-                    t_target.translated_text AS target_text, t_target.human,
-                    t_other.contextlevel AS source_contextlevel, t_target.contextlevel AS target_contextlevel,
-                    t_target.timecreated, t_target.timemodified
-                FROM {filter_autotranslate_translations} t_other
-                LEFT JOIN {filter_autotranslate_translations} t_target
-                    ON t_other.hash = t_target.hash AND t_target.lang = :targetlang
-                WHERE t_other.lang = 'other'";
-        $params = ['targetlang' => $internalfilterlang];
-
-        if ($courseid > 0) {
-            $sql .= " AND t_other.hash IN (
-                        SELECT hash FROM {filter_autotranslate_hid_cids} WHERE courseid = :courseid
-                    )";
-            $params['courseid'] = $courseid;
-        }
-
-        // Apply needs review filter.
-        if ($filterneedsreview !== '') {
-            if ($filterneedsreview == '1') {
-                $sql .= " AND (t_target.timemodified IS NULL OR t_other.timemodified > t_target.timemodified)";
-            } else if ($filterneedsreview == '0') {
-                $sql .= " AND t_target.timemodified IS NOT NULL AND t_other.timemodified <= t_target.timemodified";
-            }
-        }
-
-        $sql .= " ORDER BY t_other.$sort $dir";
-        $total = $DB->count_records_sql(
-            "SELECT COUNT(*) FROM {filter_autotranslate_translations} t_other
-            LEFT JOIN {filter_autotranslate_translations} t_target
-                ON t_other.hash = t_target.hash AND t_target.lang = :targetlang_count
-            WHERE t_other.lang = 'other'" .
-            ($courseid > 0 ? " AND t_other.hash IN (
-                SELECT hash FROM {filter_autotranslate_hid_cids} WHERE courseid = :countcourseid
-            )" : "") .
-            ($filterneedsreview !== '' ? ($filterneedsreview == '1' ?
-                " AND (t_target.timemodified IS NULL OR t_other.timemodified > t_target.timemodified)" :
-                " AND t_target.timemodified IS NOT NULL AND t_other.timemodified <= t_target.timemodified") : ""),
-            array_merge(
-                $params,
-                ['targetlang_count' => $internalfilterlang] + ($courseid > 0
-                    ? ['countcourseid' => $courseid]
-                    : []
-                )
-            )
+        $result = $uimanager->get_paginated_target_translations(
+            $page,
+            $perpage,
+            $internalfilterlang,
+            $filterhuman,
+            $sort,
+            $dir,
+            $courseid,
+            $filterneedsreview
         );
-        $translations = $DB->get_records_sql($sql, $params, $page * $perpage, $perpage);
+        $translations = $result['translations'];
+        $total = $result['total'];
     } else {
         // Options: 'All' or 'other' view: Use ui_manager.
         $result = $uimanager->get_paginated_translations(

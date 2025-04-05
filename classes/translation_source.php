@@ -218,6 +218,97 @@ class translation_source {
     }
 
     /**
+     * Fetches paginated source and target translations for a specific language.
+     *
+     * Retrieves source translations (`lang = 'other'`) and their target counterparts (if they exist)
+     * for a given language, with filtering and pagination for UI display in target language view.
+     *
+     * @param int $page The current page number (0-based).
+     * @param int $perpage The number of records per page.
+     * @param string $targetlang The target language to fetch (e.g., 'es').
+     * @param string $filterhuman The human status to filter by ('' for all, '1' for human, '0' for auto).
+     * @param string $sort The column to sort by (e.g., 'hash', 'lang').
+     * @param string $dir The sort direction ('ASC' or 'DESC').
+     * @param int $courseid The course ID to filter by (0 for all).
+     * @param string $filterneedsreview Filter by review status ('' for all, '1' for needs review, '0' for reviewed).
+     * @return array An array with 'translations' (records) and 'total' (count of matching records).
+     */
+    public function get_paginated_target_translations(
+        $page,
+        $perpage,
+        $targetlang,
+        $filterhuman,
+        $sort,
+        $dir,
+        $courseid = 0,
+        $filterneedsreview = ''
+    ) {
+        $params = ['targetlang' => $targetlang];
+        $where = [];
+        $joins = [];
+
+        $sql = "SELECT t_other.hash, t_other.translated_text AS source_text, t_other.timemodified AS source_timemodified,
+                    t_target.id AS target_id, t_target.lang AS target_lang,
+                    t_target.translated_text AS target_text, t_target.human,
+                    t_other.contextlevel AS source_contextlevel, t_target.contextlevel AS target_contextlevel,
+                    t_target.timecreated, t_target.timemodified
+                FROM {filter_autotranslate_translations} t_other
+                LEFT JOIN {filter_autotranslate_translations} t_target
+                    ON t_other.hash = t_target.hash AND t_target.lang = :targetlang
+                WHERE t_other.lang = 'other'";
+        $joins[] = "LEFT JOIN {filter_autotranslate_translations} t_target
+                    ON t_other.hash = t_target.hash AND t_target.lang = :targetlang_count";
+
+        if ($courseid > 0) {
+            $hashes = $this->db->get_fieldset_select(
+                'filter_autotranslate_hid_cids',
+                'hash',
+                'courseid = :courseid',
+                ['courseid' => $courseid]
+            );
+            if (!empty($hashes)) {
+                [$insql, $inparams] = $this->db->get_in_or_equal($hashes, SQL_PARAMS_NAMED);
+                $where[] = "t_other.hash $insql";
+                $params = array_merge($params, $inparams);
+            } else {
+                $where[] = '1=0';
+            }
+        }
+
+        if ($filterhuman !== '') {
+            $where[] = "t_target.human = :human";
+            $params['human'] = (int)$filterhuman;
+        }
+
+        if ($filterneedsreview !== '') {
+            if ($filterneedsreview == '1') {
+                $where[] = "(t_target.timemodified IS NULL OR t_other.timemodified > t_target.timemodified)";
+            } else if ($filterneedsreview == '0') {
+                $where[] = "t_target.timemodified IS NOT NULL AND t_other.timemodified <= t_target.timemodified";
+            }
+        }
+
+        if (!empty($where)) {
+            $sql .= ' AND ' . implode(' AND ', $where);
+        }
+
+        $validsorts = ['hash', 'translated_text', 'human', 'contextlevel', 'timemodified'];
+        $sort = in_array($sort, $validsorts) ? $sort : 'hash';
+        $dir = strtoupper($dir) === 'DESC' ? 'DESC' : 'ASC';
+        $sql .= " ORDER BY t_other.$sort $dir";
+
+        $countsql = "SELECT COUNT(*) FROM {filter_autotranslate_translations} t_other " .
+                    implode(' ', $joins) .
+                    (empty($where)
+                        ? " WHERE t_other.lang = 'other'"
+                        : " WHERE t_other.lang = 'other' AND " . implode(' AND ', $where));
+        $total = $this->db->count_records_sql($countsql, array_merge($params, ['targetlang_count' => $targetlang]));
+        $translations = $this->db->get_records_sql($sql, $params, $page * $perpage, $perpage);
+
+        return ['translations' => $translations, 'total' => $total];
+    }
+
+    /**
      * Fetches hashes of untranslated source translations for a target language with pagination.
      *
      * Retrieves the hashes of source translations (`lang = 'other'`) that do not have a corresponding
