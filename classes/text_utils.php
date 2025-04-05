@@ -46,7 +46,6 @@ namespace filter_autotranslate;
  * Utility class for text processing helpers.
  */
 class text_utils {
-
     /**
      * Generates a unique 10-character hash.
      *

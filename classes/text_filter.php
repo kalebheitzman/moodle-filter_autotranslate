@@ -55,7 +55,6 @@ use filter_autotranslate\translation_source;
  * Replaces {t:hash} tags with translations, caching results when tags are processed.
  */
 class text_filter extends \core_filters\text_filter {
-
     /** @var translation_source Fetches translations and source text. */
     private $translationsource;
 
@@ -110,7 +109,7 @@ class text_filter extends \core_filters\text_filter {
 
         // Process and cache only if {t:hash} tags exist.
         if (preg_match($pattern, $text)) {
-            $filteredtext = preg_replace_callback($pattern, function($matches) use ($currentlang) {
+            $filteredtext = preg_replace_callback($pattern, function ($matches) use ($currentlang) {
                 $content = $matches[1]; // Text before {t:hash}.
                 $hash = $matches[3];    // Hash value (e.g., 'abc1234567').
 

@@ -100,10 +100,10 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                 foreach ($fieldoptions['core'][$contextkey] as $table => $fields) {
                     // Remove the prefix from the table name.
                     $unprefixedtable = str_replace($prefix, '', $table);
-                    $tables[$unprefixedtable] = array_map(function($key) {
+                    $tables[$unprefixedtable] = array_map(function ($key) {
                         // Extract the field name (e.g., 'fullname' from 'mdl_course.fullname').
                         return explode('.', $key)[1];
-                    }, array_keys(array_filter($enabledfields, function($value, $key) use ($table) {
+                    }, array_keys(array_filter($enabledfields, function ($value, $key) use ($table) {
                         return $value && strpos($key, "$table.") === 0;
                     }, ARRAY_FILTER_USE_BOTH)));
                 }
@@ -118,10 +118,10 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                     foreach ($modtables as $table => $fields) {
                         // Remove the prefix from the table name.
                         $unprefixedtable = str_replace($prefix, '', $table);
-                        $tables[$unprefixedtable] = array_map(function($key) {
+                        $tables[$unprefixedtable] = array_map(function ($key) {
                             // Extract the field name (e.g., 'name' from 'mdl_forum.name').
                             return explode('.', $key)[1];
-                        }, array_keys(array_filter($enabledfields, function($value, $key) use ($table) {
+                        }, array_keys(array_filter($enabledfields, function ($value, $key) use ($table) {
                             return $value && strpos($key, "$table.") === 0;
                         }, ARRAY_FILTER_USE_BOTH)));
                     }
@@ -137,10 +137,10 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                     foreach ($modtables as $table => $fields) {
                         // Remove the prefix from the table name.
                         $unprefixedtable = str_replace($prefix, '', $table);
-                        $tables[$unprefixedtable] = array_map(function($key) {
+                        $tables[$unprefixedtable] = array_map(function ($key) {
                             // Extract the field name (e.g., 'name' from 'mdl_bigbluebuttonbn.name').
                             return explode('.', $key)[1];
-                        }, array_keys(array_filter($enabledfields, function($value, $key) use ($table) {
+                        }, array_keys(array_filter($enabledfields, function ($value, $key) use ($table) {
                             return $value && strpos($key, "$table.") === 0;
                         }, ARRAY_FILTER_USE_BOTH)));
                     }
@@ -339,7 +339,8 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                                 $version = $DB->get_record(
                                     'question_versions',
                                     ['questionid' => $answer->question],
-                                    'questionbankentryid', IGNORE_MISSING
+                                    'questionbankentryid',
+                                    IGNORE_MISSING
                                 );
                                 if ($version) {
                                     // Find the question reference for this question bank entry.

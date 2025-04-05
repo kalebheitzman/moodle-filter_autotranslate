@@ -50,7 +50,6 @@ require_once($CFG->libdir . '/formslib.php');
  * Form class for creating a new translation.
  */
 class create_form extends \moodleform {
-
     /**
      * Defines the form elements for creating a new translation.
      *

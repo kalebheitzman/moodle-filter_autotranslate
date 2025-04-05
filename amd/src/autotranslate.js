@@ -7,18 +7,12 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
      * @module filter_autotranslate/autotranslate
      */
     function init() {
-        console.log('Autotranslate JS module initialized.');
-
         var autotranslatebutton = document.getElementById('autotranslate-button');
         if (autotranslatebutton) {
-            console.log('Found autotranslate button:', autotranslatebutton);
             autotranslatebutton.addEventListener('click', function () {
-                console.log('Autotranslate button clicked.');
                 var filterparams = JSON.parse(autotranslatebutton.getAttribute('data-filter-params'));
                 startTask('filter_autotranslate_autotranslate', filterparams);
             });
-        } else {
-            console.log('Autotranslate button not found.');
         }
     }
 

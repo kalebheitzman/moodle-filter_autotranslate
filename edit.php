@@ -180,10 +180,10 @@ if ($mform->is_cancelled()) {
 
     // Update the translation.
     $contentservice->upsert_translation(
-        $translation->hash,                 // Use hash from the translation record.
-        $translation->lang,                 // Use lang from the translation record.
-        $translatedtext,                    // New text from the form.
-        $translation->contextlevel,         // Context level from the existing record.
+        $translation->hash, // Use hash from the translation record.
+        $translation->lang, // Use lang from the translation record.
+        $translatedtext, // New text from the form.
+        $translation->contextlevel, // Context level from the existing record.
         !empty($data->human) ? 1 : 0        // Human status from the form.
     );
 

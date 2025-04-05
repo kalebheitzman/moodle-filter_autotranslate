@@ -266,13 +266,16 @@ if ($hassiteconfig) {
                 $defaults = [];
                 foreach ($tables as $table => $fields) {
                     foreach ($fields as $field) {
-                        if (in_array(
-                                $field, [
+                        if (
+                            in_array(
+                                $field,
+                                [
                                     'fullname', 'name', 'intro', 'summary',
                                     'content', 'title', 'text',
                                     'answer', 'response', 'activity',
                                 ]
-                            )) {
+                            )
+                        ) {
                             $defaults["$table.$field"] = 1;
                         }
                     }

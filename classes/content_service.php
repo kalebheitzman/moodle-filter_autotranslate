@@ -58,7 +58,6 @@ use core_component;
  * Manages content-related operations for the Autotranslate filter.
  */
 class content_service {
-
     /** @var \moodle_database Moodle database instance for DML operations. */
     private $db;
 
@@ -191,11 +190,23 @@ class content_service {
                         }
                     }
                     if (!empty($fields)) {
-                        $persisted = $this->update_field_if_match('course', 'id', $instanceid, $fields, $originaltext,
-                            $taggedcontent);
+                        $persisted = $this->update_field_if_match(
+                            'course',
+                            'id',
+                            $instanceid,
+                            $fields,
+                            $originaltext,
+                            $taggedcontent
+                        );
                         if (!$persisted) {
-                            $persisted = $this->update_field_if_match('course', 'id', $instanceid, $fields, $sourcetext,
-                                $taggedcontent);
+                            $persisted = $this->update_field_if_match(
+                                'course',
+                                'id',
+                                $instanceid,
+                                $fields,
+                                $sourcetext,
+                                $taggedcontent
+                            );
                         }
                     }
                 }
@@ -213,11 +224,23 @@ class content_service {
                                 }
                             }
                             if (!empty($fields)) {
-                                $persisted = $this->update_field_if_match('course_sections', 'id', $section->id, $fields,
-                                    $originaltext, $taggedcontent);
+                                $persisted = $this->update_field_if_match(
+                                    'course_sections',
+                                    'id',
+                                    $section->id,
+                                    $fields,
+                                    $originaltext,
+                                    $taggedcontent
+                                );
                                 if (!$persisted) {
-                                    $persisted = $this->update_field_if_match('course_sections', 'id', $section->id,
-                                        $fields, $sourcetext, $taggedcontent);
+                                    $persisted = $this->update_field_if_match(
+                                        'course_sections',
+                                        'id',
+                                        $section->id,
+                                        $fields,
+                                        $sourcetext,
+                                        $taggedcontent
+                                    );
                                 }
                                 if ($persisted) {
                                     break;
@@ -247,7 +270,7 @@ class content_service {
                         if (!$enabled) {
                             continue;
                         }
-                        list($table, $field) = explode('.', $key, 2);
+                        [$table, $field] = explode('.', $key, 2);
                         if ($table === $primarytable) {
                             $primaryfields[$field] = 1;
                         } else {
@@ -275,8 +298,14 @@ class content_service {
                                 $trimmedvalue = $value === null ? '' : trim($value);
                                 if ($trimmedvalue === $originaltext || $trimmedvalue === $sourcetext) {
                                     $found = true;
-                                    $persisted = $this->update_field_if_match($modname, 'id', $cm->instance, $fields,
-                                        $trimmedvalue, $taggedcontent);
+                                    $persisted = $this->update_field_if_match(
+                                        $modname,
+                                        'id',
+                                        $cm->instance,
+                                        $fields,
+                                        $trimmedvalue,
+                                        $taggedcontent
+                                    );
                                     break;
                                 }
                             }
@@ -337,8 +366,14 @@ class content_service {
                                     $trimmedvalue = $value === null ? '' : trim($value);
                                     if ($trimmedvalue === $originaltext || $trimmedvalue === $sourcetext) {
                                         $found = true;
-                                        $persisted = $this->update_field_if_match($table, 'id', $record->id,
-                                            $recordfields, $trimmedvalue, $taggedcontent);
+                                        $persisted = $this->update_field_if_match(
+                                            $table,
+                                            'id',
+                                            $record->id,
+                                            $recordfields,
+                                            $trimmedvalue,
+                                            $taggedcontent
+                                        );
                                         break 2;
                                     }
                                 }
@@ -360,11 +395,23 @@ class content_service {
                             }
                         }
                         if (!empty($fields)) {
-                            $persisted = $this->update_field_if_match('course_categories', 'id', $instanceid, $fields,
-                                $originaltext, $taggedcontent);
+                            $persisted = $this->update_field_if_match(
+                                'course_categories',
+                                'id',
+                                $instanceid,
+                                $fields,
+                                $originaltext,
+                                $taggedcontent
+                            );
                             if (!$persisted) {
-                                $persisted = $this->update_field_if_match('course_categories', 'id', $instanceid, $fields,
-                                    $sourcetext, $taggedcontent);
+                                $persisted = $this->update_field_if_match(
+                                    'course_categories',
+                                    'id',
+                                    $instanceid,
+                                    $fields,
+                                    $sourcetext,
+                                    $taggedcontent
+                                );
                             }
                         }
                     }
@@ -457,8 +504,10 @@ class content_service {
             foreach ($coremoduletables as $table => $info) {
                 $unprefixedtable = str_replace($prefix, '', $table);
                 // Include tables that start with the module name or are special tables for quiz.
-                if (strpos($table, $prefix . $modname) === 0
-                    || ($modname === 'quiz' && in_array($unprefixedtable, $specialtables))) {
+                if (
+                    strpos($table, $prefix . $modname) === 0
+                    || ($modname === 'quiz' && in_array($unprefixedtable, $specialtables))
+                ) {
                     $coremodulesgrouped[$modname][$table] = $info['fields'];
                 }
             }
