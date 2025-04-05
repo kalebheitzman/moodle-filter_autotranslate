@@ -15,9 +15,9 @@
     along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 }}
 {{!
-    @template filter_autotranslate/edit
+    @template filter_autotranslate/create
 
-    This template renders the edit page, displaying a form for editing a translation alongside
+    This template renders the create page, displaying a form for adding a new translation alongside
     the source text for reference. It uses a two-column layout to present the form and source text
     side by side.
 
@@ -28,13 +28,13 @@
     * none
 
     Context variables required for this template:
-    * form: HTML for the edit form (rendered by edit_form.php).
+    * form: HTML for the create form (rendered by create_form.php).
     * sourcetext: The source text (lang = 'other') for the translation.
     * sourcetextlabel: The label for the source text section (e.g., "Source Text").
 
     Example context (json):
     {
-        "form": "<form action=\"edit.php\" method=\"post\"><input type=\"text\" name=\"translated_text\" value=\"Hello world\" /></form>",
+        "form": "<form action=\"create.php\" method=\"post\"><input type=\"text\" name=\"translated_text\" value=\"\" /></form>",
         "sourcetext": "Hola mundo",
         "sourcetextlabel": "Source Text"
     }

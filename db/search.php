@@ -15,11 +15,24 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Search areas for the filter_autotranslate plugin.
+ * Search areas for the Autotranslate plugin.
+ *
+ * Defines search areas to integrate translations into Moodle’s global search system.
+ *
+ * Features:
+ * - `filter_autotranslate-translation`: Indexes translation data for search.
+ *
+ * Usage:
+ * - Registers `translation` search area for future use with Moodle search.
+ * - Links to `filter_autotranslate\search\translation` class (not yet fully implemented).
+ *
+ * Design:
+ * - Prepares plugin for searchable translations via `mdl_filter_autotranslate_translations`.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @see        https://docs.moodle.org/dev/Search_API
  */
 
 defined('MOODLE_INTERNAL') || die();
