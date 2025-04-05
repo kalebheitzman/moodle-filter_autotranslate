@@ -296,9 +296,15 @@ class content_service {
 
                             // Special handling for quiz module's question and question_answers tables.
                             if ($modname === 'quiz' && ($table === 'question' || $table === 'question_answers')) {
-                                // Fetch question IDs associated with this quiz via quiz_slots.
+                                // Fetch question IDs associated with this quiz via question_references and question_versions.
                                 $questionids = $this->db->get_fieldset_sql(
-                                    "SELECT questionid FROM {quiz_slots} WHERE quizid = ?",
+                                    "SELECT qv.questionid
+                                    FROM {quiz_slots} qs
+                                    JOIN {question_references} qr ON qr.itemid = qs.id
+                                    JOIN {question_versions} qv ON qv.questionbankentryid = qr.questionbankentryid
+                                    WHERE qs.quizid = ?
+                                    AND qr.component = 'mod_quiz'
+                                    AND qr.questionarea = 'slot'",
                                     [$cm->instance]
                                 );
                                 if (empty($questionids)) {
@@ -451,7 +457,8 @@ class content_service {
             foreach ($coremoduletables as $table => $info) {
                 $unprefixedtable = str_replace($prefix, '', $table);
                 // Include tables that start with the module name or are special tables for quiz.
-                if (strpos($table, $prefix . $modname) === 0 || ($modname === 'quiz' && in_array($unprefixedtable, $specialtables))) {
+                if (strpos($table, $prefix . $modname) === 0
+                    || ($modname === 'quiz' && in_array($unprefixedtable, $specialtables))) {
                     $coremodulesgrouped[$modname][$table] = $info['fields'];
                 }
             }
@@ -529,6 +536,17 @@ class content_service {
         $pattern = "{$prefix}{$modname}%";
         $primarytable = $prefix . $modname;
 
+        // Tables to skip when building the schema (unprefixed names).
+        $skiptables = [
+            'quiz_grade_items',
+            'workshopform_numerrors',
+            'chat_messages_current',
+            'survey',
+            'survey_analysis',
+            'survey_answers',
+            'survey_questions',
+        ];
+
         // Fields to include (text-based) and exclude (non-translatable).
         $includefields = [
             'name', 'intro', 'summary', 'description', 'content', 'contents', 'message', 'text', 'body',
@@ -594,6 +612,12 @@ class content_service {
         }
 
         foreach ($tables as $table) {
+            // Skip specified tables.
+            $unprefixedtable = str_replace($prefix, '', $table);
+            if (in_array($unprefixedtable, $skiptables)) {
+                continue;
+            }
+
             try {
                 if (in_array($dbtype, ['mysql', 'mariadb'])) {
                     $sql = "DESCRIBE $table";
@@ -672,6 +696,11 @@ class content_service {
         // Add manually mapped secondary tables for specific modules.
         if (isset($secondarytables[$modname])) {
             foreach ($secondarytables[$modname] as $secondarytable => $info) {
+                // Skip specified tables.
+                if (in_array($secondarytable, $skiptables)) {
+                    continue;
+                }
+
                 $fulltable = $prefix . $secondarytable;
                 // Special handling for quiz module's question and question_answers tables.
                 if ($modname === 'quiz' && ($secondarytable === 'question' || $secondarytable === 'question_answers')) {

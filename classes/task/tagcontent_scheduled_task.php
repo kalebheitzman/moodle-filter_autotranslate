@@ -87,7 +87,8 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                                          $DB->get_manager()->table_exists('question_versions') &&
                                          $DB->get_manager()->table_exists('question_bank_entries');
         if (!$questionreferencestablesexist) {
-            mtrace("Warning: Question reference tables (question_references, question_versions, question_bank_entries) do not exist. Skipping question and question_answers tables.");
+            mtrace("Warning: Question reference tables (question_references, question_versions, " .
+                   "question_bank_entries) do not exist. Skipping question and question_answers tables.");
         }
 
         // Fetch all enabled fields from the settings matrices.
@@ -181,8 +182,8 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
         $starttime = date('Y-m-d H:i:s');
 
         // Log the start of the task.
-        mtrace("Starting Tag Content Task at $starttime. recordsperrun: $recordsperrun, managelimit: $managelimit, " .
-               "starting from table: " . ($currenttable ?: $tablelist[0]) . ", id: $currentid");
+        mtrace("Starting Tag Content Task at $starttime. recordsperrun: $recordsperrun, " .
+               "managelimit: $managelimit, starting from table: " . ($currenttable ?: $tablelist[0]) . ", id: $currentid");
 
         // Process each table starting from the current table.
         for ($i = $startindex; $i < count($tablelist); $i++) {
@@ -190,8 +191,8 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
             $fields = $tables[$table];
 
             if ($totalprocessed >= $recordsperrun) {
-                mtrace("Reached total record limit of $recordsperrun. " .
-                       "Stopped at table: $table, last id: $currentid, total processed: $totalprocessed");
+                mtrace("Reached total record limit of $recordsperrun. Stopped at table: $table, " .
+                       "last id: $currentid, total processed: $totalprocessed");
                 set_config('tagcontent_current_table', $table, 'filter_autotranslate');
                 set_config('tagcontent_current_id', $currentid, 'filter_autotranslate');
                 return;
@@ -243,18 +244,30 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                         $context = null;
                         $courseid = 0;
 
+                        // Track tables where context/course ID has been logged to avoid repetition.
+                        static $contextlogged = [];
+
                         if ($table === 'course') {
                             $context = \context_course::instance($record->id);
                             $courseid = $record->id;
-                            mtrace("Table: $table, Record ID: {$record->id}, Course ID: $courseid");
+                            if (!isset($contextlogged[$table])) {
+                                mtrace("Table: $table, Course ID: $courseid");
+                                $contextlogged[$table] = true;
+                            }
                         } else if ($table === 'course_sections') {
                             $section = $DB->get_record('course_sections', ['id' => $record->id], 'course', MUST_EXIST);
                             $context = \context_course::instance($section->course);
                             $courseid = $section->course;
-                            mtrace("Table: $table, Record ID: {$record->id}, Course ID: $courseid");
+                            if (!isset($contextlogged[$table])) {
+                                mtrace("Table: $table, Course ID: $courseid");
+                                $contextlogged[$table] = true;
+                            }
                         } else if ($table === 'course_categories') {
                             $context = \context_coursecat::instance($record->id);
-                            mtrace("Table: $table, Record ID: {$record->id}, Course ID: $courseid (no course ID for categories)");
+                            if (!isset($contextlogged[$table])) {
+                                mtrace("Table: $table, Course ID: $courseid (no course ID for categories)");
+                                $contextlogged[$table] = true;
+                            }
                         } else {
                             // Module table (primary or secondary, e.g., forum, forum_posts).
                             $instanceid = $record->id;
@@ -281,77 +294,89 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                                 $entry = $DB->get_record('glossary_entries', ['id' => $instanceid], 'glossaryid', MUST_EXIST);
                                 $instanceid = $entry->glossaryid;
                             } else if ($table === 'question') {
-                                mtrace("Debug: Processing question record ID: {$record->id}");
+                                // Declare the static variable once for both question and question_answers blocks.
+                                static $skippedrecords = 0;
                                 $modname = 'quiz';
                                 // Find the question bank entry and version for this question.
-                                $version = $DB->get_record('question_versions', ['questionid' => $instanceid], 'questionbankentryid', IGNORE_MISSING);
+                                $version = $DB->get_record(
+                                    'question_versions',
+                                    ['questionid' => $instanceid],
+                                    'questionbankentryid',
+                                    IGNORE_MISSING
+                                );
                                 if ($version) {
-                                    mtrace("Debug: Found question version for questionid: $instanceid, questionbankentryid: {$version->questionbankentryid}");
                                     // Find the question reference for this question bank entry.
                                     $reference = $DB->get_record_sql(
                                         "SELECT qr.itemid
-                                         FROM {question_references} qr
-                                         WHERE qr.component = 'mod_quiz'
-                                         AND qr.questionarea = 'slot'
-                                         AND qr.questionbankentryid = :questionbankentryid",
+                                        FROM {question_references} qr
+                                        WHERE qr.component = 'mod_quiz'
+                                        AND qr.questionarea = 'slot'
+                                        AND qr.questionbankentryid = :questionbankentryid",
                                         ['questionbankentryid' => $version->questionbankentryid],
                                         IGNORE_MISSING
                                     );
                                     if ($reference) {
-                                        mtrace("Debug: Found question reference for questionbankentryid: {$version->questionbankentryid}, itemid: {$reference->itemid}");
                                         // Get the quizid from the quiz_slots record.
-                                        $slot = $DB->get_record('quiz_slots', ['id' => $reference->itemid], 'quizid', IGNORE_MISSING);
+                                        $slot = $DB->get_record(
+                                            'quiz_slots',
+                                            ['id' => $reference->itemid],
+                                            'quizid',
+                                            IGNORE_MISSING
+                                        );
                                         if ($slot) {
                                             $instanceid = $slot->quizid;
-                                            mtrace("Debug: Found quiz_slots record for itemid: {$reference->itemid}, quizid: {$slot->quizid}");
                                         } else {
-                                            mtrace("Table: $table, Record ID: {$record->id}, No quiz_slots record found for itemid: {$reference->itemid}");
+                                            $skippedrecords++;
                                             continue; // Skip if no quiz_slots record is found.
                                         }
                                     } else {
-                                        mtrace("Table: $table, Record ID: {$record->id}, No question reference found for questionbankentryid: {$version->questionbankentryid}");
+                                        $skippedrecords++;
                                         continue; // Skip if no question reference is found.
                                     }
                                 } else {
-                                    mtrace("Table: $table, Record ID: {$record->id}, No question version found for questionid: $instanceid");
+                                    $skippedrecords++;
                                     continue; // Skip if no question version is found.
                                 }
                             } else if ($table === 'question_answers') {
-                                mtrace("Debug: Processing question_answers record ID: {$record->id}");
                                 $modname = 'quiz';
                                 $answer = $DB->get_record('question_answers', ['id' => $instanceid], 'question', MUST_EXIST);
-                                mtrace("Debug: Found question ID: {$answer->question} for question_answers record ID: $instanceid");
                                 // Find the question bank entry and version for this question.
-                                $version = $DB->get_record('question_versions', ['questionid' => $answer->question], 'questionbankentryid', IGNORE_MISSING);
+                                $version = $DB->get_record(
+                                    'question_versions',
+                                    ['questionid' => $answer->question],
+                                    'questionbankentryid', IGNORE_MISSING
+                                );
                                 if ($version) {
-                                    mtrace("Debug: Found question version for questionid: {$answer->question}, questionbankentryid: {$version->questionbankentryid}");
                                     // Find the question reference for this question bank entry.
                                     $reference = $DB->get_record_sql(
                                         "SELECT qr.itemid
-                                         FROM {question_references} qr
-                                         WHERE qr.component = 'mod_quiz'
-                                         AND qr.questionarea = 'slot'
-                                         AND qr.questionbankentryid = :questionbankentryid",
+                                        FROM {question_references} qr
+                                        WHERE qr.component = 'mod_quiz'
+                                        AND qr.questionarea = 'slot'
+                                        AND qr.questionbankentryid = :questionbankentryid",
                                         ['questionbankentryid' => $version->questionbankentryid],
                                         IGNORE_MISSING
                                     );
                                     if ($reference) {
-                                        mtrace("Debug: Found question reference for questionbankentryid: {$version->questionbankentryid}, itemid: {$reference->itemid}");
                                         // Get the quizid from the quiz_slots record.
-                                        $slot = $DB->get_record('quiz_slots', ['id' => $reference->itemid], 'quizid', IGNORE_MISSING);
+                                        $slot = $DB->get_record(
+                                            'quiz_slots',
+                                            ['id' => $reference->itemid],
+                                            'quizid',
+                                            IGNORE_MISSING
+                                        );
                                         if ($slot) {
                                             $instanceid = $slot->quizid;
-                                            mtrace("Debug: Found quiz_slots record for itemid: {$reference->itemid}, quizid: {$slot->quizid}");
                                         } else {
-                                            mtrace("Table: $table, Record ID: {$record->id}, No quiz_slots record found for itemid: {$reference->itemid}");
+                                            $skippedrecords++;
                                             continue; // Skip if no quiz_slots record is found.
                                         }
                                     } else {
-                                        mtrace("Table: $table, Record ID: {$record->id}, No question reference found for questionbankentryid: {$version->questionbankentryid}");
+                                        $skippedrecords++;
                                         continue; // Skip if no question reference is found.
                                     }
                                 } else {
-                                    mtrace("Table: $table, Record ID: {$record->id}, No question version found for questionid: {$answer->question}");
+                                    $skippedrecords++;
                                     continue; // Skip if no question version is found.
                                 }
                             } else if ($table === 'quiz_sections') {
@@ -367,6 +392,16 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                                 // Generic handling for other secondary tables (e.g., book_chapters, lesson_pages).
                                 $parts = explode('_', $modname);
                                 $modname = $parts[0]; // Example, 'book' from 'book_chapters'.
+
+                                // Special mapping for certain secondary tables to their correct module names.
+                                $tabletomodulemap = [
+                                    'workshopform_accumulative' => 'workshop',
+                                    // Add other mappings here if needed for future secondary tables.
+                                ];
+                                if (isset($tabletomodulemap[$table])) {
+                                    $modname = $tabletomodulemap[$table];
+                                }
+
                                 $columns = $DB->get_columns($table);
                                 $fk = null;
                                 foreach ([$modname . 'id', 'id'] as $possiblefk) {
@@ -393,18 +428,30 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                                 ['modname' => $modname, 'instance' => $instanceid]
                             );
 
+                            // Track tables where course_modules lookup fails to avoid repetitive logging.
+                            static $failedcoursemodules = [];
+
                             if ($cm) {
                                 $context = \context_module::instance($cm->id);
                                 $courseid = $cm->course;
-                                mtrace("Table: $table, Record ID: {$record->id}, Course ID: $courseid (via course_modules)");
+                                if (!isset($contextlogged[$table])) {
+                                    mtrace("Table: $table, Course ID: $courseid (via course_modules)");
+                                    $contextlogged[$table] = true;
+                                }
+                                // Reset the failure flag for this table if a course module is found.
+                                unset($failedcoursemodules[$table]);
                             } else {
-                                mtrace("Table: $table, Record ID: {$record->id}, No course_modules record found for modname: $modname, instance: $instanceid");
+                                if (!isset($failedcoursemodules[$table])) {
+                                    mtrace("Table: $table, No course_modules record found for " .
+                                           "modname: $modname, instance: $instanceid");
+                                    $failedcoursemodules[$table] = true;
+                                }
+                                $context = \context_system::instance();
+                                if (!isset($contextlogged[$table])) {
+                                    mtrace("Table: $table, Using system context (no specific context found)");
+                                    $contextlogged[$table] = true;
+                                }
                             }
-                        }
-
-                        if (!$context) {
-                            $context = \context_system::instance();
-                            mtrace("Table: $table, Record ID: {$record->id}, Using system context (no specific context found)");
                         }
 
                         // Process each enabled field.
@@ -416,9 +463,8 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                             $taggedcontent = $contentservice->process_content($originalcontent, $context, $courseid);
                             if ($taggedcontent !== $originalcontent) {
                                 $DB->set_field($table, $field, $taggedcontent, ['id' => $record->id]);
-                                mtrace("Table: $table, Record ID: {$record->id}, Field: $field, Tagged content updated, Course ID: $courseid");
-                            } else {
-                                mtrace("Table: $table, Record ID: {$record->id}, Field: $field, No change in content, Course ID: $courseid");
+                                mtrace("Table: $table, Record ID: {$record->id}, Field: $field, " .
+                                       "Tagged content updated, Course ID: $courseid");
                             }
                         }
 
@@ -426,26 +472,29 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
                         $currentid = $record->id;
 
                         if ($totalprocessed >= $recordsperrun) {
-                            mtrace("Reached total record limit of $recordsperrun. " .
-                                   "Stopped at table: $table, last id: $currentid, total processed: $totalprocessed");
+                            mtrace("Reached total record limit of $recordsperrun. Stopped at table: $table, " .
+                                   "last id: $currentid, total processed: $totalprocessed");
                             set_config('tagcontent_current_table', $table, 'filter_autotranslate');
                             set_config('tagcontent_current_id', $currentid, 'filter_autotranslate');
                             return;
                         }
                     } catch (\Exception $e) {
-                        mtrace("Error processing record id {$record->id} in table $table: " . $e->getMessage());
+                        mtrace("Error processing record ID: {$record->id} in table: $table - " . $e->getMessage());
                         continue;
                     }
                 }
 
-                // Log the batch result.
+                // Log the batch result and any skipped records for question or question_answers tables.
+                if (isset($skippedrecords) && $skippedrecords > 0) {
+                    mtrace("Skipped $skippedrecords records in table: $table due to missing question references.");
+                    $skippedrecords = 0; // Reset for the next batch.
+                }
                 mtrace("Processed $count records in table: $table, last id: $currentid, total processed: $totalprocessed");
             }
         }
 
         // If all tables are processed, reset the state.
-        mtrace("Tag Content Task completed. Total records processed: $totalprocessed, " .
-               "all tables processed, resetting state.");
+        mtrace("Tag Content Task completed. Total records processed: $totalprocessed, all tables processed, resetting state.");
         set_config('tagcontent_current_table', '', 'filter_autotranslate');
         set_config('tagcontent_current_id', 0, 'filter_autotranslate');
     }
