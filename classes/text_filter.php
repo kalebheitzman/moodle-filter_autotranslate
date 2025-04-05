@@ -17,30 +17,28 @@
 /**
  * Text filter for the Autotranslate plugin.
  *
- * Replaces {t:hash} tags with translations based on the user’s language, operating in course,
- * module, and course category contexts only. This filter no longer tags untagged content,
- * relying instead on the `tagcontent_scheduled_task` (running every 5 minutes) to handle tagging.
- * Results are cached only when {t:hash} tags are present and replaced, improving performance
- * by avoiding unnecessary caching of untagged text.
+ * Replaces {t:hash} tags with translations based on the user’s language in course,
+ * module, and course category contexts. Tagging is handled by the scheduled task
+ * `tagcontent_scheduled_task` (runs every 5 minutes), not inline. Caches results
+ * only when {t:hash} tags are replaced, optimizing performance.
  *
  * Features:
- * - Lightweight replacement of {t:hash} tags with translations or source text fallback.
- * - Caching of processed text containing {t:hash} tags for efficiency.
- * - Operates exclusively in course-related contexts (CONTEXT_COURSE, CONTEXT_MODULE, CONTEXT_COURSECAT).
+ * - Replaces {t:hash} tags with translations or source text if untranslated.
+ * - Caches filtered text with {t:hash} tags for efficiency.
+ * - Limits processing to CONTEXT_COURSE, CONTEXT_MODULE, CONTEXT_COURSECAT.
  *
  * Usage:
- * - Applied during text rendering in supported contexts to replace existing {t:hash} tags.
- * - Untagged content remains unchanged until tagged by the scheduled task.
+ * - Applied during text rendering in supported contexts to replace {t:hash} tags.
+ * - Untagged content is skipped, awaiting tagging by `tagcontent_scheduled_task`.
  *
  * Design:
- * - Focuses on minimal processing, delegating tagging to `tagcontent_scheduled_task` for lazy
- *   content preparation.
- * - Uses cache API to store only tagged and replaced text, reducing overhead.
- * - Maintains separation of concerns by relying on `translation_source` for data retrieval.
+ * - Lightweight, with tagging offloaded to `tagcontent_scheduled_task`.
+ * - Uses cache API for tagged text, skipping untagged content.
+ * - Relies on `translation_source` for translation data.
  *
  * Dependencies:
- * - `translation_source.php`: Fetches translations and source text for replacement.
- * - `cache.php`: Cache definition for storing filtered text.
+ * - `translation_source.php`: Provides translation and source text data.
+ * - `cache.php`: Defines cache for storing filtered text.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -54,24 +52,22 @@ use filter_autotranslate\translation_source;
 /**
  * Text filter class for the Autotranslate plugin.
  *
- * Handles replacement of {t:hash} tags with translations in supported contexts, caching results
- * when tags are processed.
+ * Replaces {t:hash} tags with translations, caching results when tags are processed.
  */
 class text_filter extends \core_filters\text_filter {
 
-    /** @var translation_source Source for fetching translations and source text. */
+    /** @var translation_source Fetches translations and source text. */
     private $translationsource;
 
-    /** @var \cache Cache instance for storing filtered text with {t:hash} replacements. */
+    /** @var \cache Stores filtered text with {t:hash} replacements. */
     private $cache;
 
     /**
-     * Constructs the filter with necessary dependencies.
+     * Constructs the filter with dependencies.
      *
-     * Initializes the filter with a translation source and cache instance, using the global
-     * database object for data access.
+     * Sets up the translation source and cache using the global database instance.
      *
-     * @param \context $context The context in which the filter is applied (e.g., course, module).
+     * @param \context $context Context where the filter is applied (e.g., course).
      * @param array $options Optional filter configuration options.
      */
     public function __construct($context, array $options = []) {
@@ -85,17 +81,16 @@ class text_filter extends \core_filters\text_filter {
     /**
      * Filters text by replacing {t:hash} tags with translations.
      *
-     * Processes the input text to replace existing {t:hash} tags with translations for the current
-     * user’s language, falling back to source text or original content if no translation exists.
-     * Caches the result only if {t:hash} tags are present and replaced, leaving untagged text
-     * unchanged for the `tagcontent_scheduled_task` to handle.
+     * Replaces {t:hash} tags with translations for the user’s language, falling back
+     * to source text if untranslated. Caches results only if tags are present and
+     * replaced; untagged text is unchanged for `tagcontent_scheduled_task`.
      *
-     * @param string $text The text to filter, potentially containing {t:hash} tags.
-     * @param array $options Filter options (e.g., 'noclean' for HTML handling).
-     * @return string The filtered text with {t:hash} tags replaced, or unchanged if no tags.
+     * @param string $text Text to filter, possibly with {t:hash} tags.
+     * @param array $options Filter options (e.g., 'noclean' for HTML).
+     * @return string Filtered text with {t:hash} tags replaced, or unchanged.
      */
     public function filter($text, array $options = []) {
-        // Skip processing for empty or numeric text to avoid unnecessary overhead.
+        // Skip empty or numeric text to avoid unnecessary processing.
         if (empty($text) || is_numeric($text)) {
             return $text;
         }
@@ -103,34 +98,34 @@ class text_filter extends \core_filters\text_filter {
         $currentlang = current_language();
         $cachekey = md5($text . $this->context->id . $currentlang);
 
-        // Return cached result if available, regardless of whether it was previously translated.
+        // Return cached result if available.
         $cached = $this->cache->get($cachekey);
         if ($cached !== false) {
             return $cached;
         }
 
-        // Pattern to match {t:hash} tags at the end of text, capturing content before the tag.
+        // Match {t:hash} tags at text end, capturing preceding content.
         $pattern = '/(.*?)(\{t:([a-zA-Z0-9]{10})\})(?:\s*|\s*<[^>]*>)?$/s';
         $filteredtext = $text;
 
-        // Only process and cache if {t:hash} tags are present.
+        // Process and cache only if {t:hash} tags exist.
         if (preg_match($pattern, $text)) {
             $filteredtext = preg_replace_callback($pattern, function($matches) use ($currentlang) {
-                $content = $matches[1]; // Text before the {t:hash} tag.
-                $hash = $matches[3];    // The hash value (e.g., 'abc1234567').
+                $content = $matches[1]; // Text before {t:hash}.
+                $hash = $matches[3];    // Hash value (e.g., 'abc1234567').
 
-                // Fetch translation for the current language and source text as fallback.
+                // Get translation or source text as fallback.
                 $translation = $this->translationsource->get_translation($hash, $currentlang);
                 $sourcetext = $this->translationsource->get_source_text($hash);
 
-                // Return translated text if available, otherwise source text or original content.
+                // Return translation, source text, or original content.
                 if ($translation && $translation->translated_text) {
                     return $translation->translated_text;
                 }
                 return $sourcetext && $sourcetext !== 'N/A' ? $sourcetext : $content;
             }, $text);
 
-            // Cache the result since {t:hash} was processed, whether translated or not.
+            // Cache result if {t:hash} was processed.
             $this->cache->set($cachekey, $filteredtext);
         }
 

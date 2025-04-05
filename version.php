@@ -12,10 +12,24 @@
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Version details
+ * Version metadata for the Autotranslate plugin.
+ *
+ * Defines version, release, and compatibility details for the Autotranslate filter.
+ *
+ * Features:
+ * - Sets plugin version and release.
+ * - Requires Moodle 4.5 (2024100702) or higher.
+ * - Marks as alpha maturity for development status.
+ *
+ * Usage:
+ * - Loaded by Moodle to register and validate plugin compatibility.
+ *
+ * Design:
+ * - Uses YYYYMMDDXX version format for incremental updates.
+ * - Includes display name from plugin language string.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>

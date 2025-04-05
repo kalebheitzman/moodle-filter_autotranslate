@@ -15,33 +15,29 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Tag Content Scheduled Task for the Autotranslate Plugin
+ * Scheduled task to tag content for the Autotranslate plugin.
  *
- * Purpose:
- * This task processes content in Moodle tables, tags it with `{t:hash}` tags, handles MLang
- * processing, stores source text and existing translations, and updates the database with the
- * tagged content. It uses the dynamic matrices from the settings page to determine which tables
- * and fields to process, batching the content to manage load efficiently.
+ * Tags content in Moodle tables with {t:hash} markers, processes MLang tags, and stores
+ * translations via `content_service`. Runs every 5 minutes, processing batches based on
+ * settings-defined field matrices for core and third-party modules.
+ *
+ * Features:
+ * - Tags content in course, module, and category tables with {t:hash}.
+ * - Processes MLang tags and persists tagged content.
+ * - Tracks progress across runs using `mdl_config_plugins`.
  *
  * Usage:
- * Runs as a scheduled task every 5 minutes by default, processing a subset of records in each run
- * based on the `recordsperrun` and `managelimit` settings, tagging content in the specified tables
- * and fields.
+ * - Executes every 5 minutes to prepare content for `text_filter`.
+ * - Processes up to `recordsperrun` records in `managelimit` batches.
  *
- * Design Decisions:
- * - Uses `content_service` for MLang processing, tagging, and storing translations, ensuring
- *   consistency with the plugin’s core functionality.
- * - Processes records in batches using `managelimit` to manage database load, with a total limit
- *   of `recordsperrun` per run across all tables.
- * - Stores the current table and last processed record ID in `mdl_config_plugins` to resume
- *   processing in the next run.
- * - Provides detailed logging output using `mtrace` to track progress and debug issues.
- * - Employs all lowercase variable names per plugin convention.
- * - Includes explicit handling for all secondary tables to correctly determine courseid.
+ * Design:
+ * - Batches records to manage load, resuming via stored table/ID.
+ * - Handles primary and secondary module tables with context resolution.
+ * - Logs progress with `mtrace` for debugging.
  *
  * Dependencies:
- * - `content_service.php`: For processing content, tagging, and storing translations.
- * - `mdl_config_plugins` table: For tracking the current table and last processed record ID.
+ * - `content_service.php`: Tags, processes, and stores content.
+ * - `mdl_config_plugins`: Stores current table and last processed ID.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -55,23 +51,23 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/filter/autotranslate/classes/content_service.php');
 
 /**
- * Scheduled task to tag content in Moodle tables for the Autotranslate plugin.
+ * Scheduled task to tag content in Moodle tables.
  */
 class tagcontent_scheduled_task extends \core\task\scheduled_task {
     /**
-     * Returns the name of the task.
+     * Returns the task name.
      *
-     * @return string The task name for display.
+     * @return string Task name for display in admin interface.
      */
     public function get_name() {
         return get_string('tagcontenttask', 'filter_autotranslate');
     }
 
     /**
-     * Executes the task to tag content in Moodle tables.
+     * Tags content in Moodle tables with {t:hash}.
      *
-     * Processes records in batches, tagging content in the specified tables and fields based on
-     * the dynamic matrices from the settings page.
+     * Processes batches of records from settings-defined tables, tagging content with
+     * {t:hash} via `content_service`. Resumes from the last table/ID stored in config.
      */
     public function execute() {
         global $DB, $CFG;
@@ -82,16 +78,15 @@ class tagcontent_scheduled_task extends \core\task\scheduled_task {
         $recordsperrun = (int)(get_config('filter_autotranslate', 'recordsperrun') ?: 1000);
         $managelimit = (int)(get_config('filter_autotranslate', 'managelimit') ?: 20);
 
-        // Check if the required tables for question references exist (Moodle 4.5+).
+        // Check for question reference tables (Moodle 4.5+).
         $questionreferencestablesexist = $DB->get_manager()->table_exists('question_references') &&
                                          $DB->get_manager()->table_exists('question_versions') &&
                                          $DB->get_manager()->table_exists('question_bank_entries');
         if (!$questionreferencestablesexist) {
-            mtrace("Warning: Question reference tables (question_references, question_versions, " .
-                   "question_bank_entries) do not exist. Skipping question and question_answers tables.");
+            mtrace("Warning: Question reference tables missing. Skipping question tables.");
         }
 
-        // Fetch all enabled fields from the settings matrices.
+        // Fetch enabled fields from settings matrices.
         $fieldoptions = $contentservice->get_field_selection_options();
         $tables = [];
 

@@ -14,57 +14,63 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
-namespace filter_autotranslate\task;
-
-use core\task\adhoc_task;
-
 /**
- * Autotranslate Adhoc Task
+ * Adhoc task to fetch translations for the Autotranslate plugin.
  *
- * Purpose:
- * This task fetches translations for untranslated entries in a specific target language within
- * the filter_autotranslate plugin, storing them in the `filter_autotranslate_translations` table.
- * It processes a list of hashes, retrieves source text, calls an external API for translations,
- * and updates progress in `filter_autotranslate_task_progress`.
+ * Fetches translations for untranslated hashes in a target language via an external API,
+ * storing them in `filter_autotranslate_translations` using `content_service`. Triggered
+ * by the "Autotranslate" button on `manage.php` via `external.php`.
+ *
+ * Features:
+ * - Batches API requests for untranslated hashes with retry logic.
+ * - Updates progress in `filter_autotranslate_task_progress` for UI feedback.
+ * - Re-queues if runtime exceeds limits, ensuring completion.
  *
  * Usage:
- * Queued via the 'Autotranslate' button on manage.php, passing target language, course ID, and
- * hashes to translate. Runs as an adhoc task, polling progress until completion or failure.
+ * - Queued via `external.php` with target language, course ID, and hashes.
+ * - Polls progress until completed or failed, updating UI via `autotranslate.js`.
  *
- * Design Decisions:
- * - Uses `content_service` for storing translations, aligning with the plugin’s core structure.
- * - Processes in batches to manage API load, with configurable retry attempts and rate limiting.
- * - Updates progress in the database for UI feedback, re-queuing if runtime exceeds limits.
- * - Employs all lowercase variable names per plugin convention.
+ * Design:
+ * - Uses configurable API settings (endpoint, key, model) from plugin config.
+ * - Processes batches (default 5) with rate limiting and max attempts.
+ * - Logs failures with reasons for debugging.
  *
  * Dependencies:
- * - `content_service.php`: For storing translated content.
- * - `filter_autotranslate_task_progress` table: For tracking task progress.
+ * - `content_service.php`: Stores fetched translations.
+ * - `filter_autotranslate_task_progress`: Tracks task progress.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
+namespace filter_autotranslate\task;
+
+use core\task\adhoc_task;
+
+/**
+ * Adhoc task to fetch and store translations.
+ */
 class autotranslate_adhoc_task extends adhoc_task {
     /**
-     * Returns the name of the task.
+     * Returns the task name.
      *
-     * @return string The task name for display.
+     * @return string Task name for display in admin interface.
      */
     public function get_name() {
         return get_string('autotranslateadhoc', 'filter_autotranslate');
     }
 
     /**
-     * Updates the task progress in the database.
+     * Updates task progress in the database.
      *
-     * Updates or logs the status, processed entries, and total entries in the
-     * `filter_autotranslate_task_progress` table, with an optional failure reason.
+     * Saves status, processed count, and total in `filter_autotranslate_task_progress`,
+     * with optional failure reason.
      *
-     * @param string $status The task status (queued, running, completed, failed).
-     * @param int $processed The number of entries processed.
-     * @param int $total The total number of entries to process.
-     * @param string|null $failurereason Optional reason for failure if the task failed.
+     * @param string $status Task status ('queued', 'running', 'completed', 'failed').
+     * @param int $processed Number of entries processed.
+     * @param int $total Total entries to process.
+     * @param string|null $failurereason Reason for failure, if applicable.
      */
     private function update_progress($status, $processed, $total, $failurereason = null) {
         global $DB;
@@ -88,12 +94,12 @@ class autotranslate_adhoc_task extends adhoc_task {
     }
 
     /**
-     * Extracts a user-friendly error message from the API response.
+     * Extracts error message from API response.
      *
-     * Parses the API response to retrieve a meaningful error message for logging or display.
+     * Parses JSON response for a user-friendly error message.
      *
-     * @param string $response The API response body.
-     * @return string The extracted error message or a default if none found.
+     * @param string $response API response body.
+     * @return string Error message or 'Unknown error occurred.'
      */
     private function extract_error_message($response) {
         $data = json_decode($response, true);
@@ -104,12 +110,12 @@ class autotranslate_adhoc_task extends adhoc_task {
     }
 
     /**
-     * Extracts the HTTP status code from the exception message.
+     * Extracts HTTP status code from exception message.
      *
-     * Parses the exception message to retrieve the HTTP status code for error handling.
+     * Parses exception message for the HTTP code.
      *
-     * @param string $message The exception message.
-     * @return string The HTTP status code or 'Unknown' if not found.
+     * @param string $message Exception message.
+     * @return string HTTP code or 'Unknown' if not found.
      */
     private function extract_http_code($message) {
         if (str_contains($message, 'HTTP')) {
@@ -120,10 +126,10 @@ class autotranslate_adhoc_task extends adhoc_task {
     }
 
     /**
-     * Executes the task to fetch translations.
+     * Fetches translations for untranslated hashes.
      *
-     * Fetches translations for a list of hashes in a target language using an external API,
-     * storing them via `content_service` and updating progress.
+     * Calls an external API to translate hashes, stores results via `content_service`,
+     * and updates progress. Re-queues if runtime nears limit.
      */
     public function execute() {
         global $DB;

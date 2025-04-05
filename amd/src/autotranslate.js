@@ -1,14 +1,17 @@
 define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
     /**
-     * Initializes the autotranslate button on the manage page.
+     * Initializes the Autotranslate button on manage.php.
+     *
+     * Sets up the "Autotranslate" button to queue tasks via `external.php` when clicked.
+     *
+     * @module filter_autotranslate/autotranslate
      */
     function init() {
-        console.log('Autotranslate JavaScript module loaded and initialized.');
+        console.log('Autotranslate JS module initialized.');
 
-        // Initialize the autotranslate button.
         var autotranslatebutton = document.getElementById('autotranslate-button');
         if (autotranslatebutton) {
-            console.log('Autotranslate button found:', autotranslatebutton);
+            console.log('Found autotranslate button:', autotranslatebutton);
             autotranslatebutton.addEventListener('click', function () {
                 console.log('Autotranslate button clicked.');
                 var filterparams = JSON.parse(autotranslatebutton.getAttribute('data-filter-params'));
@@ -20,19 +23,19 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
     }
 
     /**
-     * Starts a task by calling the specified webservice.
+     * Queues a task via the specified webservice.
      *
-     * @param {string} methodname The webservice method to call.
-     * @param {object} params Parameters to pass to the webservice.
+     * Disables the button, shows a progress bar, and calls `external.php` to start the task.
+     *
+     * @param {string} methodname Webservice method (e.g., 'filter_autotranslate_autotranslate').
+     * @param {object} params Filter parameters from manage.php.
      */
     function startTask(methodname, params) {
-        // Disable the autotranslate button.
         var autotranslatebutton = document.getElementById('autotranslate-button');
         if (autotranslatebutton) {
             autotranslatebutton.setAttribute('disabled', 'disabled');
         }
 
-        // Show the progress bar.
         var progresscontainer = document.getElementById('task-progress');
         progresscontainer.style.display = 'block';
         var progressbar = progresscontainer.querySelector('.progress-bar');
@@ -42,14 +45,13 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
         progressbar.setAttribute('aria-valuenow', '0');
         progressbar.textContent = '0%';
 
-        // Call the webservice to queue the task.
         Ajax.call([{
             methodname: methodname,
             args: params,
             done: function (response) {
                 if (response.success && response.taskid) {
                     Notification.addNotification({
-                        message: 'Task queued successfully. Please wait for completion.',
+                        message: 'Task queued successfully. Awaiting completion.',
                         type: 'success'
                     });
                     pollTaskStatus(response.taskid);
@@ -72,9 +74,11 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
     }
 
     /**
-     * Polls the task status and updates the progress bar.
+     * Polls task status and updates the progress bar.
      *
-     * @param {number} taskid The ID of the task to poll.
+     * Calls `filter_autotranslate_task_status` every second to update UI progress.
+     *
+     * @param {number} taskid ID of the task to poll.
      */
     function pollTaskStatus(taskid) {
         Ajax.call([{
@@ -95,7 +99,7 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
 
                 if (response.status === 'completed') {
                     Notification.addNotification({
-                        message: 'Task completed successfully. Reloading page...',
+                        message: 'Task completed. Reloading page...',
                         type: 'success'
                     });
                     setTimeout(function () {
@@ -103,7 +107,7 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
                     }, 1000);
                 } else if (response.status === 'failed') {
                     Notification.addNotification({
-                        message: 'Task failed. Please check logs for details.',
+                        message: 'Task failed. Check logs for details.',
                         type: 'error'
                     });
                     resetUI();
@@ -115,7 +119,7 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
             },
             fail: function (error) {
                 Notification.addNotification({
-                    message: 'Error checking task status: ' + error.message,
+                    message: 'Error checking status: ' + error.message,
                     type: 'error'
                 });
                 var progressbar = document.querySelector('#task-progress .progress-bar');
@@ -129,7 +133,9 @@ define(['core/ajax', 'core/notification'], function (Ajax, Notification) {
     }
 
     /**
-     * Resets the UI after a task completes or fails.
+     * Resets the UI after task completion or failure.
+     *
+     * Re-enables the button and hides/resets the progress bar.
      */
     function resetUI() {
         var autotranslatebutton = document.getElementById('autotranslate-button');

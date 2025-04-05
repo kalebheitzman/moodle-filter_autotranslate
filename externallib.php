@@ -15,23 +15,28 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * External API for the filter_autotranslate plugin.
+ * External API for the Autotranslate plugin.
  *
- * Purpose:
- * Defines external API functions for the filter_autotranslate plugin, enabling AJAX interactions
- * from manage.php to queue autotranslate tasks and retrieve task status.
+ * Defines AJAX endpoints for `manage.php` to queue autotranslate tasks and check status.
+ * Integrates with `translation_source` to identify untranslated entries and triggers
+ * `autotranslate_adhoc_task` for translation fetching.
  *
- * Design Decisions:
- * - Uses `content_service` and `translation_source` for database operations, aligning with the
- *   plugin’s core structure.
- * - Removes `rebuild_translations` function as it’s no longer used in manage.php with Option 3
- *   (Mark Stale and Lazy Rebuild).
- * - Employs all lowercase variable names per plugin convention.
+ * Features:
+ * - Queues autotranslate tasks with filters (language, course, etc.).
+ * - Retrieves task progress and status for UI updates.
+ *
+ * Usage:
+ * - `autotranslate`: Called by `autotranslate.js` from "Autotranslate" button.
+ * - `task_status`: Polled by `autotranslate.js` for progress feedback.
+ *
+ * Design:
+ * - Validates inputs (e.g., target language, capability) before queuing.
+ * - Stores progress in `filter_autotranslate_task_progress` for status checks.
+ * - Follows Moodle external API conventions with parameter validation.
  *
  * Dependencies:
- * - `content_service.php`: For managing translations (not directly used here but implied).
- * - `translation_source.php`: For fetching translation data.
- * - `task/autotranslate_adhoc_task.php`: For queuing the autotranslate task.
+ * - `translation_source.php`: Fetches untranslated hashes.
+ * - `task/autotranslate_adhoc_task.php`: Executes queued tasks.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -50,42 +55,42 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->libdir . '/externallib.php');
 
 /**
- * External API class for the filter_autotranslate plugin.
+ * External API class for Autotranslate plugin operations.
  */
 class external extends external_api {
     /**
-     * Parameters for the autotranslate function.
+     * Defines parameters for the autotranslate function.
      *
-     * @return external_function_parameters
+     * @return external_function_parameters Parameter structure for validation.
      */
     public static function autotranslate_parameters() {
         return new external_function_parameters([
-            'targetlang' => new external_value(PARAM_TEXT, 'Target language code (e.g., es)', VALUE_REQUIRED),
-            'courseid' => new external_value(PARAM_INT, 'Course ID to filter by', VALUE_DEFAULT, 0),
-            'filter_human' => new external_value(PARAM_TEXT, 'Filter by human status', VALUE_DEFAULT, ''),
-            'filter_needsreview' => new external_value(PARAM_TEXT, 'Filter by review status', VALUE_DEFAULT, ''),
+            'targetlang' => new external_value(PARAM_TEXT, 'Target language code (e.g., "es")', VALUE_REQUIRED),
+            'courseid' => new external_value(PARAM_INT, 'Course ID filter', VALUE_DEFAULT, 0),
+            'filter_human' => new external_value(PARAM_TEXT, 'Human status filter', VALUE_DEFAULT, ''),
+            'filter_needsreview' => new external_value(PARAM_TEXT, 'Review status filter', VALUE_DEFAULT, ''),
             'perpage' => new external_value(PARAM_INT, 'Records per page', VALUE_DEFAULT, 20),
-            'page' => new external_value(PARAM_INT, 'Current page number', VALUE_DEFAULT, 0),
-            'sort' => new external_value(PARAM_ALPHA, 'Sort column', VALUE_DEFAULT, 'hash'),
-            'dir' => new external_value(PARAM_ALPHA, 'Sort direction', VALUE_DEFAULT, 'ASC'),
+            'page' => new external_value(PARAM_INT, 'Page number (0-based)', VALUE_DEFAULT, 0),
+            'sort' => new external_value(PARAM_ALPHA, 'Sort column (e.g., "hash")', VALUE_DEFAULT, 'hash'),
+            'dir' => new external_value(PARAM_ALPHA, 'Sort direction ("ASC" or "DESC")', VALUE_DEFAULT, 'ASC'),
         ]);
     }
 
     /**
-     * Queues an adhoc task to fetch translations for untranslated entries.
+     * Queues an autotranslate task for untranslated entries.
      *
-     * Identifies untranslated entries in the target language based on the provided filters and
-     * queues an autotranslate task with their hashes.
+     * Identifies untranslated hashes using `translation_source` and queues an
+     * `autotranslate_adhoc_task` with provided filters.
      *
      * @param string $targetlang Target language code.
-     * @param int $courseid Course ID to filter by.
-     * @param string $filterhuman Filter by human status.
-     * @param string $filterneedsreview Filter by review status.
+     * @param int $courseid Course ID filter (0 for all).
+     * @param string $filterhuman Human status filter ('' all, '1' human, '0' auto).
+     * @param string $filterneedsreview Review status filter ('' all, '1' needs, '0' reviewed).
      * @param int $perpage Records per page.
-     * @param int $page Current page number.
+     * @param int $page Page number (0-based).
      * @param string $sort Sort column.
      * @param string $dir Sort direction.
-     * @return array Task ID and success status.
+     * @return array Task ID, success status, and message.
      */
     public static function autotranslate($targetlang, $courseid, $filterhuman, $filterneedsreview, $perpage, $page, $sort, $dir) {
         global $DB;
@@ -166,9 +171,9 @@ class external extends external_api {
     }
 
     /**
-     * Return value for the autotranslate function.
+     * Defines return values for the autotranslate function.
      *
-     * @return external_single_structure
+     * @return external_single_structure Return structure for API response.
      */
     public static function autotranslate_returns() {
         return new external_single_structure([
@@ -179,9 +184,9 @@ class external extends external_api {
     }
 
     /**
-     * Parameters for the task_status function.
+     * Defines parameters for the task_status function.
      *
-     * @return external_function_parameters
+     * @return external_function_parameters Parameter structure for validation.
      */
     public static function task_status_parameters() {
         return new external_function_parameters([
@@ -190,12 +195,12 @@ class external extends external_api {
     }
 
     /**
-     * Retrieves the status and progress of a task.
+     * Retrieves status and progress of a task.
      *
-     * Fetches progress data from `filter_autotranslate_task_progress` for a given task ID.
+     * Fetches progress from `filter_autotranslate_task_progress` for a task ID.
      *
      * @param int $taskid ID of the task to check.
-     * @return array Task status and progress.
+     * @return array Task status, progress percentage, and details.
      */
     public static function task_status($taskid) {
         global $DB;
@@ -227,9 +232,9 @@ class external extends external_api {
     }
 
     /**
-     * Return value for the task_status function.
+     * Defines return values for the task_status function.
      *
-     * @return external_single_structure
+     * @return external_single_structure Return structure for API response.
      */
     public static function task_status_returns() {
         return new external_single_structure([

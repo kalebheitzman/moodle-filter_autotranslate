@@ -15,33 +15,31 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Autotranslate Edit Page
+ * Translation edit page for the Autotranslate plugin.
  *
- * Purpose:
- * This script renders the edit page for the filter_autotranslate plugin, allowing administrators
- * to modify an existing translation in the `filter_autotranslate_translations` table. It updates
- * the translated_text, and human status fields, preventing edits to the 'other' language record,
- * and includes a language switcher for navigating translations of the same hash.
+ * Renders a form to edit an existing translation in `filter_autotranslate_translations`,
+ * updating via `content_service`. Prevents edits to 'other' records and redirects to `manage.php`.
+ *
+ * Features:
+ * - Displays source text with a form (WYSIWYG or textarea based on HTML).
+ * - Blocks editing of 'other' language records.
+ * - Preserves `manage.php` filters in redirects.
  *
  * Usage:
- * Accessed via '/filter/autotranslate/edit.php' with required parameters `hash` and `tlang`,
- * typically from the manage page’s "Edit" link. Displays a form alongside the source text and
- * processes updates to the translation.
+ * - Accessed via '/filter/autotranslate/edit.php' from `manage.php` "Edit" link.
+ * - Requires `hash` and `tlang` parameters with manage capability.
  *
- * Design Decisions:
- * - Uses `translation_source` for read-only data access to fetch translation and source text.
- * - Uses `content_service` to update translations, centralizing database writes.
- * - Prevents editing of 'other' language records, redirecting to manage.php with an error.
- * - Dynamically selects WYSIWYG editor or textarea based on HTML in the translated text.
- * - Includes a language switcher for quick navigation between translations of the same hash.
- * - Relies on `content_service` for @@PLUGINFILE@@ URL rewriting, so no local rewriting is needed.
+ * Design:
+ * - Uses `translation_source` for data, `content_service` for updates.
+ * - Switches editor type based on translated text HTML.
+ * - Validates inputs and session key for security.
  *
  * Dependencies:
- * - `text_utils.php`: For utility functions (e.g., map_language_to_other).
- * - `translation_source.php`: For fetching translation data.
- * - `content_service.php`: For updating translations.
- * - `form/edit_form.php`: For the edit form.
- * - `templates/edit.mustache`: For rendering the page.
+ * - `text_utils.php`: Maps languages and validates input.
+ * - `translation_source.php`: Fetches translation data.
+ * - `content_service.php`: Updates translations.
+ * - `form/edit_form.php`: Renders the form.
+ * - `templates/edit.mustache`: UI template.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>

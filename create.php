@@ -15,33 +15,31 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Autotranslate Create Page
+ * Translation creation page for the Autotranslate plugin.
  *
- * Purpose:
- * This script renders the create page for the filter_autotranslate plugin, allowing administrators
- * to add a new translation for a specific hash and language. It saves the translation to the
- * `filter_autotranslate_translations` table and redirects back to the manage page with preserved
- * filters.
+ * Renders a form to add a new translation for a hash and target language, saving it to
+ * `filter_autotranslate_translations` via `content_service`. Redirects to `manage.php`.
+ *
+ * Features:
+ * - Displays source text alongside a form (WYSIWYG or textarea based on HTML).
+ * - Prevents creation of 'other' language records.
+ * - Preserves `manage.php` filters in redirects.
  *
  * Usage:
- * Accessed via '/filter/autotranslate/create.php' with required parameters `hash` and `tlang`,
- * typically from the manage page’s "Add" link. Displays a form alongside the source text and
- * processes submissions to store the new translation.
+ * - Accessed via '/filter/autotranslate/create.php' from `manage.php` "Add" link.
+ * - Requires `hash` and `tlang` parameters with manage capability.
  *
- * Design Decisions:
- * - Uses `translation_source` to fetch source text, ensuring read-only database access.
- * - Uses `content_service` to store new translations, centralizing database writes.
- * - Prevents creation of 'other' language records, as source text should be updated via Moodle workflows.
- * - Dynamically selects WYSIWYG editor or textarea based on source text HTML presence.
- * - Preserves manage.php filters in the redirect URL for seamless navigation.
- * - Relies on `content_service` for @@PLUGINFILE@@ URL rewriting, so no local rewriting is needed.
+ * Design:
+ * - Uses `translation_source` for source text, `content_service` for saving.
+ * - Switches editor type based on source text HTML presence.
+ * - Validates inputs and session key for security.
  *
  * Dependencies:
- * - `text_utils.php`: For utility functions (e.g., map_language_to_other).
- * - `translation_source.php`: For fetching source text.
- * - `content_service.php`: For saving translations.
- * - `form/create_form.php`: For the creation form.
- * - `templates/create.mustache`: For rendering the page.
+ * - `text_utils.php`: Maps languages and validates input.
+ * - `translation_source.php`: Fetches source text.
+ * - `content_service.php`: Stores new translations.
+ * - `form/create_form.php`: Renders the form.
+ * - `templates/create.mustache`: UI template.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>

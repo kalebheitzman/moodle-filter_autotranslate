@@ -15,38 +15,30 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Autotranslate Settings
+ * Admin settings for the Autotranslate plugin.
  *
- * Purpose:
- * This file sets up the configuration options for the filter_autotranslate plugin, allowing
- * administrators to customize API settings, translation settings, task settings, and field selection
- * for translation. It is displayed under Site administration > Plugins > Filters > Autotranslate.
+ * Configures API, translation, task, and field selection options for the Autotranslate
+ * plugin. Displayed under Site administration > Plugins > Filters > Autotranslate.
  *
- * Structure:
- * The settings are organized into sections using admin_setting_heading:
- * - API Configuration: Settings for the translation API (e.g., endpoint, key, model).
- * - Translation Settings: Settings for translation behavior (e.g., target languages, batch size).
- * - Task Configuration: Settings for scheduled tasks (e.g., fetch limits, task frequency).
- * - Core Fields: Dynamic matrices for selecting fields from core Moodle components and modules,
- *   split by context level (course, course_sections, course_categories) and per module (e.g., forum).
- * - Third-Party Fields: Dynamic matrices for selecting fields from third-party modules, split per
- *   module (e.g., bigbluebuttonbn, chat).
+ * Features:
+ * - API settings: endpoint, key, model, and system instructions.
+ * - Translation settings: target languages, batch size, fetch limits.
+ * - Task settings: records per run, batch limits for tagging.
+ * - Field matrices: dynamic selection for core and third-party module fields.
  *
- * Design Decisions:
- * - Uses Moodle's admin settings API (admin_setting_configcheckbox, admin_setting_configtext, etc.)
- *   to define form elements, ensuring consistency with Moodle's admin interface.
- * - The apiendpoint and apimodel defaults are set to match the Google Generative AI API used in
- *   fetchtranslation_task.php, ensuring compatibility out of the box.
- * - Leverages content_service::get_field_selection_options to fetch dynamic field options for the
- *   field selection sections, keeping this file focused on presentation.
- * - Uses a custom admin_setting_configfieldmatrix to render field selection as a true matrix
- *   (rows = tables, columns = fields), split by context level and module for better usability.
- * - Includes validation for fields (e.g., PARAM_URL for apiendpoint, PARAM_INT for batchsize) to
- *   ensure valid input.
+ * Usage:
+ * - Controls `autotranslate_adhoc_task` API calls and retry behavior.
+ * - Defines fields tagged by `tagcontent_scheduled_task` via `content_service`.
+ * - Sets target languages for translation workflows.
+ *
+ * Design:
+ * - Uses Moodle admin settings API for consistent UI.
+ * - Dynamic matrices split by context (course, modules) and third-party plugins.
+ * - Validates inputs (e.g., URL for endpoint, integers for limits).
  *
  * Dependencies:
- * - content_service.php: Provides field discovery and selection options for field matrices.
- * - admin_setting_configfieldmatrix.php: Custom setting class for matrix UI.
+ * - `content_service.php`: Provides field options for matrices.
+ * - `admin_setting_configfieldmatrix.php`: Custom class for matrix UI.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>

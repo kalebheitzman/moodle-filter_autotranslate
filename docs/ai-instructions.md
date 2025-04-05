@@ -2,74 +2,76 @@
 
 ## Overview
 
-This document summarizes a comprehensive development conversation for the Moodle Autotranslate Filter plugin, updated to version `2025032800`. It provides a system prompt for future AI-assisted work, outlines the plugin’s logic map, details the database schema, and specifies key conventions like Moodle Extra coding style. Use this as a starting point for continued development in a new chat.
+This document summarizes development details for the Moodle Autotranslate Filter plugin, updated to version `2025040401`. It includes a system prompt for AI-assisted work, a logic map of components, the current database schema, and Moodle Extra coding conventions. Use this to guide further development in a new chat.
 
 ## System Prompt
 
-Below is a recommended system prompt for future chats:
+Here’s a system prompt for future AI assistance:
 
-> You are Grok 3, built by xAI, assisting with the development of the Moodle Autotranslate Filter plugin (version `2025032800`). Follow the Moodle Extra PHPCS coding style: all lowercase variable names (e.g., `$contentservice`), no underscores in variables, snake_case for function names (e.g., `update_translation`), and detailed PHPDoc comments mirroring the style in `text_filter.php`. The plugin uses a structure with `text_filter.php` (entry point), `content_service.php` (database writes), `translation_source.php` (read-only access), `ui_manager.php` (UI coordination), and `text_utils.php` (utilities), with `tagging_config.php` retained for settings configuration in `settings.php`. It implements Option 3 (Mark Stale and Lazy Rebuild), dynamically tagging content with `{t:hash}` during page loads and refreshing stale translations on demand. Refer to the logic map and database schema below for component interactions and data structure. Provide conversational, step-by-step guidance, avoiding code unless requested, and use `<code></code>` for inline code in Markdown.
+> You are Grok 3, built by xAI, aiding development of the Moodle Autotranslate Filter plugin (version `2025040401`). Adhere to Moodle Extra PHPCS: lowercase variables (e.g., `$contentservice`), no underscores, snake_case functions (e.g., `upsert_translation`), and detailed PHPDoc comments like in `text_filter.php`. The plugin uses `text_filter.php` (entry point), `content_service.php` (writes), `translation_source.php` (reads), `ui_manager.php` (UI), and `text_utils.php` (utilities). Tagging runs every 5 minutes via `tagcontent_scheduled_task.php`, with manual API fetches via `autotranslate_adhoc_task.php`. Refer to the logic map and schema below for interactions and structure. Offer step-by-step guidance, avoiding code unless asked, using single backticks for inline code in Markdown.
 
 ## Logic Map
 
-The plugin’s components interact as follows:
+Component interactions in the plugin:
 
-- **Entry Point**: `<code>text_filter.php</code>`
-  - **Role**: Processes text during page rendering.
-  - **Flow**: Checks for `{t:hash}` tags; if present, fetches translations from `translation_source.php`; if absent or stale (`timereviewed` < `timemodified`), delegates to `content_service.php` to tag and store.
-  - **Calls**: `translationsource->get_translation()`, `contentservice->process_content()`.
+- **Entry Point**: `text_filter.php`
+  - **Role**: Replaces `{t:hash}` tags during rendering.
+  - **Flow**: Fetches translations from `translation_source.php` for tagged content, caching via `cache.php` (`taggedcontent`).
+  - **Calls**: `translationsource->get_translation()`, `translationsource->get_source_text()`.
 
-- **Database Writes**: `<code>content_service.php</code>`
-  - **Role**: Manages all database operations (tagging, storing, updating).
+- **Database Writes**: `content_service.php`
+  - **Role**: Handles tagging, storage, and updates.
   - **Methods**:
-    - `process_content($text, $context, $courseid)`: Tags untagged/stale text, processes multilang tags via `text_utils.php`, stores in `mdl_filter_autotranslate_translations`, updates `mdl_filter_autotranslate_hid_cids`.
-    - `store_translation($hash, $lang, $text, $contextlevel, $courseid, $context)`: Inserts new translations.
-    - `update_translation($id, $text, $human, $timereviewed)`: Updates existing translations.
-    - `mark_course_stale($courseid)`: Flags translations stale by updating `timemodified`.
+    - `process_content($content, $context, $courseid)`: Tags content, processes multilang tags via `text_utils.php`, stores in `mdl_filter_autotranslate_translations`, updates `mdl_filter_autotranslate_hid_cids`.
+    - `upsert_translation($hash, $lang, $text, $contextlevel, $human)`: Inserts/updates translations.
+    - `get_field_selection_options()`: Provides settings field options.
   - **Calls**: `textutils->process_mlang_tags()`, `textutils->tag_content()`, `textutils->extract_hash()`.
 
-- **Read-Only Access**: `<code>translation_source.php</code>`
-  - **Role**: Fetches translation data for display or filtering.
+- **Read-Only Access**: `translation_source.php`
+  - **Role**: Supplies translation data.
   - **Methods**:
-    - `get_translation($hash, $lang)`: Retrieves a specific translation.
+    - `get_translation($hash, $lang)`: Fetches a translation.
     - `get_source_text($hash)`: Gets source text (`lang = 'other'`).
-    - `get_all_languages($hash)`: Lists languages for a hash.
-    - `get_paginated_translations($page, $perpage, $filterlang, $filterhuman, $sort, $dir, $courseid, $filterneedsreview)`: Fetches paginated data for UI.
-  - **Used By**: `text_filter.php`, `ui_manager.php`.
+    - `get_paginated_translations(...)`: Provides paginated data for UI.
+    - `get_paginated_target_translations(...)`: Pairs source-target translations.
+    - `get_untranslated_hashes(...)`: Lists untranslated hashes for tasks.
+  - **Used By**: `text_filter.php`, `ui_manager.php`, `external.php`.
 
-- **UI Coordination**: `<code>ui_manager.php</code>`
-  - **Role**: Manages UI tasks for `manage.php`, `create.php`, `edit.php`.
+- **UI Coordination**: `ui_manager.php`
+  - **Role**: Manages UI data for `manage.php`, `create.php`, `edit.php`.
   - **Methods**:
-    - `get_paginated_translations(...)`: Wraps `translationsource->get_paginated_translations()` with defaults.
-    - `mark_course_stale($courseid)`: Triggers staleness via `contentservice`.
-  - **Calls**: `translationsource->get_paginated_translations()`, `contentservice->mark_course_stale()`.
+    - `get_paginated_translations(...)`: Wraps `translationsource->get_paginated_translations()`.
+    - `get_paginated_target_translations(...)`: Wraps `translationsource->get_paginated_target_translations()`.
+  - **Calls**: `translationsource` methods.
 
-- **Utilities**: `<code>text_utils.php</code>`
-  - **Role**: Provides stateless text processing functions.
+- **Utilities**: `text_utils.php`
+  - **Role**: Stateless text helpers.
   - **Methods**: `generate_unique_hash()`, `process_mlang_tags()`, `tag_content()`, `is_tagged()`, `extract_hash()`.
   - **Used By**: `content_service.php`.
 
-- **Settings Configuration**: `<code>tagging_config.php</code>`
-  - **Role**: Defines tables and fields for admin configuration in `settings.php`.
-  - **Methods**: `get_tagging_config()`, `get_default_tables()`, `get_secondary_mappings()`, `get_relationship_details()`.
-  - **Used By**: `settings.php` (not used in core tagging logic).
+- **Settings**: `settings.php`
+  - **Role**: Configures API, tasks, and field selections for `tagcontent_scheduled_task.php`.
 
 - **Management UI**:
-  - `<code>manage.php</code>`: Displays translations, filters, triggers autotranslate task, optional "Mark Stale".
-  - `<code>create.php</code>`: Adds new translations.
-  - `<code>edit.php</code>`: Edits existing translations.
+  - `manage.php`: Displays/filters translations, triggers `autotranslate_adhoc_task.php`.
+  - `create.php`: Adds translations.
+  - `edit.php`: Edits translations.
 
-- **Task**: `<code>autotranslate_adhoc_task.php</code>`
-  - **Role**: Fetches API translations for untranslated entries, triggered by `manage.php`.
+- **Tasks**:
+  - `tagcontent_scheduled_task.php`: Tags content every 5 minutes.
+  - `autotranslate_adhoc_task.php`: Fetches API translations when triggered.
 
-- **External API**: `<code>external.php</code>`
-  - **Role**: Queues autotranslate tasks, reports status via `autotranslate()` and `task_status()`.
+- **External API**: `external.php`
+  - **Role**: Queues tasks and reports status via `autotranslate()` and `task_status()`.
+
+- **Caching**: `cache.php`
+  - **Role**: Defines `taggedcontent`, `modschemas`, `selectedfields` caches.
 
 ## Database Schema
 
-The plugin relies on three tables in the Moodle database:
+Current tables in the Moodle database:
 
-- **<code>mdl_filter_autotranslate_translations</code>**
+- **`mdl_filter_autotranslate_translations`**
   - **Purpose**: Stores translations with unique hashes.
   - **Fields**:
     - `id` (BIGINT, PK, auto-increment): Unique ID.
@@ -80,21 +82,20 @@ The plugin relies on three tables in the Moodle database:
     - `human` (TINYINT(1), default 0): 0 = auto, 1 = human-edited.
     - `timecreated` (INT(10), not null): Creation timestamp.
     - `timemodified` (INT(10), not null): Last modified timestamp.
-    - `timereviewed` (INT(10), default 0): Last reviewed timestamp.
   - **Keys**: PK: `id`, Unique: `hash, lang`.
-  - **Indexes**: `contextlevel`, `timereviewed`.
+  - **Indexes**: `contextlevel`.
   - **Usage**: Written by `content_service.php`, read by `translation_source.php`.
 
-- **<code>mdl_filter_autotranslate_hid_cids</code>**
+- **`mdl_filter_autotranslate_hid_cids`**
   - **Purpose**: Maps hashes to course IDs for filtering.
   - **Fields**:
     - `hash` (VARCHAR(10), not null): Hash of the string.
     - `courseid` (BIGINT, not null): Course ID.
   - **Keys**: PK: `hash, courseid`.
   - **Indexes**: `hash`, `courseid`.
-  - **Usage**: Updated by `content_service.php`, queried by `translation_source.php` for course-specific views.
+  - **Usage**: Updated by `content_service.php`, queried by `translation_source.php`.
 
-- **<code>mdl_filter_autotranslate_task_progress</code>**
+- **`mdl_filter_autotranslate_task_progress`**
   - **Purpose**: Tracks autotranslate task progress.
   - **Fields**:
     - `id` (BIGINT, PK, auto-increment): Unique ID.
@@ -103,29 +104,26 @@ The plugin relies on three tables in the Moodle database:
     - `total_entries` (INT, not null): Total items to process.
     - `processed_entries` (INT, default 0): Items processed.
     - `status` (VARCHAR(20), default 'queued'): Task status.
-    - `timecreated` (INT, not null): Creation timestamp.
-    - `timemodified` (INT, not null): Last modified timestamp.
+    - `timecreated` (INT(10), not null): Creation timestamp.
+    - `timemodified` (INT(10), not null): Last modified timestamp.
   - **Keys**: PK: `id`.
   - **Indexes**: `taskid`.
   - **Usage**: Updated by `autotranslate_adhoc_task.php`, read by `external.php`.
 
 ## Moodle Extra Coding Style
-- **Variables**: All lowercase, no underscores (e.g., `$contentservice`, `$targetlang`).
-- **Functions**: Snake_case (e.g., `update_translation`, `process_content`).
-- **Comments**: Detailed PHPDoc blocks with Purpose, Usage, Design Decisions, Dependencies (see `text_filter.php`).
+- **Variables**: Lowercase, no underscores (e.g., `$contentservice`, `$targetlang`).
+- **Functions**: Snake_case (e.g., `upsert_translation`, `process_content`).
+- **Comments**: Detailed PHPDoc with Purpose, Usage, Design, Dependencies (see `text_filter.php`).
 - **Files**: One class per file, lowercase filenames matching class names (e.g., `content_service.php`).
 
 ## Key Development Notes
-- **Option 3**: Replaced proactive rebuilds with lazy rebuilds; `content_service.php` checks `timereviewed` vs. `timemodified` and refreshes stale translations on page load.
-- **Dynamic Tagging**: Primary mechanism in `text_filter.php`, no longer reliant on `tagging_config.php` for runtime tagging.
-- **Settings Retention**: Kept `tagging_config.php` for `settings.php` to configure tables/fields in the admin UI, though not used by the core filter.
-- **Rebuild Removal**: Dropped `rebuild_translations_adhoc_task.php` and related UI/CLI features.
-- **Dependencies**: Unified database ops in `content_service.php`, reads in `translation_source.php`.
-- **UI**: `manage.php` uses `ui_manager.php` for data and actions, with `create.php` and `edit.php` for editing.
+- **Tagging**: Moved from dynamic in `text_filter.php` to scheduled via `tagcontent_scheduled_task.php` (5-minute intervals).
+- **Tasks**: `autotranslate_adhoc_task.php` replaces proactive fetches, triggered manually from `manage.php`.
+- **Settings**: `settings.php` configures tables/fields for tagging, not runtime logic.
+- **Removed**: Dropped `mark_course_stale`, lazy rebuilds, and old tagging configs from core logic.
+- **Caching**: Added `cache.php` for `taggedcontent`, `modschemas`, `selectedfields` to boost performance.
 
 ## Recommendations
-- **Testing**: Verify dynamic tagging, lazy rebuild, and autotranslate task with version `2025032800`.
-- **UI**: Consider adding "Mark Stale" to `manage.php` via `ui_manager->mark_course_stale()`.
-- **Future**: Add multilingual search integration or leverage `tagging_config.php` for optional scheduled tagging if desired.
-
-This summary captures our work from March 27, 2025, onward. Use it to guide further enhancements!
+- **Testing**: Validate scheduled tagging and adhoc translation with version `2025040401`.
+- **Enhancements**: Consider adding bulk tagging options in `manage.php` or integrating with Moodle’s search.
+- **Future**: Explore optional use of `settings.php` fields for dynamic tagging if performance allows.

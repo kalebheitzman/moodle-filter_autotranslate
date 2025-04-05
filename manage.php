@@ -15,35 +15,32 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Autotranslate Manage Page
+ * Management page for the Autotranslate plugin.
  *
- * Purpose:
- * This script renders the manage page for the filter_autotranslate plugin, displaying a table of
- * translations from the `filter_autotranslate_translations` table. It allows administrators to
- * filter translations by language, human status, review status, and records per page, with support
- * for pagination, sorting, and editing individual translations, handling right-to-left (RTL)
- * languages for proper alignment.
+ * Displays a filterable, paginated table of translations from `filter_autotranslate_translations`,
+ * with edit/add actions and an "Autotranslate" button. Supports RTL languages and target language views.
+ *
+ * Features:
+ * - Filters by language, human status, course, and review needs.
+ * - Paginates translations with sorting options.
+ * - Links to `edit.php`/`create.php` for translation management.
+ * - Triggers `autotranslate_adhoc_task` via `external.php`.
  *
  * Usage:
- * Accessed via the URL '/filter/autotranslate/manage.php', typically by administrators with the
- * 'filter/autotranslate:manage' capability. It renders a filter form and a table of translations,
- * with options to edit existing translations or add missing ones for target languages.
+ * - Accessed at '/filter/autotranslate/manage.php' by admins with manage capability.
+ * - Renders translation data from `ui_manager` and `translation_source`.
  *
- * Design Decisions:
- * - Uses `ui_manager` for data retrieval and staleness actions, aligning with the plugin’s core
- *   structure and Option 3 (Mark Stale and Lazy Rebuild).
- * - Removes the 'Rebuild Translations' feature, relying on dynamic staleness handling via
- *   `ui_manager` and `content_service`.
- * - Supports target language views with 'Add' buttons for missing translations, using direct SQL
- *   for efficiency while maintaining consistency with `ui_manager` for other views.
- * - Integrates Moodle’s output API and Mustache templating for a responsive, user-friendly interface.
+ * Design:
+ * - Uses `ui_manager` for data and Mustache for responsive UI.
+ * - Supports target language view with source-target pairing.
+ * - Integrates `autotranslate.js` for AJAX task queuing.
  *
  * Dependencies:
- * - `ui_manager.php`: Coordinates UI data retrieval and staleness actions.
- * - `translation_source.php`: Provides translation data via `ui_manager`.
- * - `text_utils.php`: Handles RTL language detection.
- * - `form/manage_form.php`: Renders the filter form.
- * - `templates/manage.mustache`: Template for the manage page layout.
+ * - `ui_manager.php`: Fetches paginated translation data.
+ * - `translation_source.php`: Provides raw translation data.
+ * - `text_utils.php`: Handles RTL and language mapping.
+ * - `form/manage_form.php`: Renders filter form.
+ * - `templates/manage.mustache`: UI template.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>

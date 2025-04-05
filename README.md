@@ -4,24 +4,23 @@
 
 ## Introduction
 
-The **Moodle Autotranslate Filter** plugin enhances your Moodle site by automatically translating content into multiple languages using any OpenAI-compatible translation service (e.g., Google Generative AI). Designed for accessibility, it supports a global audience while allowing human-reviewed translations. Ideal for administrators, teachers, and developers, this plugin simplifies creating a multilingual Moodle experience.
+The **Moodle Autotranslate Filter** enhances your Moodle site by automatically translating content into multiple languages using any OpenAI-compatible translation service (e.g., Google Generative AI). Managing translations in Moodle has traditionally been a fragmented, manual challenge for administrators and translators. This plugin offers a translator-centered approach, combining automation with human review to simplify multilingual support for a global audience.
 
 ## Key Features
 
-- **Automatic Translation**: Fetches translations via an OpenAI-compatible API for untagged or untranslated content.
-- **Dynamic Tagging**: Tags content with `{t:hash}` during page rendering, ensuring immediate translation support for all content, including third-party modules.
-- **Human Translation Support**: Offers a management interface to edit or add translations manually.
-- **Global Reuse**: Shares translations site-wide for identical text, maintaining consistency and efficiency.
-- **Context Awareness**: Stores translations with Moodle context levels (e.g., System, Course, Module), inherited from source text.
-- **Multilang Processing**: Extracts and replaces `<span>` and `{mlang}` tags with `{t:hash}` tags, storing translations in the database.
-- **Lazy Rebuild**: Marks translations stale for on-demand rebuilding during page loads, avoiding scheduled rebuild tasks.
+- **Automatic Translation**: Fetches translations via API for untranslated content, triggered manually by admins.
+- **Scheduled Tagging**: Tags content with `{t:hash}` every 5 minutes via a scheduled task, covering core and third-party modules.
+- **Human Translation Support**: Includes a management interface to edit or add translations manually.
+- **Global Reuse**: Shares translations site-wide for identical text, ensuring consistency and efficiency.
+- **Context Awareness**: Stores translations with Moodle context levels (e.g., Course, Module) and course mappings.
+- **Multilang Processing**: Extracts `<span>` and `{mlang}` tags, storing translations and replacing them with `{t:hash}`.
 
 ## Installation
 
 To install the plugin:
 
 1. Download the latest release from the [GitHub repository](https://github.com/kalebheitzman/moodle-filter_autotranslate/releases).
-2. Unzip it into your Moodle’s `filter` directory (e.g., `/path/to/moodle/filter/`).
+2. Unzip it into your Moodle `filter` directory (e.g., `/path/to/moodle/filter/`).
 3. Log in as an administrator and go to **Site Administration** > **Notifications** to install.
 4. Navigate to **Site Administration** > **Plugins** > **Filters** > **Manage filters**.
 5. Enable "Autotranslate" and set it to **content and headings**, ideally at the top of the filter list.
@@ -30,9 +29,9 @@ To install the plugin:
 
 Configure the plugin with your translation service:
 
-1. Sign up for an OpenAI-compatible service (e.g., Google Generative AI, OpenAI).
+1. Sign up for an OpenAI-compatible service (e.g., Google Generative AI).
 2. Gather:
-   - **Endpoint**: API URL (e.g., `https://generativelanguage.googleapis.com/v1beta`).
+   - **Endpoint**: API URL (e.g., `https://generativelanguage.googleapis.com/v1beta/openai`).
    - **API Key**: Your authentication key.
    - **Model**: The translation model (e.g., `gemini-1.5-pro-latest`).
 3. Go to **Site Administration** > **Plugins** > **Filters** > **Autotranslate settings**.
@@ -40,7 +39,7 @@ Configure the plugin with your translation service:
 
 ### Example Configuration
 
-- **Endpoint**: `https://generativelanguage.googleapis.com/v1beta`
+- **Endpoint**: `https://generativelanguage.googleapis.com/v1beta/openai`
 - **API Key**: `your-google-api-key`
 - **Model**: `gemini-1.5-pro-latest`
 
@@ -51,28 +50,25 @@ Refer to your service’s documentation for specifics.
 Here’s how to use the plugin:
 
 1. Install and configure as above.
-2. Visit any page (e.g., course, resource). The filter dynamically tags untagged content with `{t:hash}` on page load.
-3. Switch languages via Moodle’s language selector (top-right).
-4. Translations appear immediately for dynamically tagged content; API-translated content may take up to 30 minutes via the autotranslate task.
-5. Manage translations at `/filter/autotranslate/manage.php` (requires `filter/autotranslate:manage` capability):
-   - View translations with hash, language, source text (for target languages), translated text, human status, context level, review status, and actions.
+2. Content is tagged with `{t:hash}` every 5 minutes via a scheduled task; new content may take up to 5 minutes to show translations.
+3. Switch languages via Moodle’s language selector (top-right) to view translations for tagged content.
+4. Manage translations at `/filter/autotranslate/manage.php` (requires `filter/autotranslate:manage` capability):
+   - View translations with hash, language, source text (for target languages), translated text, human status, context level, and actions.
    - Filter by language, human status, review status, and course ID.
    - Edit via "Edit" links or add new translations with the "Add" button.
-   - Mark a course’s translations stale using the "Mark Stale" option (if added to UI).
-6. Teachers can edit translations within their courses if granted `filter/autotranslate:edit`.
+   - Use the "Autotranslate" button to fetch API translations for untranslated content.
+5. Teachers with `filter/autotranslate:edit` can edit translations within their courses.
 
 ## Permissions and Capabilities
 
 The plugin defines two capabilities:
 
-- **filter/autotranslate:manage**
-  - **Purpose**: Manage translations site-wide, configure settings, and mark translations stale.
-  - **Default Roles**: Manager, Editing Teacher
-  - **Context**: System
-- **filter/autotranslate:edit**
-  - **Purpose**: Edit translations within specific courses.
-  - **Default Roles**: Teacher, Editing Teacher, Manager
-  - **Context**: Course
+- **`filter/autotranslate:manage`**:
+  - Purpose: Manage translations site-wide and configure settings.
+  - Default Roles: Manager, Editing Teacher (System context).
+- **`filter/autotranslate:edit`**:
+  - Purpose: Edit translations within specific courses.
+  - Default Roles: Teacher, Editing Teacher, Manager (Course context).
 
 Customize these via Moodle’s role management.
 
@@ -117,40 +113,37 @@ Customize these via Moodle’s role management.
 - **Indexes**: `taskid`.
 
 ### Text Tagging
-- **Dynamic**: The filter tags content with `{t:hash}` during rendering, storing source text and translations immediately.
-- **Example**: `Submit {t:aBcDeFgHiJ}` → Spanish: `Enviar`.
+- Runs every 5 minutes via `tagcontent_scheduled_task.php`, tagging content with `{t:hash}` in configured tables.
+- Example: `Submit {t:aBcDeFgHiJ}` → Spanish: `Enviar`.
 
 ### Multilang Processing
-- **Extraction**: Processes `<span lang="xx" class="multilang">` and `{mlang xx}` tags, storing translations and replacing with `{t:hash}`.
-- **Destructive**: Original multilang tags are removed irreversibly.
+- Scheduled task extracts `<span>` and `{mlang}` tags, stores translations, and replaces them with `{t:hash}` (destructive).
 
 ### Translation Display
-- Detects `{t:hash}`, fetches the user’s language translation, or falls back to source text if unavailable.
-
-### Lazy Rebuild
-- Marks translations stale via `ui_manager.php` (UI trigger optional), refreshing them on next page load.
+- `text_filter.php` detects `{t:hash}`, fetches the user’s language translation, or falls back to source text if unavailable.
 
 ## Scheduled Tasks
 
-- **`autotranslate_adhoc_task`**:
-  - **Trigger**: "Autotranslate" button on manage.php.
-  - **Purpose**: Fetches translations for untranslated entries via API.
-  - **Schedule**: Adhoc, runs when queued.
+- **`tagcontent_scheduled_task.php`**:
+  - Tags content every 5 minutes.
+- **`autotranslate_adhoc_task.php`**:
+  - Trigger: "Autotranslate" button on `manage.php`.
+  - Fetches translations via API for untranslated content.
 
 Adjust via **Site Administration** > **Server** > **Scheduled tasks**.
 
 ## Management Interface
 
 At `/filter/autotranslate/manage.php`:
-- **View**: Table with hash, language, source text (target languages), translated text, human status, context level, review status, actions.
+- **View**: Table with hash, language, source text (target languages), translated text, human status, context level, actions.
 - **Filter**: Language, human status, review status, course ID.
 - **Edit/Add**: Edit via "Edit" or add via "Add" button.
-- **Stale Marking**: Optional "Mark Stale" button (add to UI if desired).
+- **Autotranslate**: Triggers API translation fetch.
 
 ## Important Considerations
 - **Alpha Stage**: Backup your database before use.
 - **Database Size**: Translations increase storage needs.
-- **Performance**: Dynamic tagging may impact load times; adjust API settings if needed.
+- **Performance**: Tagging runs every 5 minutes; new content may delay up to 5 minutes.
 - **Content Alteration**: `{t:hash}` tags persist; disabling leaves raw tags visible.
 - **Multilang Removal**: `<span>` and `{mlang}` tags are replaced irreversibly.
 - **API Dependency**: Requires a reliable translation service.

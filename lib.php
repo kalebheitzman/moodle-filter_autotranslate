@@ -15,11 +15,19 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Autotranslate filter library functions.
+ * Library functions for the Autotranslate plugin.
  *
- * Purpose:
- * Provides utility functions for the filter_autotranslate plugin, including extending the course
- * navigation menu with a "Manage Autotranslations" link for administrators.
+ * Provides utility functions to enhance Moodle navigation for the Autotranslate plugin.
+ *
+ * Features:
+ * - Adds "Manage Autotranslations" link to course settings menu.
+ *
+ * Usage:
+ * - Called by Moodle to extend course navigation for admins.
+ *
+ * Design:
+ * - Checks manage capability before adding navigation link.
+ * - Uses current or site language for filter consistency.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -27,14 +35,14 @@
  */
 
 /**
- * Adds "Manage Autotranslations" to the course settings menu.
+ * Extends course navigation with a manage link.
  *
- * Extends the course navigation with a link to manage.php for users with the manage capability,
- * using the current language or 'other' based on the site language.
+ * Adds "Manage Autotranslations" to the course settings menu for users with manage
+ * capability, linking to `manage.php` with course-specific filters.
  *
- * @param navigation_node $navigation The navigation node to extend.
- * @param stdClass $course The course object.
- * @param context $context The course context.
+ * @param navigation_node $navigation Navigation node to extend.
+ * @param stdClass $course Course object.
+ * @param context $context Course context.
  * @return void
  */
 function filter_autotranslate_extend_navigation_course($navigation, $course, $context) {

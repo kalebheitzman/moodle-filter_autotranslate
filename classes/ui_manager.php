@@ -15,37 +15,24 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * UI Manager for the Autotranslate Plugin
+ * UI manager for the Autotranslate plugin.
  *
- * Purpose:
- * This file defines the UI manager for the filter_autotranslate plugin, coordinating user interface
- * operations such as displaying paginated translation lists and triggering actions like marking
- * translations stale. It acts as a bridge between UI components (e.g., management pages) and the
- * underlying data and service layers, ensuring a seamless user experience without direct database
- * manipulation.
+ * Coordinates UI operations, fetching paginated translation data for `manage.php`
+ * from `translation_source`. Acts as a bridge between UI and data layer.
  *
- * Structure:
- * Contains the `ui_manager` class with properties for `$translationsource` (data retrieval) and
- * `$contentservice` (service operations). Key methods include `get_paginated_translations` (UI data
- * fetch) and `mark_course_stale` (staleness trigger).
+ * Features:
+ * - Provides paginated translations with source text fallbacks.
+ * - Supports target language views with source-target pairing.
  *
  * Usage:
- * Called by UI components (e.g., manage.php) to retrieve translation data for display or to initiate
- * actions like marking a course’s translations stale for lazy rebuilding. It delegates data retrieval
- * to `translation_source` and updates to `content_service`.
+ * - Called by `manage.php` to display translation tables.
  *
- * Design Decisions:
- * - Focuses on UI coordination, avoiding direct database access to maintain separation of concerns,
- *   with reads via `translation_source` and writes via `content_service`.
- * - Implements the Option 3 (Mark Stale and Lazy Rebuild) strategy by providing a method to flag
- *   translations as stale, complementing the lazy refresh in `content_service`.
- * - Keeps logic lightweight, acting as a pass-through to underlying services, making it extensible
- *   for future UI features (e.g., translation editing).
- * - Uses global $DB for simplicity, as it’s a high-level coordinator instantiated in UI scripts.
+ * Design:
+ * - Delegates reads to `translation_source` for data consistency.
+ * - Lightweight, avoids direct database manipulation.
  *
  * Dependencies:
- * - `translation_source.php`: Provides read-only access to translation data for display.
- * - `content_service.php`: Handles database operations, including marking translations stale.
+ * - `translation_source.php`: Fetches translation data.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -55,49 +42,41 @@
 namespace filter_autotranslate;
 
 use filter_autotranslate\translation_source;
-use filter_autotranslate\content_service;
 
 /**
- * Class to coordinate UI operations for the filter_autotranslate plugin.
+ * Coordinates UI operations for the Autotranslate plugin.
  */
 class ui_manager {
     /**
-     * @var translation_source The source instance for retrieving translation data.
+     * @var translation_source Fetches translation data.
      */
     private $translationsource;
 
     /**
-     * @var content_service The service instance for managing content operations.
-     */
-    private $contentservice;
-
-    /**
-     * Constructor for the UI manager.
+     * Constructs the UI manager with a data instance.
      *
-     * Initializes the manager with instances of the translation source and content service using
-     * the global $DB object for database access.
+     * Initializes with global $DB for `translation_source`.
      */
     public function __construct() {
         global $DB;
         $this->translationsource = new translation_source($DB);
-        $this->contentservice = new content_service($DB);
     }
 
     /**
      * Fetches paginated translations for UI display.
      *
-     * Retrieves a paginated list of translations from `translation_source`, ensuring source text is
-     * always available (defaulting to 'N/A' if missing), used for management interfaces.
+     * Retrieves translations from `translation_source` with filters, ensuring source text
+     * defaults to 'N/A' if missing, for `manage.php` display.
      *
-     * @param int $page The current page number (0-based).
-     * @param int $perpage The number of records per page.
-     * @param string $filterlang The language to filter by (e.g., 'es', 'all').
-     * @param string $filterhuman The human status to filter by ('' for all, '1' for human, '0' for auto).
-     * @param string $sort The column to sort by (e.g., 'hash', 'lang').
-     * @param string $dir The sort direction ('ASC' or 'DESC').
-     * @param int $courseid The course ID to filter by (0 for all).
-     * @param string $filterneedsreview Filter by review status ('' for all, '1' for needs review, '0' for reviewed).
-     * @return array An array with 'translations' (records) and 'total' (count of matching records).
+     * @param int $page Page number (0-based).
+     * @param int $perpage Records per page.
+     * @param string $filterlang Language filter ('all', 'es', etc.).
+     * @param string $filterhuman Human status ('' all, '1' human, '0' auto).
+     * @param string $sort Sort column (e.g., 'hash').
+     * @param string $dir Sort direction ('ASC' or 'DESC').
+     * @param int $courseid Course ID filter (0 for all).
+     * @param string $filterneedsreview Review status ('' all, '1' needs, '0' reviewed).
+     * @return array ['translations' => records, 'total' => count]
      */
     public function get_paginated_translations(
         $page,
@@ -132,20 +111,20 @@ class ui_manager {
     }
 
     /**
-     * Fetches paginated source and target translations for a specific language.
+     * Fetches paginated source and target translations.
      *
-     * Retrieves source translations (`lang = 'other'`) and their target counterparts for a given
-     * language, supporting pagination and filtering for UI display in target language view.
+     * Retrieves source (lang = 'other') and target translations for a language, for
+     * target view in `manage.php`, with filters and 'N/A' source fallback.
      *
-     * @param int $page The current page number (0-based).
-     * @param int $perpage The number of records per page.
-     * @param string $targetlang The target language to fetch (e.g., 'es').
-     * @param string $filterhuman The human status to filter by ('' for all, '1' for human, '0' for auto).
-     * @param string $sort The column to sort by (e.g., 'hash', 'lang').
-     * @param string $dir The sort direction ('ASC' or 'DESC').
-     * @param int $courseid The course ID to filter by (0 for all).
-     * @param string $filterneedsreview Filter by review status ('' for all, '1' for needs review, '0' for reviewed).
-     * @return array An array with 'translations' (records) and 'total' (count of matching records).
+     * @param int $page Page number (0-based).
+     * @param int $perpage Records per page.
+     * @param string $targetlang Target language (e.g., 'es').
+     * @param string $filterhuman Human status ('' all, '1' human, '0' auto).
+     * @param string $sort Sort column (e.g., 'hash').
+     * @param string $dir Sort direction ('ASC' or 'DESC').
+     * @param int $courseid Course ID filter (0 for all).
+     * @param string $filterneedsreview Review status ('' all, '1' needs, '0' reviewed).
+     * @return array ['translations' => records, 'total' => count]
      */
     public function get_paginated_target_translations(
         $page,
@@ -177,17 +156,5 @@ class ui_manager {
         }
 
         return ['translations' => $translations, 'total' => $total];
-    }
-
-    /**
-     * Marks all translations for a course as stale.
-     *
-     * Triggers `content_service` to mark translations associated with a course as stale, enabling
-     * lazy rebuilding when next processed by `text_filter`.
-     *
-     * @param int $courseid The course ID to mark stale.
-     */
-    public function mark_course_stale($courseid) {
-        $this->contentservice->mark_course_stale($courseid);
     }
 }

@@ -15,29 +15,31 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Content service for the Autotranslate filter plugin.
+ * Content service for the Autotranslate plugin.
  *
- * This class handles content processing, tagging, translation storage, and persistence for the
- * Autotranslate filter plugin. It processes text with MLang tags, tags content with unique hashes,
- * persists changes into Moodle database tables (e.g., course sections, module tables), and stores
- * translations in `filter_autotranslate_translations`. It supports both primary tables (e.g., `book`)
- * and secondary tables (e.g., `book_chapters`) for modules.
+ * Manages content processing, tagging, persistence, and translation storage for the
+ * Autotranslate filter. Processes MLang tags, tags content with {t:hash}, persists
+ * updates in Moodle tables, and stores translations in `filter_autotranslate_translations`.
  *
- * Key Features:
- * - Processes MLang tags and extracts source text and translations.
- * - Tags content with unique hashes (e.g., `{t:hash}`) for tracking.
- * - Persists tagged content into Moodle tables based on context (course, module, etc.).
+ * Features:
+ * - Parses MLang tags to extract source text and translations.
+ * - Tags content with unique {t:hash} markers for tracking.
+ * - Persists tagged content in course and module tables.
  * - Stores translations with course mappings in `filter_autotranslate_hid_cids`.
- * - Rewrites pluginfile URLs for consistent content rendering.
+ * - Rewrites @@PLUGINFILE@@ URLs for consistent rendering.
  *
  * Usage:
- * - Called by `text_filter.php` to process and persist content during page rendering.
- * - Configured via plugin settings to enable fields for persistence (e.g., `book.name`, `book_chapters.title`).
+ * - Called by `tagcontent_scheduled_task` to tag and store content.
+ * - Used by `autotranslate_adhoc_task`, `create.php`, and `edit.php` to save translations.
  *
- * Design Notes:
- * - Uses unprefixed table names internally (e.g., `book_chapters`), relying on Moodle’s database layer to add prefixes.
- * - Handles transactions to ensure atomic updates of translations and mappings.
- * - Avoids direct database modifications outside of Moodle’s DML API for portability.
+ * Design:
+ * - Handles both primary (e.g., `book`) and secondary (e.g., `book_chapters`) tables.
+ * - Uses transactions for atomic translation updates.
+ * - Caches field selections and schemas for performance.
+ *
+ * Dependencies:
+ * - `text_utils.php`: For MLang parsing and hash generation.
+ * - `lib/filelib.php`: For URL rewriting via `file_rewrite_pluginfile_urls`.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -50,14 +52,10 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir . '/filelib.php');
 
-if (!function_exists('file_rewrite_pluginfile_urls')) {
-    throw new \Exception('file_rewrite_pluginfile_urls() is not available. Check if lib/weblib.php is properly included.');
-}
-
 use core_component;
 
 /**
- * Handles content-related database operations for the Autotranslate filter.
+ * Manages content-related operations for the Autotranslate filter.
  */
 class content_service {
 
@@ -80,10 +78,10 @@ class content_service {
     /**
      * Tags content, persists it, and stores translations.
      *
-     * Trims content, parses MLang tags, tags with a hash, persists in Moodle tables,
-     * and stores translations in `filter_autotranslate_translations`.
+     * Processes content with MLang tags, tags it with {t:hash}, persists in Moodle tables,
+     * and stores translations. Updates existing hashes if source text changes.
      *
-     * @param string $content Content to process (e.g., text with MLang tags).
+     * @param string $content Content to process (e.g., with MLang tags).
      * @param \context $context Moodle context (e.g., course, module).
      * @param int $courseid Course ID for mapping translations.
      * @return string Tagged content or original if persistence fails.
@@ -158,14 +156,14 @@ class content_service {
     /**
      * Persists tagged content into a Moodle table based on context.
      *
-     * Locates the matching table and field, updates with tagged content. Uses `$originaltext`
-     * first for matching, falls back to `$sourcetext`. Supports course, module, and category contexts.
+     * Updates course or module tables with tagged content, matching against original or
+     * source text. Supports CONTEXT_COURSE, CONTEXT_MODULE, and CONTEXT_COURSECAT.
      *
-     * @param string $taggedcontent Tagged content to persist (e.g., "Text {t:hash}").
-     * @param string $sourcetext Untagged source text for validation and fallback.
-     * @param string $originaltext Original raw text for primary matching.
-     * @param \context $context Moodle context (e.g., course, module).
-     * @param int $courseid Course ID (unused here, passed for consistency).
+     * @param string $taggedcontent Tagged content (e.g., "Text {t:hash}").
+     * @param string $sourcetext Untagged source text for fallback matching.
+     * @param string $originaltext Original text for primary matching.
+     * @param \context $context Moodle context for table selection.
+     * @param int $courseid Course ID (passed for consistency, unused here).
      * @return bool True if persisted, false if no match or unsupported context.
      */
     private function persist_tagged_content($taggedcontent, $sourcetext, $originaltext, $context, $courseid) {
@@ -386,10 +384,10 @@ class content_service {
     /**
      * Updates a field if its value matches the source text.
      *
-     * @param string $table Table to update (unprefixed, e.g., 'course_sections').
-     * @param string $idfield ID field name (typically 'id').
-     * @param int $id ID value of the record to update.
-     * @param array $fields Field name-value pairs to check.
+     * @param string $table Unprefixed table name (e.g., 'course_sections').
+     * @param string $idfield ID field name (usually 'id').
+     * @param int $id Record ID to update.
+     * @param array $fields Field-value pairs to check.
      * @param string $sourcetext Text to match against field values.
      * @param string $taggedcontent Tagged content to set if matched.
      * @return bool True if updated, false if no match.
@@ -408,8 +406,10 @@ class content_service {
     /**
      * Gets schemas for specified modules.
      *
-     * @param array $modulenames Array of module names (e.g., ['book', 'assign']).
-     * @return array Table-field mappings for the modules, including foreign keys.
+     * Returns table-field mappings with foreign keys for module tables.
+     *
+     * @param array $modulenames Module names (e.g., ['book', 'assign']).
+     * @return array Table schemas (e.g., ['mdl_book' => ['fields' => ['name'], 'fk' => null]]).
      */
     public function get_all_module_schemas($modulenames) {
         $schemas = [];
@@ -425,9 +425,9 @@ class content_service {
     /**
      * Generates field options for settings.
      *
-     * Builds a structured array of core and third-party module fields for the plugin’s settings UI.
+     * Builds table-field options for core and third-party modules in settings UI.
      *
-     * @return array Array with 'core' and 'thirdparty' keys, containing table-field options.
+     * @return array ['core' => [...], 'thirdparty' => [...]] with table-field mappings.
      */
     public function get_field_selection_options() {
         $corenonmodules = [
@@ -488,8 +488,10 @@ class content_service {
     /**
      * Fetches enabled fields from settings for a context.
      *
-     * @param string $contextid Context identifier (e.g., 'book', 'course').
-     * @return array Enabled fields (e.g., ['mdl_book.name' => 1, 'mdl_book_chapters.title' => 1]).
+     * Returns enabled fields for a context (e.g., 'book'), cached for performance.
+     *
+     * @param string $contextid Context ID (e.g., 'book', 'course').
+     * @return array Enabled fields (e.g., ['mdl_book.name' => 1]).
      */
     public function get_selected_fields($contextid) {
         $cache = \cache::make('filter_autotranslate', 'selectedfields');
@@ -515,10 +517,10 @@ class content_service {
     }
 
     /**
-     * Gets schema for a module, identifying translatable fields and foreign keys.
+     * Gets schema for a module, identifying translatable fields.
      *
      * @param string $modname Module name (e.g., 'book').
-     * @return array Table-field mappings with foreign keys (e.g., ['mdl_book' => ['fields' => ['name', 'intro'], 'fk' => null]]).
+     * @return array Table schemas with fields and foreign keys.
      */
     private function get_module_schema($modname) {
         $cache = \cache::make('filter_autotranslate', 'modschemas');
@@ -726,33 +728,15 @@ class content_service {
     }
 
     /**
-     * Marks course translations as stale by updating their modification time.
+     * Inserts or updates a translation record.
      *
-     * @param int $courseid Course ID to mark as stale.
-     */
-    public function mark_course_stale($courseid) {
-        $hashes = $this->db->get_fieldset_select('filter_autotranslate_hid_cids', 'hash', 'courseid = ?', [$courseid]);
-        if (empty($hashes)) {
-            return;
-        }
-
-        $placeholders = implode(',', array_fill(0, count($hashes), '?'));
-        $params = array_merge([time()], $hashes);
-        $this->db->execute(
-            "UPDATE {filter_autotranslate_translations} SET timemodified = ? WHERE hash IN ($placeholders)",
-            $params
-        );
-    }
-
-    /**
-     * Inserts or updates a translation record in the filter_autotranslate_translations table.
+     * Saves a translation in `filter_autotranslate_translations`, updating if it exists.
      *
-     * @param string $hash The unique hash of the content.
-     * @param string $lang The target language code.
-     * @param string $text The translated text.
-     * @param int $contextlevel The context level of the content.
-     * @param int|null $human Human-edited flag (1 for human, 0 for auto, defaults to 0 if null).
-     * @return void
+     * @param string $hash Content hash.
+     * @param string $lang Language code (e.g., 'es', 'other').
+     * @param string $text Translated text.
+     * @param int $contextlevel Context level (e.g., CONTEXT_COURSE).
+     * @param int|null $human 1 for human-edited, 0 for auto (default 0 if null).
      */
     public function upsert_translation($hash, $lang, $text, $contextlevel, $human = 0) {
         $existing = $this->db->get_record('filter_autotranslate_translations', ['hash' => $hash, 'lang' => $lang]);
@@ -781,10 +765,12 @@ class content_service {
     }
 
     /**
-     * Updates hash-to-course mapping in `filter_autotranslate_hid_cids`.
+     * Updates hash-to-course mapping.
      *
-     * @param string $hash Content hash to map.
-     * @param int $courseid Course ID to associate with the hash.
+     * Adds a hash-course pair to `filter_autotranslate_hid_cids` if not present.
+     *
+     * @param string $hash Content hash.
+     * @param int $courseid Course ID to map.
      */
     private function update_hash_course_mapping($hash, $courseid) {
         if (!$hash || !$courseid) {
@@ -804,11 +790,13 @@ class content_service {
     }
 
     /**
-     * Rewrites @@PLUGINFILE@@ URLs to full URLs based on context.
+     * Rewrites @@PLUGINFILE@@ URLs to full URLs.
+     *
+     * Converts pluginfile URLs based on context for consistent rendering.
      *
      * @param string $content Content with pluginfile URLs.
-     * @param \context $context Moodle context for URL rewriting.
-     * @param string $hash Content hash (unused here, included for consistency).
+     * @param \context $context Context for URL rewriting.
+     * @param string $hash Content hash (included for consistency, unused).
      * @return string Content with rewritten URLs.
      */
     private function rewrite_pluginfile_urls($content, $context, $hash) {

@@ -18,20 +18,22 @@
  * Text utilities for the Autotranslate plugin.
  *
  * Provides stateless helper functions for text processing, MLang parsing, hash generation,
- * and tag detection in the filter_autotranslate plugin.
+ * and tag handling. Supports content tagging and translation workflows without database writes.
  *
  * Features:
- * - Hash generation and tagging.
- * - MLang and span tag parsing.
- * - Text extraction and language checks.
+ * - Generates unique 10-character hashes for {t:hash} tags.
+ * - Parses {mlang} and <span> tags to extract source text and translations.
+ * - Detects and extracts {t:hash} tags from content.
  *
  * Usage:
  * - Used by `content_service` for tagging and MLang processing.
- * - Supports `text_filter` for tag detection.
+ * - Supports `text_filter` for tag detection (unused internally).
+ * - Called by UI scripts (e.g., `manage.php`) for language mapping and RTL checks.
  *
  * Design:
- * - Static methods for simplicity and stateless use.
- * - No database writes, pure utility functions.
+ * - Static methods for simplicity and stateless operation.
+ * - Regex-based parsing for flexibility with HTML content.
+ * - No direct database writes, relies on callers for persistence.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -41,18 +43,18 @@
 namespace filter_autotranslate;
 
 /**
- * Utility class for text-related helper functions.
+ * Utility class for text processing helpers.
  */
 class text_utils {
 
     /**
-     * Generates a unique 10-character alphanumeric hash.
+     * Generates a unique 10-character hash.
      *
-     * Creates a random hash for `{t:hash}` tags, ensuring uniqueness by checking against the
-     * `filter_autotranslate_translations` table.
+     * Creates a random alphanumeric hash for {t:hash} tags, verified unique against
+     * `filter_autotranslate_translations`.
      *
-     * @return string A unique 10-character hash (e.g., 'abc1234567').
-     * @throws \Exception If a unique hash cannot be generated after 100 attempts.
+     * @return string Unique hash (e.g., 'abc1234567').
+     * @throws \Exception If unique hash not generated after 100 attempts.
      */
     public static function generate_unique_hash() {
         global $DB;
@@ -78,14 +80,14 @@ class text_utils {
     }
 
     /**
-     * Processes MLang tags in content to extract source text and translations.
+     * Processes {mlang} tags to extract source and translations.
      *
-     * Parses content for {mlang} tags, extracting the source text for 'other' or the site language,
-     * and building a translations array for other languages. Handles both {mlang} and <span> tags.
+     * Parses content for {mlang} tags, extracting source text ('other' or site language)
+     * and translations for other languages. Handles <span> tags via helper method.
      *
-     * @param string $text The text to process.
-     * @param \context $context The context in which the text appears.
-     * @return array An array with 'source_text', 'display_text', and 'translations'.
+     * @param string $text Text to process.
+     * @param \context $context Context of the text.
+     * @return array ['source_text' => string, 'display_text' => string, 'translations' => array]
      */
     public function process_mlang_tags($text, $context) {
         $sitelang = get_config('core', 'lang') ?: 'en';
@@ -146,19 +148,18 @@ class text_utils {
     }
 
     /**
-     * Processes `<span lang="xx" class="multilang">` tags in content.
+     * Processes <span lang="xx" class="multilang"> tags.
      *
-     * Extracts translations from `<span>` tags, accumulating source text and translations for
-     * `process_mlang_tags`.
+     * Extracts translations from <span> tags, updating source text and translations array.
      *
-     * @param string $text The content to process.
-     * @param \context $context The context (unused here).
+     * @param string $text Content to process.
+     * @param \context $context Context (unused here).
      * @param array &$translations Reference to store translations.
-     * @param string &$outsidetext Reference to accumulate text outside tags.
-     * @param array $validlangs List of valid language codes.
-     * @param string|null &$firstcontent Reference to the first content found.
-     * @param string &$sourcetext Reference to the source text.
-     * @return string The processed content.
+     * @param string &$outsidetext Reference for text outside tags.
+     * @param array $validlangs Valid language codes.
+     * @param string|null &$firstcontent Reference to first content found.
+     * @param string &$sourcetext Reference to source text.
+     * @return string Processed content.
      */
     public static function process_span_multilang_tags(
         $text,
@@ -215,14 +216,13 @@ class text_utils {
     }
 
     /**
-     * Tags content with a hash if untagged.
+     * Tags content with a {t:hash} marker.
      *
-     * Adds a `{t:hash}` tag to content, reusing existing hashes if the text matches a stored record,
-     * or generating a new one via `generate_unique_hash`.
+     * Adds a {t:hash} tag, reusing existing hashes or generating new ones.
      *
-     * @param string $text The content to tag.
-     * @param \context $context The context (unused here, included for consistency).
-     * @return string The tagged content (e.g., "Hello {t:abc1234567}").
+     * @param string $text Content to tag.
+     * @param \context $context Context (unused here).
+     * @return string Tagged content (e.g., "Hello {t:abc1234567}").
      */
     public static function tag_content($text, $context) {
         global $DB;
@@ -238,11 +238,9 @@ class text_utils {
     }
 
     /**
-     * Checks if content is tagged with `{t:hash}`.
+     * Checks if content has a {t:hash} tag.
      *
-     * Detects the presence of a `{t:hash}` tag in content using a regular expression.
-     *
-     * @param string $content The content to check.
+     * @param string $content Content to check.
      * @return bool True if tagged, false otherwise.
      */
     public static function is_tagged($content) {
@@ -252,10 +250,8 @@ class text_utils {
     /**
      * Extracts the hash from tagged content.
      *
-     * Retrieves the 10-character hash from a `{t:hash}` tag, handling optional trailing HTML.
-     *
-     * @param string $content The tagged content.
-     * @return string|null The hash (e.g., 'abc1234567'), or null if not found.
+     * @param string $content Tagged content.
+     * @return string|null Hash (e.g., 'abc1234567') or null if not found.
      */
     public static function extract_hash($content) {
         if (preg_match('/{t:([a-zA-Z0-9]{10})\}/', $content, $matches)) {
@@ -265,25 +261,20 @@ class text_utils {
     }
 
     /**
-     * Extracts untagged text from content containing a {t:hash} tag.
+     * Extracts untagged text from content with a {t:hash} tag.
      *
-     * Removes the {t:hash} tag from the content and returns the trimmed untagged text.
-     *
-     * @param string $content The content with a potential {t:hash} tag.
-     * @return string The untagged text.
+     * @param string $content Content with a {t:hash} tag.
+     * @return string Untagged text, trimmed.
      */
     public static function extract_hashed_text($content) {
         return trim(preg_replace('/\{t:[a-zA-Z0-9]{10}\}/', '', $content));
     }
 
     /**
-     * Maps a language code to 'other' if it matches the site language.
+     * Maps a language code to 'other' if it matches site language.
      *
-     * Compares the provided language code to the site’s configured language and returns 'other'
-     * if they match, indicating it’s the source text language. Otherwise, returns the original code.
-     *
-     * @param string $lang The language code to map (e.g., 'en', 'es').
-     * @return string The mapped language code ('other' or the original $lang).
+     * @param string $lang Language code (e.g., 'en').
+     * @return string Mapped code ('other' or original).
      */
     public static function map_language_to_other($lang) {
         $sitelang = get_config('core', 'lang') ?: 'en';
@@ -291,13 +282,10 @@ class text_utils {
     }
 
     /**
-     * Determines if a language is right-to-left (RTL).
+     * Checks if a language is right-to-left (RTL).
      *
-     * Checks if the given language code corresponds to an RTL language (e.g., Arabic, Hebrew),
-     * useful for adjusting UI rendering in management interfaces.
-     *
-     * @param string $lang The language code to check (e.g., 'ar', 'en').
-     * @return bool True if the language is RTL, false otherwise.
+     * @param string $lang Language code (e.g., 'ar').
+     * @return bool True if RTL, false otherwise.
      */
     public static function is_rtl_language($lang) {
         // List of common RTL language codes (expand as needed).

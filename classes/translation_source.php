@@ -15,38 +15,29 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Translation Source for the Autotranslate Plugin
+ * Translation source for the Autotranslate plugin.
  *
- * Purpose:
- * This file defines the translation source for the filter_autotranslate plugin, providing read-only
- * access to translation data stored in the `filter_autotranslate_translations` table. It serves
- * as a data retrieval layer for `text_filter` to fetch translations during rendering and for
- * `ui_manager` to display translation lists, ensuring a clear separation from database writes
- * handled by `content_service`.
+ * Provides read-only access to translation data in `filter_autotranslate_translations`.
+ * Serves data to `text_filter` for rendering, `ui_manager` for UI display, and `external`
+ * for autotranslate tasks. Focuses on efficient retrieval with pagination and filtering.
  *
- * Structure:
- * Contains the `translation_source` class with a single property `$db` (database access). Key
- * methods include `get_translation` (single translation fetch), `get_source_text` (source text
- * retrieval), `get_all_languages` (language list), `get_paginated_translations` (UI data), and
- * `get_untranslated_hashes` (autotranslate tasks).
+ * Features:
+ * - Fetches translations by hash and language for rendering.
+ * - Retrieves source text (lang = 'other') with 'N/A' fallback.
+ * - Supports paginated lists for UI and untranslated hashes for tasks.
  *
  * Usage:
- * Called by `text_filter` to retrieve translations for `{t:hash}` tags during text processing, by
- * `ui_manager` to fetch paginated translation data for management interfaces, and by `external.php`
- * to fetch untranslated entries for autotranslate tasks.
+ * - Called by `text_filter` to replace {t:hash} tags during rendering.
+ * - Used by `ui_manager` to display translations in manage.php.
+ * - Queried by `external.php` to identify untranslated entries.
  *
- * Design Decisions:
- * - Focuses solely on read operations to maintain separation of concerns, leaving writes to
- *   `content_service`.
- * - Supports pagination and filtering for UI needs, joining source text (`lang = 'other'`) with
- *   translations for comprehensive display.
- * - Uses simple, efficient queries to minimize database load, leveraging existing indexes from
- *   the schema (e.g., `contextlevel`).
- * - Returns null or defaults (e.g., 'N/A') when data is unavailable, ensuring graceful fallbacks.
+ * Design:
+ * - Read-only, with writes handled by `content_service`.
+ * - Optimized queries with joins for source text and pagination.
+ * - Returns null or 'N/A' for missing data, ensuring graceful fallbacks.
  *
  * Dependencies:
- * - `db/xmldb_filter_autotranslate.xml`: Defines the `filter_autotranslate_translations` table
- *   structure used for data retrieval.
+ * - `db/xmldb_filter_autotranslate.xml`: Defines the translation table structure.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -56,20 +47,18 @@
 namespace filter_autotranslate;
 
 /**
- * Data access layer for translations in the filter_autotranslate plugin.
+ * Data access layer for translations in the Autotranslate plugin.
  */
 class translation_source {
     /**
-     * @var \moodle_database The Moodle database instance for read operations.
+     * @var \moodle_database Moodle database instance for read operations.
      */
     private $db;
 
     /**
-     * Constructor for the translation source.
+     * Constructs the translation source with a database instance.
      *
-     * Initializes the source with database access for retrieving translation data.
-     *
-     * @param \moodle_database $db The Moodle database instance.
+     * @param \moodle_database $db Moodle database for data retrieval.
      */
     public function __construct(\moodle_database $db) {
         $this->db = $db;
@@ -78,12 +67,12 @@ class translation_source {
     /**
      * Fetches a translation by hash and language.
      *
-     * Retrieves a specific translation record from `filter_autotranslate_translations` based on
-     * the provided hash and language, used by `text_filter` for tag replacement.
+     * Retrieves a record from `filter_autotranslate_translations` for a hash and language,
+     * used by `text_filter` to replace {t:hash} tags. Returns null if not found.
      *
      * @param string $hash The hash of the translation (e.g., 'abc1234567').
-     * @param string|null $lang The language code (e.g., 'es', 'other'), or null to fetch by ID.
-     * @return object|null The translation record, or null if not found.
+     * @param string|null $lang Language code (e.g., 'es'), or null to fetch by ID.
+     * @return object|null Translation record or null if not found.
      */
     public function get_translation(string $hash, ?string $lang = null) {
         if ($lang) {
@@ -93,13 +82,13 @@ class translation_source {
     }
 
     /**
-     * Fetches the source text for a hash.
+     * Fetches source text for a hash.
      *
-     * Retrieves the source text (where `lang = 'other'`) for a given hash, returning 'N/A' if not
-     * found, used as a fallback when translations are unavailable.
+     * Retrieves the source text (lang = 'other') for a hash, returning 'N/A' if not found,
+     * used as a fallback by `text_filter`.
      *
      * @param string $hash The hash of the translation.
-     * @return string The source text, or 'N/A' if not found.
+     * @return string Source text or 'N/A' if not found.
      */
     public function get_source_text(string $hash) {
         $sourcetext = $this->db->get_field(
@@ -111,10 +100,9 @@ class translation_source {
     }
 
     /**
-     * Fetches all languages for a hash.
+     * Fetches all language codes for a hash.
      *
-     * Returns a list of distinct language codes associated with a given hash, indicating available
-     * translations for UI display or validation.
+     * Returns distinct language codes for a hash, used for UI display or validation.
      *
      * @param string $hash The hash of the translation.
      * @return array List of language codes (e.g., ['en', 'es', 'other']).
@@ -131,19 +119,18 @@ class translation_source {
     /**
      * Fetches paginated translations for UI display.
      *
-     * Retrieves a paginated list of translations with filtering options (language, human status,
-     * course ID, review status), joining with source text (`lang = 'other'`) for comprehensive data,
-     * used by `ui_manager` for management interfaces.
+     * Retrieves translations with filters (language, human status, course ID, review status),
+     * joining source text (lang = 'other') for display in `manage.php` via `ui_manager`.
      *
-     * @param int $page The current page number (0-based).
-     * @param int $perpage The number of records per page.
-     * @param string $filterlang The language to filter by (e.g., 'es', 'all').
-     * @param string $filterhuman The human status to filter by ('' for all, '1' for human, '0' for auto).
-     * @param string $sort The column to sort by (e.g., 'hash', 'lang').
-     * @param string $dir The sort direction ('ASC' or 'DESC').
-     * @param int $courseid The course ID to filter by (0 for all).
-     * @param string $filterneedsreview Filter by review status ('' for all, '1' for needs review, '0' for reviewed).
-     * @return array An array with 'translations' (records) and 'total' (count of matching records).
+     * @param int $page Page number (0-based).
+     * @param int $perpage Records per page.
+     * @param string $filterlang Language filter ('all', 'es', etc.).
+     * @param string $filterhuman Human status filter ('' for all, '1' human, '0' auto).
+     * @param string $sort Column to sort (e.g., 'hash', 'lang').
+     * @param string $dir Sort direction ('ASC' or 'DESC').
+     * @param int $courseid Course ID filter (0 for all).
+     * @param string $filterneedsreview Review status filter ('' all, '1' needs, '0' reviewed).
+     * @return array ['translations' => records, 'total' => count].
      */
     public function get_paginated_translations(
         $page,
@@ -218,20 +205,20 @@ class translation_source {
     }
 
     /**
-     * Fetches paginated source and target translations for a specific language.
+     * Fetches paginated source and target translations for a language.
      *
-     * Retrieves source translations (`lang = 'other'`) and their target counterparts (if they exist)
-     * for a given language, with filtering and pagination for UI display in target language view.
+     * Retrieves source (lang = 'other') and target translations for a language, with filters,
+     * for target language view in `manage.php` via `ui_manager`.
      *
-     * @param int $page The current page number (0-based).
-     * @param int $perpage The number of records per page.
-     * @param string $targetlang The target language to fetch (e.g., 'es').
-     * @param string $filterhuman The human status to filter by ('' for all, '1' for human, '0' for auto).
-     * @param string $sort The column to sort by (e.g., 'hash', 'lang').
-     * @param string $dir The sort direction ('ASC' or 'DESC').
-     * @param int $courseid The course ID to filter by (0 for all).
-     * @param string $filterneedsreview Filter by review status ('' for all, '1' for needs review, '0' for reviewed).
-     * @return array An array with 'translations' (records) and 'total' (count of matching records).
+     * @param int $page Page number (0-based).
+     * @param int $perpage Records per page.
+     * @param string $targetlang Target language (e.g., 'es').
+     * @param string $filterhuman Human status filter ('' for all, '1' human, '0' auto).
+     * @param string $sort Column to sort (e.g., 'hash', 'lang').
+     * @param string $dir Sort direction ('ASC' or 'DESC').
+     * @param int $courseid Course ID filter (0 for all).
+     * @param string $filterneedsreview Review status filter ('' all, '1' needs, '0' reviewed).
+     * @return array ['translations' => records, 'total' => count].
      */
     public function get_paginated_target_translations(
         $page,
@@ -309,21 +296,20 @@ class translation_source {
     }
 
     /**
-     * Fetches hashes of untranslated source translations for a target language with pagination.
+     * Fetches untranslated hashes for a target language with pagination.
      *
-     * Retrieves the hashes of source translations (`lang = 'other'`) that do not have a corresponding
-     * target translation for the specified language, applying filters for course ID, human status,
-     * review status, and supporting pagination and sorting. Used by `external.php` for autotranslate tasks.
+     * Retrieves hashes of source translations (lang = 'other') without target translations,
+     * for autotranslate tasks via `external.php`, with filters and pagination.
      *
-     * @param int $page The current page number (0-based).
-     * @param int $perpage The number of records per page (0 for no limit).
-     * @param string $targetlang The target language to check for untranslated entries (e.g., 'es').
-     * @param string $filterhuman The human status to filter by ('' for all, '1' for human, '0' for auto).
-     * @param string $sort The column to sort by (e.g., 'hash', 'translated_text').
-     * @param string $dir The sort direction ('ASC' or 'DESC').
-     * @param int $courseid The course ID to filter by (0 for all).
-     * @param string $filterneedsreview Filter by review status ('' for all, '1' for needs review, '0' for reviewed).
-     * @return array List of hashes for untranslated entries.
+     * @param int $page Page number (0-based).
+     * @param int $perpage Records per page (0 for no limit).
+     * @param string $targetlang Target language (e.g., 'es').
+     * @param string $filterhuman Human status filter ('' for all, '1' human, '0' auto).
+     * @param string $sort Column to sort (e.g., 'hash', 'translated_text').
+     * @param string $dir Sort direction ('ASC' or 'DESC').
+     * @param int $courseid Course ID filter (0 for all).
+     * @param string $filterneedsreview Review status filter ('' all, '1' needs, '0' reviewed).
+     * @return array List of untranslated hashes.
      */
     public function get_untranslated_hashes(
         $page,
