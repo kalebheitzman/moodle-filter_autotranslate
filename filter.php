@@ -15,16 +15,23 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * File only retained to prevent fatal errors in code that tries to require/include this.
+ * Legacy entry point for the Autotranslate filter.
  *
- * @todo MDL-82708 delete this file as part of Moodle 6.0 development.
- * @deprecated This file is no longer required in Moodle 4.5+.
- * @package filter_autotranslate
- * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
- * @license http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * For Moodle 4.5+/5 the canonical implementation lives in
+ * \filter_autotranslate\text_filter (classes/text_filter.php).
+ * Some environments still require this file to be present.
+ * We therefore forward to the namespaced class.
+ *
+ * @package    filter_autotranslate
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-// The actual implementation is under classes/text_filter.php
-// This file is just a workaround to make the filter work
-// in Moodle versions below 4.5.
-class_alias(\filter_autotranslate\text_filter::class, \filter_autotranslate::class);
+defined('MOODLE_INTERNAL') || die();
+
+// Ensure the namespaced implementation is available.
+require_once(__DIR__ . '/classes/text_filter.php');
+
+// Provide the legacy class name if required by the filter manager.
+if (!class_exists('filter_autotranslate', false)) {
+    class filter_autotranslate extends \filter_autotranslate\text_filter {}
+}

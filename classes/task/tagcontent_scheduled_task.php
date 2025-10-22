@@ -48,8 +48,6 @@ namespace filter_autotranslate\task;
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once($CFG->dirroot . '/filter/autotranslate/classes/content_service.php');
-
 /**
  * Scheduled task to tag content in Moodle tables.
  */

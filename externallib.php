@@ -54,6 +54,10 @@ defined('MOODLE_INTERNAL') || die();
 
 require_once($CFG->libdir . '/externallib.php');
 
+// Explicitly require classes used in this external API file.
+require_once(__DIR__ . '/classes/translation_source.php');
+require_once(__DIR__ . '/classes/task/autotranslate_adhoc_task.php');
+
 /**
  * External API class for Autotranslate plugin operations.
  */

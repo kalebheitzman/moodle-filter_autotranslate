@@ -47,15 +47,19 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+// Settings.php loads early, before full autoloader initialization.
+// Explicitly require classes that are instantiated in this file.
+require_once($CFG->dirroot . '/filter/autotranslate/classes/content_service.php');
+require_once($CFG->dirroot . '/filter/autotranslate/classes/text_utils.php');
+require_once($CFG->dirroot . '/filter/autotranslate/classes/admin_setting_configfieldmatrix.php');
+
 // Import required classes at the top level.
 use filter_autotranslate\content_service;
 use filter_autotranslate\admin_setting_configfieldmatrix;
 
 if ($hassiteconfig) {
     if ($ADMIN->fulltree) {
-        // Load content_service and matrix setting class.
-        require_once($CFG->dirroot . '/filter/autotranslate/classes/content_service.php');
-        require_once($CFG->dirroot . '/filter/autotranslate/classes/admin_setting_configfieldmatrix.php');
+        // Classes are autoloaded by Moodle's PSR-4 autoloader.
 
         // Section: API Configuration.
         $settings->add(

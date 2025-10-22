@@ -51,6 +51,12 @@ namespace filter_autotranslate;
 
 require_once(__DIR__ . '/../../config.php');
 
+// Explicitly require classes used in this page file.
+require_once(__DIR__ . '/classes/text_utils.php');
+require_once(__DIR__ . '/classes/translation_source.php');
+require_once(__DIR__ . '/classes/ui_manager.php');
+require_once(__DIR__ . '/classes/form/manage_form.php');
+
 use filter_autotranslate\ui_manager;
 use filter_autotranslate\translation_source;
 use filter_autotranslate\text_utils;

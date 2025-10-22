@@ -47,6 +47,7 @@
 
 namespace filter_autotranslate;
 
+require_once(__DIR__ . '/translation_source.php');
 use filter_autotranslate\translation_source;
 
 /**
@@ -74,6 +75,8 @@ class text_filter extends \core_filters\text_filter {
         global $DB;
 
         $this->translationsource = new translation_source($DB);
+        // Debug: record construction of the filter to verify recognition.
+        //$this->log_debug('constructed: contextid=' . ($this->context->id ?? 'n/a') . ', contextclass=' . get_class($this->context));
         $this->cache = \cache::make('filter_autotranslate', 'taggedcontent');
     }
 
@@ -103,29 +106,33 @@ class text_filter extends \core_filters\text_filter {
             return $cached;
         }
 
-        // Match {t:hash} tags at text end, capturing preceding content.
-        $pattern = '/(.*?)(\{t:([a-zA-Z0-9]{10})\})(?:\s*|\s*<[^>]*>)?$/s';
-        $filteredtext = $text;
+        // Replace all occurrences of {t:hash} inline throughout the text.
+        $replacements = 0;
+        $filteredtext = preg_replace_callback('/\{t:([a-zA-Z0-9]{10})\}/', function ($matches) use ($currentlang, &$replacements) {
+            $hash = $matches[1];
 
-        // Process and cache only if {t:hash} tags exist.
-        if (preg_match($pattern, $text)) {
-            $filteredtext = preg_replace_callback($pattern, function ($matches) use ($currentlang) {
-                $content = $matches[1]; // Text before {t:hash}.
-                $hash = $matches[3];    // Hash value (e.g., 'abc1234567').
+            // Get translation or source text as fallback.
+            $translation = $this->translationsource->get_translation($hash, $currentlang);
+            if ($translation && !empty($translation->translated_text)) {
+                $replacements++;
+                return $translation->translated_text;
+            }
 
-                // Get translation or source text as fallback.
-                $translation = $this->translationsource->get_translation($hash, $currentlang);
-                $sourcetext = $this->translationsource->get_source_text($hash);
+            $sourcetext = $this->translationsource->get_source_text($hash);
+            if ($sourcetext && $sourcetext !== 'N/A') {
+                $replacements++;
+                return $sourcetext;
+            }
 
-                // Return translation, source text, or original content.
-                if ($translation && $translation->translated_text) {
-                    return $translation->translated_text;
-                }
-                return $sourcetext && $sourcetext !== 'N/A' ? $sourcetext : $content;
-            }, $text);
+            // If nothing found, leave the tag as-is.
+            return $matches[0];
+        }, $text);
 
-            // Cache result if {t:hash} was processed.
+        if ($replacements > 0) {
             $this->cache->set($cachekey, $filteredtext);
+            //$this->log_debug('filter() replaced ' . $replacements . ' tag(s)');
+        } else {
+            //$this->log_debug('no hash tag detected; skipping');
         }
 
         return $filteredtext;
@@ -142,6 +149,27 @@ class text_filter extends \core_filters\text_filter {
      */
     private function has_tags($text) {
         return preg_match('/\{t:[a-zA-Z0-9]{10}\}/s', $text) === 1;
+    }
+
+    /**
+     * Logs debug messages for this filter using mtrace and error_log when in developer mode.
+     *
+     * Uses mtrace (visible in CLI/cron) and error_log for web requests when developer debugging is enabled.
+     * This helps verify that the filter is being constructed and invoked.
+     *
+     * @param string $message Message to log (will be prefixed).
+     * @return void
+     */
+    private function log_debug(string $message): void {
+        $prefix = '[filter_autotranslate] ';
+        // Log to PHP error log for web requests and to web server logs.
+        if (function_exists('error_log')) {
+            error_log($prefix . $message);
+        }
+        // Also log to CLI/cron output if available.
+        if (function_exists('mtrace')) {
+            mtrace($prefix . $message);
+        }
     }
 
     /**

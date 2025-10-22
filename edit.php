@@ -54,6 +54,12 @@ use filter_autotranslate\translation_source;
 use filter_autotranslate\content_service;
 
 require_once(__DIR__ . '/../../config.php');
+
+// Explicitly require classes used in this page file.
+require_once(__DIR__ . '/classes/text_utils.php');
+require_once(__DIR__ . '/classes/translation_source.php');
+require_once(__DIR__ . '/classes/content_service.php');
+require_once(__DIR__ . '/classes/form/edit_form.php');
 require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->libdir . '/weblib.php');
 
