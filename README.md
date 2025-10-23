@@ -148,12 +148,27 @@ At `/filter/autotranslate/manage.php`:
 ## Important Considerations and Risks
 
 - **Alpha Stage**: ⚠️ This plugin is in alpha. **Backup your database** before use to avoid data loss.
+
+- **Privacy and GDPR Compliance**: ⚠️ **This plugin processes user-generated content** (such as forum posts, wiki pages, and glossary entries) by sending it to external translation API services. Key privacy considerations:
+  - User content is transmitted to third-party translation services (e.g., Google Generative AI, OpenAI)
+  - **Ensure your institution has appropriate data processing agreements** with the translation service provider
+  - **Users must consent to their data being processed by third parties** through your institution's privacy policy
+  - Translations are stored anonymously (no user IDs) and are shared/reused across the site when identical content appears
+  - Configure field selections in plugin settings to control what content types are translated
+  - Consider excluding sensitive user-generated content from translation by deselecting forum, wiki, and glossary fields in settings
+
 - **Database Growth**: Storing translations increases database size significantly over time.
+
 - **Performance**: Tagging runs every 5 minutes; new content may take up to 5 minutes to appear translated. Heavy tagging or large datasets may impact site performance—adjust task frequency in `settings.php` if needed.
+
 - **Content Alteration**: ⚠️ Tags like `{t:aBcDeFgHiJ}` persist in content fields. Disabling the plugin without cleanup leaves raw tags visible, affecting readability.
+
 - **Multilang Tag Removal**: ⚠️ `<span>` and `{mlang}` tags are removed and replaced with `{t:hash}` tags irreversibly. Original tags cannot be restored without a custom script (not implemented).
+
 - **Hash Sensitivity**: Editing tagged text or hashes manually can break translation links, requiring re-tagging.
+
 - **Translation Quality**: Auto-translations vary by service/model; human review may be needed for accuracy.
+
 - **API Dependency**: ⚠️ Requires a reliable, active translation service. Downtime or API issues will halt new translations.
 
 ## Uninstallation

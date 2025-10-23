@@ -17,27 +17,58 @@
 /**
  * Privacy Subsystem implementation for filter_autotranslate.
  *
+ * This plugin processes user-generated content (such as forum posts, wiki pages, and glossary entries)
+ * by sending text to an external translation API for automatic translation. While the plugin stores
+ * translations in its database, it does not link them to specific user IDs. Translations are stored
+ * by content hash and are shared/reused across the site when identical content appears.
+ *
  * @package    filter_autotranslate
- * @copyright  20245Kaleb Heitzman <kalebheitzman@gmail.com>
+ * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 namespace filter_autotranslate\privacy;
 
+use core_privacy\local\metadata\collection;
+
 /**
- * Privacy Subsystem for filter_autotranslate implementing null_provider.
+ * Privacy Subsystem for filter_autotranslate implementing metadata_provider.
  *
- * @copyright  20245Kaleb Heitzman <kalebheitzman@gmail.com>
+ * Declares that user-generated content is sent to external translation services but
+ * translations are stored anonymously (not linked to user IDs) in the local database.
+ *
+ * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class provider implements \core_privacy\local\metadata\null_provider {
+class provider implements 
+    \core_privacy\local\metadata\provider {
+
     /**
-     * Get the language string identifier with the component's language
-     * file to explain why this plugin stores no data.
+     * Returns metadata about data processed by this plugin.
      *
-     * @return  string
+     * Declares that user-generated content (forum posts, wiki pages, glossary entries, etc.)
+     * is sent to an external translation API service for automatic translation purposes.
+     * Translations are stored locally but not linked to specific user IDs.
+     *
+     * @param collection $collection The collection to add metadata to.
+     * @return collection The updated collection.
      */
-    public static function get_reason(): string {
-        return 'privacy:metadata';
+    public static function get_metadata(collection $collection): collection {
+        // User content sent to external translation API.
+        $collection->add_external_location_link('translation_api', [
+            'text' => 'privacy:metadata:translation_api:text',
+            'sourcelanguage' => 'privacy:metadata:translation_api:sourcelanguage',
+            'targetlanguage' => 'privacy:metadata:translation_api:targetlanguage',
+        ], 'privacy:metadata:translation_api');
+
+        // Local storage (anonymized - no user IDs stored).
+        $collection->add_database_table('filter_autotranslate_translations', [
+            'translated_text' => 'privacy:metadata:translations:translated_text',
+            'lang' => 'privacy:metadata:translations:lang',
+            'timecreated' => 'privacy:metadata:translations:timecreated',
+            'timemodified' => 'privacy:metadata:translations:timemodified',
+        ], 'privacy:metadata:translations');
+
+        return $collection;
     }
 }

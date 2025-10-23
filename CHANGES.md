@@ -6,6 +6,13 @@
 - **Moodle 5 Compatibility**: Confirmed `filter.php` is required in plugin root for Moodle 5 despite PSR-4 conventions. Added minimal wrapper extending `\filter_autotranslate\text_filter`.
 - **Autoloader Fixes**: Added explicit `require_once` statements to entry point files (`settings.php`, `manage.php`, `create.php`, `edit.php`, `externallib.php`, `db/tasks.php`) to handle early initialization before full PSR-4 autoloader is ready.
 - **Task Registration**: Fixed `db/tasks.php` with explicit require and properly formatted classname with leading backslash to prevent "Failed to load task" errors during upgrade.
+- **Capability Refinement**: Updated permission system to separate settings access (`filter/autotranslate:manage`) from translation editing (`filter/autotranslate:edit`). Only managers can access plugin settings, while managers and editing teachers can edit translations.
+- **Privacy Implementation**: Implemented proper GDPR compliance with `metadata_provider`:
+  - Declares that user-generated content is sent to external translation APIs
+  - Documents that translations are stored anonymously (no user IDs)
+  - Added comprehensive privacy language strings
+  - Updated README with privacy considerations and data processing requirements
+- **Version Requirements**: Changed minimum requirement from Moodle 4.5 to Moodle 5.0 (build 2024121600).
 - **Version Bump**: Incremented version from 2025040500 to 2025102202 to trigger cache refresh and proper class loading.
 
 ## 2025040500
