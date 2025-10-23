@@ -48,8 +48,9 @@
 function filter_autotranslate_extend_navigation_course($navigation, $course, $context) {
     global $CFG;
 
-    // Check capability.
-    if (!has_capability('filter/autotranslate:manage', $context)) {
+    // Check capability - use system context since edit is system-level.
+    // Users with edit capability at system level can access translation management.
+    if (!has_capability('filter/autotranslate:edit', \context_system::instance())) {
         return;
     }
 

@@ -112,7 +112,7 @@ class external extends external_api {
 
         $context = \context_system::instance();
         self::validate_context($context);
-        require_capability('filter/autotranslate:manage', $context);
+        require_capability('filter/autotranslate:edit', $context);
 
         // Validate target language against enabled languages in settings.
         if (empty($params['targetlang']) || $params['targetlang'] === 'other' || $params['targetlang'] === 'all') {
@@ -215,7 +215,7 @@ class external extends external_api {
 
         $context = \context_system::instance();
         self::validate_context($context);
-        require_capability('filter/autotranslate:manage', $context);
+        require_capability('filter/autotranslate:edit', $context);
 
         $progress = $DB->get_record('filter_autotranslate_task_progress', ['taskid' => $params['taskid']]);
         if (!$progress) {

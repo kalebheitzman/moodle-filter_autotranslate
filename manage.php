@@ -84,7 +84,7 @@ try {
     $PAGE->requires->css('/filter/autotranslate/css/manage.css');
 
     // Check capability.
-    require_capability('filter/autotranslate:manage', $context);
+    require_capability('filter/autotranslate:edit', $context);
 
     // Get parameters.
     $courseid = optional_param('courseid', 0, PARAM_INT);

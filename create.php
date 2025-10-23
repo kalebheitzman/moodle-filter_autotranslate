@@ -65,7 +65,7 @@ require_once($CFG->libdir . '/weblib.php');
 
 // Require login and check capability.
 require_login();
-require_capability('filter/autotranslate:manage', \context_system::instance());
+require_capability('filter/autotranslate:edit', \context_system::instance());
 
 // Get parameters.
 $hash = required_param('hash', PARAM_ALPHANUMEXT);

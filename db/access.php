@@ -20,15 +20,17 @@
  * Defines permissions for managing translations in the Autotranslate filter.
  *
  * Features:
- * - `filter/autotranslate:manage`: Allows site-wide translation management.
- * - `filter/autotranslate:edit`: Permits course-level editing (currently unused).
+ * - `filter/autotranslate:manage`: Allows access to plugin settings and configuration.
+ * - `filter/autotranslate:edit`: Permits editing translations in the management interface.
  *
  * Usage:
- * - `manage.php`, `create.php`, `edit.php`, `external.php` check `manage` capability.
- * - `edit` defined for potential future course-specific editing.
+ * - `settings.php`: Protected by Moodle's $hassiteconfig (requires moodle/site:config).
+ * - `manage.php`, `create.php`, `edit.php`, `external.php`: Check `edit` capability.
+ * - `lib.php`: Checks `edit` at course context for navigation menu.
  *
  * Design:
- * - System-level `manage` for broad control, course-level `edit` for granularity.
+ * - System-level `manage` for plugin configuration (settings page).
+ * - System-level `edit` allows site-wide translation editing; can be granted at course level for course-specific access.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
@@ -44,17 +46,16 @@ $capabilities = [
         'contextlevel' => CONTEXT_SYSTEM,
         'archetypes' => [
             'manager' => CAP_ALLOW,
-            'editingteacher' => CAP_ALLOW,
         ],
-        'clonepermissionsfrom' => 'moodle/site:manageblocks',
+        'clonepermissionsfrom' => 'moodle/site:config',
     ],
     'filter/autotranslate:edit' => [
         'captype' => 'write',
-        'contextlevel' => CONTEXT_COURSE,
+        'contextlevel' => CONTEXT_SYSTEM,
         'archetypes' => [
-            'teacher' => CAP_ALLOW,
-            'editingteacher' => CAP_ALLOW,
             'manager' => CAP_ALLOW,
+            'editingteacher' => CAP_ALLOW,
         ],
+        'clonepermissionsfrom' => 'moodle/site:manageblocks',
     ],
 ];
