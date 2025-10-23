@@ -1,5 +1,13 @@
 # Changelog
 
+## 2025102202
+
+- **Bug Fix - Text Doubling**: Fixed critical bug in `text_filter.php` where missing translations returned source text, causing content duplication. Now returns empty string to remove `{t:hash}` tag while preserving original text that exists before the tag.
+- **Moodle 5 Compatibility**: Confirmed `filter.php` is required in plugin root for Moodle 5 despite PSR-4 conventions. Added minimal wrapper extending `\filter_autotranslate\text_filter`.
+- **Autoloader Fixes**: Added explicit `require_once` statements to entry point files (`settings.php`, `manage.php`, `create.php`, `edit.php`, `externallib.php`, `db/tasks.php`) to handle early initialization before full PSR-4 autoloader is ready.
+- **Task Registration**: Fixed `db/tasks.php` with explicit require and properly formatted classname with leading backslash to prevent "Failed to load task" errors during upgrade.
+- **Version Bump**: Incremented version from 2025040500 to 2025102202 to trigger cache refresh and proper class loading.
+
 ## 2025040500
 
 - **Architecture Refinement**: Refined `filter_autotranslate` structure for performance and clarity:

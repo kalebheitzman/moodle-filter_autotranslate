@@ -66,7 +66,7 @@ The Moodle Autotranslate Filter plugin is designed to enhance Moodle's multiling
 
 **Dependencies and Compatibility:**
 
-- Requires Moodle 4.5 or higher.
+- Requires Moodle 5.0 or higher.
 - Depends on an OpenAI-compatible translation API (e.g., Google Generative AI).
 - Uses Moodle's core libraries and APIs for integration.
 

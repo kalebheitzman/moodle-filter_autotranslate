@@ -2,6 +2,8 @@
 
 ![Latest Release](https://img.shields.io/github/v/release/kalebheitzman/moodle-filter_autotranslate) ![Moodle Plugin CI](https://github.com/kalebheitzman/moodle-filter_autotranslate/actions/workflows/moodle-ci.yml/badge.svg)
 
+**Version:** 2025102202 | **Requires:** Moodle 5.0+ | **Status:** Alpha
+
 ## Introduction
 
 The **Moodle Autotranslate Filter** plugin automatically translates content across your Moodle site into multiple languages using any OpenAI-compatible translation service (e.g., Google Generative AI). It’s designed to make your courses, resources, and pages accessible to a global audience, while also supporting human-reviewed translations. Managing translations in Moodle has traditionally been a fragmented, manual challenge for administrators and translators. This plugin provides a translator-centered approach, blending automation with human oversight to create a seamless multilingual experience.
@@ -122,7 +124,9 @@ The plugin manages translations through scheduled tagging and a filter mechanism
 - The scheduled task processes `<span>` and `{mlang}` tags, extracts translations, stores them in `mdl_filter_autotranslate_translations`, and replaces them with `{t:hash}` (destructive).
 
 ### Translation Display
-- `text_filter.php` processes `{t:hash}` tags on page load, fetching the user’s language translation or falling back to source text.
+- `text_filter.php` processes `{t:hash}` tags on page load, replacing them with the user's selected language translation.
+- **If no translation exists for the selected language**, the `{t:hash}` tag is removed from the rendered content (the original text remains visible as it exists before the tag in the stored format: `"Original text {t:hash}"`).
+- Translations are cached using Moodle's cache API for performance.
 
 ## Scheduled Tasks
 
@@ -165,3 +169,83 @@ To remove the plugin:
 ## Support and Issues
 
 For help or to report bugs, visit the [GitHub repository](https://github.com/kalebheitzman/moodle-filter_autotranslate).
+
+## Known Issues
+
+### Fixed in Version 2025102202
+
+- **Text Doubling Bug (Fixed)**: Earlier versions incorrectly returned source text when no translation existed, causing content duplication since the original text was already present before the `{t:hash}` tag. This has been resolved—missing translations now simply remove the tag, leaving the original text intact.
+
+### Current Limitations
+
+- **filter/autotranslate:edit Capability**: The `filter/autotranslate:edit` capability is defined in `db/access.php` for course-level translation editing but is not currently enforced in the codebase. All translation editing currently requires the `filter/autotranslate:manage` capability (system context).
+
+- **Autoloader Timing**: Entry point files (`settings.php`, `manage.php`, `create.php`, `edit.php`, `externallib.php`, `db/tasks.php`) require explicit `require_once` statements for classes used during early initialization. This is because these files load before Moodle's full PSR-4 autoloader is initialized. Classes within the `classes/` directory rely on the autoloader as expected.
+
+## Troubleshooting
+
+### "Class not found" Errors
+
+If you encounter "Class 'filter_autotranslate\...' not found" errors:
+
+1. **Verify filter.php exists**: Ensure `filter.php` is present in the plugin root directory (`/path/to/moodle/filter/autotranslate/filter.php`).
+2. **Bump the version**: Increment the version number in `version.php` and run the Moodle upgrade to refresh caches and class registrations.
+3. **Clear caches**: Navigate to **Site Administration** > **Development** > **Purge all caches**.
+4. **Check file permissions**: Ensure web server has read access to all plugin files.
+
+### Filter Not Applying
+
+If translations aren't appearing:
+
+1. **Check filter status**: Verify the filter is enabled at **Site Administration** > **Plugins** > **Filters** > **Manage filters**.
+2. **Check filter order**: Place "Autotranslate" near the top of the filter list for proper processing.
+3. **Wait for tagging**: New content takes up to 5 minutes to be tagged by the scheduled task.
+4. **Verify scheduled task**: Confirm `tagcontent_scheduled_task` is enabled and running at **Site Administration** > **Server** > **Scheduled tasks**.
+
+### Translations Not Fetching
+
+If the "Autotranslate" button doesn't fetch translations:
+
+1. **Check API configuration**: Verify your API endpoint, key, and model are correctly configured in plugin settings.
+2. **Test API connectivity**: Use cURL or similar tools to verify your server can reach the translation API endpoint.
+3. **Check task queue**: Monitor adhoc tasks at **Site Administration** > **Server** > **Adhoc tasks** to ensure they're processing.
+4. **Review logs**: Check Moodle error logs for API error messages or connection failures.
+
+### Raw `{t:hash}` Tags Visible
+
+If you see raw `{t:hash}` tags in content:
+
+1. **Filter disabled**: The filter may be disabled or not applying to the content context.
+2. **Cache issue**: Try purging all caches.
+3. **Plugin error**: Check error logs for filter execution errors.
+
+## Roadmap and TODOs
+
+### Planned Improvements
+
+- **Enforce course-level editing**: Implement `filter/autotranslate:edit` capability checking to allow teachers to edit translations within their courses without requiring system-level `manage` permission.
+
+- **Bulk operations**: Add bulk translation management features:
+  - Bulk delete translations by language, course, or context
+  - Bulk mark translations as human-reviewed
+  - Bulk export/import translations for offline editing
+
+- **Translation quality indicators**: Add quality metrics or confidence scores from translation APIs to help identify translations that may need human review.
+
+- **Automatic retranslation**: Implement detection of source text changes and automatic re-tagging/retranslation workflows.
+
+- **Enhanced filtering**: Add full-text search in the management interface to find translations by content.
+
+- **Uninstall cleanup utility**: Create a tool to safely remove `{t:hash}` tags from content before uninstalling, preventing raw tags from appearing after plugin removal.
+
+- **MLang tag restoration**: Develop a utility to restore original `<span>` and `{mlang}` tags from translation database records (currently this is irreversible).
+
+### Performance Optimizations
+
+- **Dynamic batch sizing**: Adjust tagging batch sizes based on system load and performance metrics.
+- **Selective re-tagging**: Only re-tag content that has changed rather than processing all content on each scheduled task run.
+- **Asynchronous filtering**: Implement async loading of translations for better perceived performance on content-heavy pages.
+
+### Feature Requests
+
+Have an idea for improving the plugin? Please open an issue on the [GitHub repository](https://github.com/kalebheitzman/moodle-filter_autotranslate/issues) with the tag "enhancement".

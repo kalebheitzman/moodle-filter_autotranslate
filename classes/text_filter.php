@@ -111,21 +111,16 @@ class text_filter extends \core_filters\text_filter {
         $filteredtext = preg_replace_callback('/\{t:([a-zA-Z0-9]{10})\}/', function ($matches) use ($currentlang, &$replacements) {
             $hash = $matches[1];
 
-            // Get translation or source text as fallback.
+            // Get translation for current language.
             $translation = $this->translationsource->get_translation($hash, $currentlang);
             if ($translation && !empty($translation->translated_text)) {
                 $replacements++;
                 return $translation->translated_text;
             }
 
-            $sourcetext = $this->translationsource->get_source_text($hash);
-            if ($sourcetext && $sourcetext !== 'N/A') {
-                $replacements++;
-                return $sourcetext;
-            }
-
-            // If nothing found, leave the tag as-is.
-            return $matches[0];
+            // If no translation exists, just remove the tag (original content is already there).
+            $replacements++;
+            return '';
         }, $text);
 
         if ($replacements > 0) {

@@ -21,7 +21,7 @@
  *
  * Features:
  * - Sets plugin version and release.
- * - Requires Moodle 4.5 (2024100702) or higher.
+ * - Requires Moodle 5.0 (2024121600) or higher.
  * - Marks as alpha maturity for development status.
  *
  * Usage:
@@ -39,7 +39,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->version   = 2025102202;                // The current plugin version (Date: YYYYMMDDXX).
-$plugin->requires  = 2024100702;                // Requires this Moodle version.
+$plugin->requires  = 2024121600;                // Requires Moodle 5.0 or later.
 $plugin->component = 'filter_autotranslate';    // Full name of the plugin (used for diagnostics).
 $plugin->maturity  = MATURITY_ALPHA;
 $plugin->release   = '2025102202';
