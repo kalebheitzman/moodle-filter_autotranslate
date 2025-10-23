@@ -48,7 +48,7 @@
  * @return bool True if the upgrade succeeds, false otherwise.
  */
 function xmldb_filter_autotranslate_upgrade($oldversion) {
-    global $DB;
+    global $DB, $CFG;
 
     $dbman = $DB->get_manager();
 
@@ -163,6 +163,10 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
         }
 
         upgrade_plugin_savepoint(true, 2025040401, 'filter', 'autotranslate');
+    }
+
+    if ($oldversion < 2025102211) {
+        upgrade_plugin_savepoint(true, 2025102211, 'filter', 'autotranslate');
     }
 
     return true;

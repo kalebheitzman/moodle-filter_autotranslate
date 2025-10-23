@@ -37,13 +37,9 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-// During upgrades Moodle verifies task classes exist. Explicitly require the class
-// to avoid any autoload timing edge-cases in some environments.
-require_once(__DIR__ . '/../classes/task/tagcontent_scheduled_task.php');
-
 $tasks = [
     [
-        'classname' => '\\filter_autotranslate\\task\\tagcontent_scheduled_task',
+        'classname' => '\filter_autotranslate\task\tagcontent_scheduled_task',
         'blocking' => 0,
         'minute' => '*/5', // Run every 5 minutes.
         'hour' => '*',
