@@ -47,7 +47,6 @@
 
 namespace filter_autotranslate;
 
-require_once(__DIR__ . '/translation_source.php');
 use filter_autotranslate\translation_source;
 
 /**

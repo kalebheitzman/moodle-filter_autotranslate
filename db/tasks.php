@@ -39,7 +39,7 @@ defined('MOODLE_INTERNAL') || die();
 
 $tasks = [
     [
-        'classname' => '\filter_autotranslate\task\tagcontent_scheduled_task',
+        'classname' => '\filter_autotranslate\task\tagcontent',
         'blocking' => 0,
         'minute' => '*/5', // Run every 5 minutes.
         'hour' => '*',

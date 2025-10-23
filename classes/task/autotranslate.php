@@ -52,7 +52,7 @@ use curl; // For making HTTP requests to the translation API.
 /**
  * Adhoc task to fetch and store translations.
  */
-class autotranslate_adhoc_task extends adhoc_task {
+class autotranslate extends adhoc_task {
     /**
      * Returns the task name.
      *
