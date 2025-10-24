@@ -15,36 +15,29 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Scheduled tasks for the Autotranslate plugin.
+ * Entry point for the Autotranslate filter.
  *
- * Defines the scheduled task to tag content with `{t:hash}` for the Autotranslate filter.
- *
- * Features:
- * - `tagcontent`: Tags content every 5 minutes across configured tables.
- *
- * Usage:
- * - Runs `tagcontent.php` to prepare content for `text_filter.php`.
- * - Configurable via `settings.php` for table/field selection.
- *
- * Design:
- * - Non-blocking, runs every 5 minutes to balance load and tagging frequency.
+ * Moodle still expects a legacy `filter_autotranslate` class living in the plugin root
+ * so we provide a thin wrapper that defers to the namespaced implementation in
+ * `classes/text_filter.php`. Keep this file in place or the filter will not be
+ * constructed in recent Moodle 5 builds.
  *
  * @package    filter_autotranslate
  * @copyright  2025 Kaleb Heitzman <kalebheitzman@gmail.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @see        https://docs.moodle.org/dev/Task_API
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$tasks = [
-    [
-        'classname' => '\filter_autotranslate\task\tagcontent',
-        'blocking' => 0,
-        'minute' => '*/5', // Run every 5 minutes.
-        'hour' => '*',
-        'day' => '*',
-        'month' => '*',
-        'dayofweek' => '*',
-    ],
-];
+require_once(__DIR__ . '/classes/text_filter.php');
+require_once(__DIR__ . '/classes/translation_source.php');
+require_once(__DIR__ . '/classes/task/tagcontent.php');
+
+/**
+ * Legacy wrapper class required by Moodle's filter loader.
+ */
+// class filter_autotranslate extends \filter_autotranslate\text_filter {
+// }
+
+// Provide a class alias for Moodle components expecting the legacy class name.
+class_alias(\filter_autotranslate\text_filter::class, filter_autotranslate::class);

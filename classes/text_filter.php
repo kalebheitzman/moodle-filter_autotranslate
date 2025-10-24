@@ -47,14 +47,20 @@
 
 namespace filter_autotranslate;
 
-use filter_autotranslate\translation_source;
+defined('MOODLE_INTERNAL') || die();
+
+if (class_exists('\core_filters\text_filter') === false) {
+    class_alias('\core_filters\text_filter', 'autotranslate_base_text_filter');
+} else {
+    class_alias('\moodle_text_filter', 'autotranslate_base_text_filter');
+}
 
 /**
  * Text filter class for the Autotranslate plugin.
  *
  * Replaces {t:hash} tags with translations, caching results when tags are processed.
  */
-class text_filter extends \core_filters\text_filter {
+class text_filter extends \autotranslate_base_text_filter {
     /** @var translation_source Fetches translations and source text. */
     private $translationsource;
 
