@@ -29,15 +29,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-require_once(__DIR__ . '/classes/text_filter.php');
-require_once(__DIR__ . '/classes/translation_source.php');
-require_once(__DIR__ . '/classes/task/tagcontent.php');
-
-/**
- * Legacy wrapper class required by Moodle's filter loader.
- */
-// class filter_autotranslate extends \filter_autotranslate\text_filter {
-// }
+// this should not be needed but I cannot get Moodle PSR-4 autoloading to work without it
+require_once(__DIR__ . '/classes/autoload.php');
 
 // Provide a class alias for Moodle components expecting the legacy class name.
 class_alias(\filter_autotranslate\text_filter::class, filter_autotranslate::class);

@@ -37,6 +37,8 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+require_once(__DIR__ . '/../classes/task/tagcontent.php');
+
 $tasks = [
     [
         'classname' => '\filter_autotranslate\task\tagcontent',

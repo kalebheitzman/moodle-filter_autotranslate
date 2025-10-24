@@ -165,8 +165,8 @@ function xmldb_filter_autotranslate_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2025040401, 'filter', 'autotranslate');
     }
 
-    if ($oldversion < 2025102401) {
-        upgrade_plugin_savepoint(true, 2025102401, 'filter', 'autotranslate');
+    if ($oldversion < 2025102402) {
+        upgrade_plugin_savepoint(true, 2025102402, 'filter', 'autotranslate');
     }
 
     return true;
